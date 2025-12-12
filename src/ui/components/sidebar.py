@@ -1,0 +1,171 @@
+"""Sidebar components for the main app.
+
+Reusable sidebar sections that can be composed in the main page.
+"""
+
+from __future__ import annotations
+
+from typing import Any, Dict, Tuple
+import streamlit as st
+
+
+# Preset financial profiles
+FINANCIAL_PRESETS = {
+    "Équilibré (défaut)": {
+        "enrich_net": 0.30,
+        "irr": 0.25,
+        "cap_eff": 0.20,
+        "dscr": 0.15,
+        "cf_proximity": 0.10,
+    },
+    "Cash-flow d'abord": {
+        "enrich_net": 0.10,
+        "irr": 0.10,
+        "cap_eff": 0.10,
+        "dscr": 0.20,
+        "cf_proximity": 0.50,
+    },
+    "Rendement / IRR": {
+        "enrich_net": 0.15,
+        "irr": 0.50,
+        "cap_eff": 0.30,
+        "dscr": 0.05,
+        "cf_proximity": 0.00,
+    },
+    "Sécurité (DSCR)": {
+        "enrich_net": 0.05,
+        "irr": 0.15,
+        "cap_eff": 0.10,
+        "dscr": 0.50,
+        "cf_proximity": 0.20,
+    },
+    "Patrimoine LT": {
+        "enrich_net": 0.60,
+        "irr": 0.15,
+        "cap_eff": 0.20,
+        "dscr": 0.03,
+        "cf_proximity": 0.02,
+    },
+}
+
+
+def render_objectives_section() -> Tuple[float, float, float, str, float, int]:
+    """Render the objectives section of the sidebar.
+    
+    Returns:
+        Tuple of (apport, cf_cible, tolerance, mode_cf, qualite_weight, horizon)
+    """
+    with st.expander("Mes Objectifs", expanded=True, icon="🎯"):
+        apport = st.number_input(
+            "Apport total disponible (€)",
+            min_value=0,
+            value=100000,
+            step=5000,
+            help="Votre capacité d'apport personnel pour tous les projets.",
+        )
+        
+        cf_cible = st.number_input(
+            "CF mensuel cible (€)",
+            value=-100,
+            step=10,
+            help="Le cash-flow net que vous visez chaque mois.",
+        )
+        
+        col1, col2 = st.columns([0.6, 0.4])
+        with col1:
+            tolerance = st.number_input(
+                "Tolérance (€/mois)",
+                value=50,
+                step=10,
+                help="Marge d'erreur acceptable autour de votre cible de cash-flow.",
+            )
+        with col2:
+            is_precise = st.toggle(
+                "Ciblage Précis (±)",
+                value=True,
+                help="Désactivé : le CF sera au MINIMUM la cible.\n\nActivé : le CF visera à être le plus PROCHE possible de la cible.",
+            )
+            mode_cf = "target" if is_precise else "min"
+        
+        st.markdown("---")
+        st.markdown(
+            "#### **Priorité de recherche**",
+            help="Définissez votre priorité entre la performance financière pure (0%) et la qualité intrinsèque des biens (100%).",
+        )
+        
+        col1, col2, col3 = st.columns([0.15, 0.7, 0.15])
+        col1.markdown('<div style="font-size: 1.5em; text-align: center;">💰</div>', unsafe_allow_html=True)
+        priorite_pct = col2.slider(
+            "Priorité",
+            0, 100, 50, 5,
+            format="%d%%",
+            label_visibility="collapsed",
+        )
+        col3.markdown('<div style="font-size: 1.5em; text-align: center;">🛡️</div>', unsafe_allow_html=True)
+        qualite_weight = priorite_pct / 100.0
+        
+        horizon = st.slider(
+            "Horizon d'investissement (ans)",
+            10, 30,
+            int(st.session_state.get("horizon_ans", 25)),
+            1,
+            key="horizon_ans",
+        )
+        st.caption(f"Horizon de simulation : **{horizon} ans**")
+        
+    return apport, cf_cible, tolerance, mode_cf, qualite_weight, horizon
+
+
+def render_credit_params_tab() -> Dict[str, Any]:
+    """Render credit parameters tab.
+    
+    Returns:
+        Dictionary of credit parameters.
+    """
+    c1, c2, c3 = st.columns(3)
+    taux_15 = c1.number_input("15 ans (%)", value=3.2, format="%.2f")
+    taux_20 = c2.number_input("20 ans (%)", value=3.4, format="%.2f")
+    taux_25 = c3.number_input("25 ans (%)", value=3.6, format="%.2f")
+    
+    st.markdown("---")
+    
+    frais_notaire = st.slider("Frais de notaire (%)", 0.0, 12.0, 7.5, 0.1)
+    assurance = st.slider("Assurance emprunteur (% cap.)", 0.00, 1.00, 0.35, 0.01)
+    frais_pret = st.slider("Frais de prêt (% cap.)", 0.0, 3.0, 1.0, 0.1)
+    
+    st.markdown("**Inclusion des coûts dans le financement**")
+    c1, c2, c3, c4 = st.columns(4)
+    inclure_travaux = c1.checkbox("Travaux", value=True)
+    inclure_reno = c2.checkbox("Reno E→D", value=True)
+    inclure_mobilier = c3.checkbox("Mobilier", value=True)
+    financer_mobilier = c4.checkbox("Financé", value=True)
+    
+    st.markdown("**Frais de remboursement anticipés**")
+    apply_ira = st.toggle(
+        "Appliquer les frais (IRA)",
+        value=st.session_state.get("apply_ira", True),
+        help="Indemnité si le prêt est remboursé avant son terme.",
+    )
+    ira_cap = st.number_input(
+        "Plafond % CRD",
+        0.0, 10.0,
+        st.session_state.get("ira_cap_pct", 3.0),
+        0.1,
+        help="Plafond légal sur le capital restant dû.",
+    )
+    
+    st.session_state["apply_ira"] = apply_ira
+    st.session_state["ira_cap_pct"] = ira_cap
+    
+    return {
+        "taux_credits": {15: taux_15, 20: taux_20, 25: taux_25},
+        "frais_notaire_pct": frais_notaire,
+        "assurance_ann_pct": assurance,
+        "frais_pret_pct": frais_pret,
+        "inclure_travaux": inclure_travaux,
+        "inclure_reno_ener": inclure_reno,
+        "inclure_mobilier": inclure_mobilier,
+        "financer_mobilier": financer_mobilier,
+        "apply_ira": apply_ira,
+        "ira_cap_pct": ira_cap,
+    }

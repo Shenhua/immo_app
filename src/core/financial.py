@@ -158,8 +158,13 @@ def calculate_remaining_balance(
     if monthly_rate <= 0:
         return principal * (1 - months_paid / duration_months)
     
-    # FV of the remaining balance
-    pmt = calculate_monthly_payment(principal, annual_rate_pct, duration_months)
-    fv = npf.fv(monthly_rate, months_paid, -pmt, -principal)
+    # Calculate remaining balance using the loan amortization formula
+    # Balance = P * [(1+r)^n - (1+r)^p] / [(1+r)^n - 1]
+    # where P = principal, r = monthly rate, n = total months, p = months paid
+    factor_n = (1 + monthly_rate) ** duration_months
+    factor_p = (1 + monthly_rate) ** months_paid
     
-    return max(0.0, fv)
+    remaining = principal * (factor_n - factor_p) / (factor_n - 1)
+    
+    return max(0.0, remaining)
+
