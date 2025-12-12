@@ -158,7 +158,22 @@ class SessionManager:
     def initialize(cls) -> None:
         """Initialize all session state with defaults."""
         init_state(cls.DEFAULTS)
+        
+        # Hydrate from URL if present
+        try:
+            params = st.query_params
+            if "strategy" in params:
+                idx = int(params["strategy"])
+                set_state("selected_strategy_idx", idx)
+        except Exception:
+            pass
     
+    @classmethod
+    def set_selected_idx(cls, idx: int) -> None:
+        """Set selected strategy index."""
+        set_state("selected_strategy_idx", idx)
+        st.query_params["strategy"] = str(idx)
+
     @classmethod
     def get_strategies(cls) -> List[Dict[str, Any]]:
         """Get current strategies list."""
@@ -194,10 +209,7 @@ class SessionManager:
         """Get selected strategy index."""
         return get_state("selected_strategy_idx", 0)
         
-    @classmethod
-    def set_selected_idx(cls, idx: int) -> None:
-        """Set selected strategy index."""
-        set_state("selected_strategy_idx", idx)
+
     
     @classmethod
     def get_base_params(cls) -> BaseParams:

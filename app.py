@@ -34,6 +34,15 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# Load Custom CSS
+def load_css():
+    css_file = os.path.join(os.path.dirname(__file__), "src/ui/assets/style.css")
+    if os.path.exists(css_file):
+        with open(css_file, "r") as f:
+            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
+load_css()
+
 
 log = get_logger(__name__)
 

@@ -1,0 +1,33 @@
+/* Font Import */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
+/* Typography - Applied carefully */
+html,
+body,
+[class*="css"] {
+    font-family: 'Outfit', sans-serif !important;
+}
+
+/* Metric Cards - Add depth without breaking theme */
+[data-testid="stMetric"] {
+    background-color: rgba(128, 128, 128, 0.1);
+    /* Adaptive subtle background */
+    border-radius: 12px;
+    padding: 15px;
+    border: 1px solid rgba(128, 128, 128, 0.2);
+}
+
+/* Rounded Buttons */
+.stButton>button {
+    border-radius: 8px !important;
+}
+
+/* Card/Container styling helpers */
+.strategy-card {
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 15px;
+    border: 1px solid rgba(128, 128, 128, 0.2);
+}
+
+/* Hide default decoration if needed, but keep it clean */

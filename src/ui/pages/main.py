@@ -92,6 +92,9 @@ def render_strategy_list(
     return selected_idx
 
 
+from src.ui.components.sensitivity import render_sensitivity_analysis
+
+
 def render_selected_strategy_panel(
     strategy: Dict[str, Any],
     df_sim: Any,
@@ -101,14 +104,14 @@ def render_selected_strategy_panel(
     
     Args:
         strategy: Selected strategy
-        df_sim: Simulation DataFrame
-        horizon: Simulation horizon
+    df_sim: Simulation DataFrame
+    horizon: Simulation horizon
     """
     # Removed separate header "Analyse Détaillée" as it's implied by expansion
     # render_kpi_summary(strategy, horizon) # Redundant with card? Maybe keep for detailed view
     
     # Tabs for different views
-    tab1, tab2, tab3 = st.tabs(["🏠 Biens & KPIs", "📈 Projections", "🎯 Analyse Radar"])
+    tab1, tab2, tab3, tab4 = st.tabs(["🏠 Biens & KPIs", "📈 Projections", "🎯 Analyse Radar", "⚡ Stress Test"])
     
     with tab1:
         # Show KPI summary here inside tab
@@ -128,6 +131,9 @@ def render_selected_strategy_panel(
     
     with tab3:
         render_strategy_radar(strategy)
+        
+    with tab4:
+        render_sensitivity_analysis(strategy, horizon)
 
 
 def render_comparison_panel(strategies: List[Dict[str, Any]], horizon: int = 25) -> None:
