@@ -1,0 +1,160 @@
+"""Integration tests for the strategy finding pipeline.
+
+Tests the complete flow from archetypes → bricks → strategies → simulation.
+"""
+
+import pytest
+import os
+import sys
+import json
+
+# Add project root to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+
+class TestStrategyPipeline:
+    """Integration tests for the strategy finding pipeline."""
+    
+    @pytest.fixture
+    def sample_archetypes(self):
+        """Load sample archetypes from test data."""
+        return [
+            {
+                "nom": "Studio Paris 11",
+                "ville": "Paris",
+                "mode_loyer": "meuble_classique",
+                "surface": 25.0,
+                "prix_m2": 10000.0,
+                "loyer_m2": 35.0,
+                "loyer_m2_max": 40.0,
+                "charges_m2_an": 50.0,
+                "taxe_fonciere_m2_an": 30.0,
+                "meuble": True,
+                "soumis_encadrement": True,
+                "dpe_initial": "C",
+                "budget_travaux": 5000.0,
+                "valeur_mobilier": 3000.0,
+                "indice_tension": 0.8,
+                "transport_score": 0.9,
+                "liquidite_score": 0.7,
+            },
+            {
+                "nom": "T2 Lyon 3",
+                "ville": "Lyon",
+                "mode_loyer": "meuble_classique",
+                "surface": 45.0,
+                "prix_m2": 5000.0,
+                "loyer_m2": 18.0,
+                "charges_m2_an": 35.0,
+                "taxe_fonciere_m2_an": 25.0,
+                "meuble": True,
+                "soumis_encadrement": False,
+                "dpe_initial": "D",
+                "budget_travaux": 8000.0,
+                "valeur_mobilier": 4000.0,
+                "indice_tension": 0.6,
+                "transport_score": 0.7,
+                "liquidite_score": 0.6,
+            },
+        ]
+    
+    def test_create_bricks_from_archetypes(self, sample_archetypes):
+        """Test that bricks can be created from archetypes."""
+        from strategy_finder import creer_briques_investissement
+        
+        taux_credits = {15: 3.2, 20: 3.4, 25: 3.6}
+        
+        briques = creer_briques_investissement(
+            archetypes=sample_archetypes,
+            _taux_credits=taux_credits,
+            frais_gestion_pct=5.0,
+            provision_pct=5.0,
+            frais_notaire_pct=7.5,
+            apport_min_pct_prix=10.0,
+            inclure_travaux=True,
+            inclure_reno_ener=True,
+            inclure_mobilier=True,
+            financer_mobilier=True,
+            assurance_ann_pct=0.36,
+            frais_pret_pct=1.0,
+            cfe_par_bien_ann=150.0,
+        )
+        
+        assert len(briques) > 0
+        # Should create variants for different loan durations
+        assert len(briques) >= len(sample_archetypes)
+        
+        # Check brick structure
+        first_brick = briques[0]
+        assert "nom_bien" in first_brick
+        assert "cout_total" in first_brick
+        assert "pmt_total" in first_brick
+        assert first_brick["cout_total"] > 0
+    
+    def test_archetype_validation(self, sample_archetypes):
+        """Test archetype validation."""
+        from utils import validate_archetypes_v2
+        
+        validated = validate_archetypes_v2(sample_archetypes)
+        
+        assert len(validated) == len(sample_archetypes)
+        assert all("tension_locative_score_norm" in a for a in validated)
+    
+    def test_qualitative_scoring_integration(self, sample_archetypes):
+        """Test qualitative scoring on real archetype data."""
+        from src.core.scoring import calculate_property_qualitative_score
+        
+        for arch in sample_archetypes:
+            score, features = calculate_property_qualitative_score(
+                arch,
+                loyer_m2=arch.get("loyer_m2"),
+                loyer_m2_max=arch.get("loyer_m2_max"),
+                prix_achat=arch["surface"] * arch["prix_m2"],
+                travaux=arch.get("budget_travaux", 0),
+            )
+            
+            assert 0 <= score <= 100
+            assert "tension" in features
+            assert "transport" in features
+            assert "dpe" in features
+    
+    def test_financial_calculations_integration(self):
+        """Test financial calculations with realistic values."""
+        from src.core.financial import (
+            calculate_monthly_payment,
+            generate_amortization_schedule,
+            calculate_remaining_balance,
+        )
+        
+        # Typical Paris studio financing
+        principal = 275000  # 25m² × 10000€ + frais
+        rate = 3.5
+        duration = 240  # 20 years
+        
+        # Monthly payment
+        pmt = calculate_monthly_payment(principal, rate, duration)
+        assert 1500 < pmt < 1700  # Reasonable range
+        
+        # Amortization
+        schedule = generate_amortization_schedule(principal, rate, duration)
+        assert len(schedule) == 240
+        assert schedule[-1]["capital_restant_fin"] < 1.0
+        
+        # Remaining balance at 10 years
+        bal_120 = calculate_remaining_balance(principal, rate, duration, 120)
+        assert 100000 < bal_120 < 180000  # About half paid off
+
+
+class TestLoggingIntegration:
+    """Test logging configuration."""
+    
+    def test_logger_configuration(self):
+        """Test that logger can be configured."""
+        from src.core.logging import configure_logging, get_logger
+        
+        # Should not raise
+        log = configure_logging(level="DEBUG", json_output=False)
+        assert log is not None
+        
+        named_log = get_logger("test_module")
+        assert named_log is not None
