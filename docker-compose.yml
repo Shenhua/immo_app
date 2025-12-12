@@ -3,7 +3,7 @@ services:
     build: .
     container_name: app-immo
     ports:
-      - "8501:8501"
+      - "8502:8502"
     volumes:
       - ./results:/app/results
       - ./data:/app/data
