@@ -208,20 +208,134 @@ class StrategyFinder:
     ) -> List[Dict[str, Any]]:
         """Find top strategies matching criteria.
         
-        Delegates to legacy implementation for now, but uses modular scoring.
+        Orchestrates the full search process:
+        1. Generate combinations
+        2. Allocate capital
+        3. Simulate financial performance
+        4. Score and rank
         """
-        from strategy_finder import trouver_top_strategies
+        # Dependencies
+        from src.services.allocator import PortfolioAllocator
+        from src.core.simulation import SimulationEngine, MarketHypotheses, TaxParams, IRACalculator
+        from src.core.financial import generate_amortization_schedule
         
-        return trouver_top_strategies(
-            apport_disponible=self.apport_disponible,
-            cash_flow_cible=self.cash_flow_cible,
-            tolerance=self.tolerance,
-            briques=self.bricks,
-            mode_cf=self.mode_cf,
-            qualite_weight=self.qualite_weight,
-            eval_params=eval_params,
-            horizon_years=horizon_years,
+        # 1. Setup
+        ep = EvaluationParams.from_dict(eval_params or {})
+        
+        market = MarketHypotheses(
+            appreciation_bien_pct=ep.hypotheses_marche["appreciation_bien_pct"],
+            revalo_loyer_pct=ep.hypotheses_marche["revalo_loyer_pct"],
+            inflation_charges_pct=ep.hypotheses_marche["inflation_charges_pct"],
         )
+        tax = TaxParams(
+            tmi_pct=ep.tmi_pct,
+            regime_fiscal=ep.regime_fiscal,
+            cfe_par_bien_ann=ep.cfe_par_bien_ann,
+        )
+        ira = IRACalculator(
+            apply_ira=ep.apply_ira,
+            ira_cap_pct=ep.ira_cap_pct,
+            frais_vente_pct=ep.frais_vente_pct,
+        )
+        engine = SimulationEngine(
+            market=market, 
+            tax=tax, 
+            ira=ira,
+            cfe_par_bien_ann=ep.cfe_par_bien_ann,
+            frais_vente_pct=ep.frais_vente_pct,
+        )
+        
+        allocator = PortfolioAllocator(self.mode_cf)
+        
+        # 2. Generate combinations
+        combos = self.combo_generator.generate(self.bricks, self.apport_disponible)
+        strategies = []
+        
+        # 3. Process candidates
+        for combo in combos:
+            bricks_copy = [dict(b) for b in combo]
+            
+            ok, details, cf_final, apport_used = allocator.allocate(
+                bricks_copy, 
+                self.apport_disponible, 
+                self.cash_flow_cible, 
+                self.tolerance
+            )
+            
+            if ok:
+                strat = {
+                    "details": details,
+                    "apport_total": apport_used,
+                    "patrimoine_acquis": sum(b.get("cout_total", 0.0) for b in details),
+                    "cash_flow_final": cf_final,
+                }
+                
+                # Simulation
+                try:
+                    schedules = [
+                        generate_amortization_schedule(
+                            float(p["credit_final"]), 
+                            float(p["taux_pret"]), 
+                            int(p["duree_pret"]), 
+                            float(p["assurance_ann_pct"])
+                        ) for p in strat["details"]
+                    ]
+                    
+                    df_sim, bilan = engine.simulate(strat, horizon_years, schedules)
+                    
+                    # Metrics
+                    strat["tri_annuel"] = float(bilan.get("tri_annuel", 0.0))
+                    strat["liquidation_nette"] = float(bilan.get("liquidation_nette", 0.0))
+                    
+                    # DSCR Y1
+                    if not df_sim.empty:
+                        row = df_sim.iloc[0]
+                        ds = row["Capital Remboursé"] + row["Intérêts & Assurance"]
+                        noi = row["Loyers Bruts"] + row["Charges Déductibles"] # Charges are neg
+                        strat["dscr_y1"] = (noi / ds) if ds > 1e-9 else 0.0
+                    else:
+                        strat["dscr_y1"] = 0.0
+
+                except Exception:
+                    strat["tri_annuel"] = 0.0
+                    strat["liquidation_nette"] = 0.0
+                    strat["dscr_y1"] = 0.0
+                
+                # Qualitative
+                strat["qual_score"] = self._calculate_qualitative_score(strat)
+                strat["cf_distance"] = abs(strat["cash_flow_final"] - self.cash_flow_cible)
+                
+                ap = float(strat.get("apport_total", 1.0)) or 1.0
+                strat["cap_eff"] = (strat["liquidation_nette"] - ap) / ap
+                strat["enrich_net"] = strat["liquidation_nette"] - ap
+                
+                strategies.append(strat)
+        
+        # 4. Score & Rank
+        self.scorer.score_strategies(strategies, self.cash_flow_cible)
+        
+        # Dedupe
+        strategies = self.dedupe_strategies(strategies)
+        
+        return self.rank_strategies(strategies, ep.finance_preset_name)
+
+    def _calculate_qualitative_score(self, strategy: Dict[str, Any]) -> float:
+        """Calculate qualitative score (internal helper)."""
+        # Import only as needed to avoid top-level circular dependency if any
+        # But ideally we should move scoring logic here fully.
+        # For now, using simple weighted average of bricks
+        
+        total_price = sum(b.get("prix_achat_bien", 0) for b in strategy.get("details", []))
+        if total_price <= 0:
+            return 50.0
+            
+        score_sum = 0.0
+        for b in strategy.get("details", []):
+            qs = b.get("qual_score_bien", 50.0)
+            price = b.get("prix_achat_bien", 0)
+            score_sum += qs * price
+            
+        return score_sum / total_price
     
     def dedupe_strategies(self, strategies: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Remove near-duplicate strategies.

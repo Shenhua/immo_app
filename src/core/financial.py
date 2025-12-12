@@ -81,7 +81,7 @@ def generate_amortization_schedule(
     annual_rate_pct: float,
     duration_months: int,
     annual_insurance_pct: float = 0.36,
-) -> List[Dict[str, Any]]:
+) -> Dict[str, Any]:
     """Generate full loan amortization schedule.
     
     Args:
@@ -91,17 +91,35 @@ def generate_amortization_schedule(
         annual_insurance_pct: Annual insurance rate %
         
     Returns:
-        List of monthly records with:
-        - mois: Month number (1-indexed)
-        - capital_restant_debut: Balance at start of month
-        - interet: Interest payment
-        - principal: Principal payment
-        - assurance: Insurance payment
-        - paiement_total: Total payment
-        - capital_restant_fin: Balance at end of month
+        Dict with keys:
+        - mois: List of month numbers
+        - capital_restant_debut: List of start balances
+        - interet: List of interest payments
+        - principal: List of principal payments
+        - assurance: List of insurance payments
+        - paiement_total: List of total payments
+        - capital_restant_fin: List of end balances
+        - pmt_assur: Monthly insurance amount
+        - pmt_total: Monthly total payment
+        - nmois: Number of months
+        And legacy aliases: interets, principals, balances
     """
     if principal <= 0 or duration_months <= 0:
-        return []
+        return {
+            "mois": [],
+            "capital_restant_debut": [],
+            "interet": [],
+            "principal": [],
+            "assurance": [],
+            "paiement_total": [],
+            "capital_restant_fin": [],
+            "pmt_assur": 0.0,
+            "pmt_total": 0.0,
+            "interets": [],
+            "principals": [],
+            "balances": [],
+            "nmois": 0,
+        }
     
     monthly_rate = (annual_rate_pct / 100.0) / 12.0
     pmt_pi = calculate_monthly_payment(principal, annual_rate_pct, duration_months)
@@ -127,7 +145,47 @@ def generate_amortization_schedule(
         
         balance = new_balance
     
-    return schedule
+    return {
+        "mois": list(range(1, duration_months + 1)),
+        "capital_restant_debut": [m["capital_restant_debut"] for m in schedule],
+        "interet": [m["interet"] for m in schedule],
+        "principal": [m["principal"] for m in schedule],
+        "assurance": [m["assurance"] for m in schedule],
+        "paiement_total": [m["paiement_total"] for m in schedule],
+        "capital_restant_fin": [m["capital_restant_fin"] for m in schedule],
+        "pmt_assur": pmt_ins,
+        "pmt_total": pmt_pi + pmt_ins,
+        "interets": [m["interet"] for m in schedule],
+        "principals": [m["principal"] for m in schedule],
+        "balances": [m["capital_restant_fin"] for m in schedule],
+        "nmois": duration_months,
+    }
+
+
+def k_factor(
+    annual_rate_pct: float, 
+    duration_years: int, 
+    annual_insurance_pct: float
+) -> float:
+    """Calculate the loan constant (K factor).
+    
+    K = (Monthly Payment + Monthly Insurance) / Principal
+    
+    Args:
+        annual_rate_pct: Annual interest rate %
+        duration_years: Loan duration in years
+        annual_insurance_pct: Annual insurance rate %
+        
+    Returns:
+        K factor (ratio of monthly service to principal)
+    """
+    r = (annual_rate_pct / 100.0) / 12.0
+    n = max(1, duration_years * 12)
+    
+    base = (1.0 / n) if r == 0 else r / (1.0 - (1.0 + r)**(-n))
+    assur = (annual_insurance_pct / 100.0) / 12.0
+    
+    return base + assur
 
 
 def calculate_remaining_balance(

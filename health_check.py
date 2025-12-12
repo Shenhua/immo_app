@@ -47,7 +47,7 @@ def check_syntax():
 # ============================================================
 def check_imports():
     print("🔍 Checking module imports...")
-    modules = ["config", "utils", "financial_calculations", "strategy_finder", "allocators", "validation"]
+    modules = ["app", "src.services.allocator", "src.services.strategy_finder", "src.services.brick_factory"]
     
     failed = []
     for mod in modules:
@@ -89,7 +89,7 @@ def check_imports():
 # ============================================================
 def check_duplicates():
     print("🔍 Checking for duplicate functions...")
-    files = ["app.py", "strategy_finder.py", "utils.py", "financial_calculations.py"]
+    files = ["app.py", "src/services/strategy_finder.py", "src/core/simulation.py"]
     
     for fname in files:
         fpath = ROOT / fname
@@ -120,7 +120,7 @@ def check_duplicates():
 # ============================================================
 def check_complexity():
     print("🔍 Checking function complexity...")
-    files = ["app.py", "strategy_finder.py", "utils.py", "financial_calculations.py"]
+    files = ["app.py", "src/services/strategy_finder.py", "src/core/simulation.py"]
     
     large_funcs = []
     for fname in files:

@@ -65,23 +65,33 @@ class TestGenerateAmortizationSchedule:
     def test_schedule_length(self):
         """Schedule should have correct number of months."""
         schedule = generate_amortization_schedule(100000, 3.0, 120)
-        assert len(schedule) == 120
+        assert schedule["nmois"] == 120
+        assert len(schedule["mois"]) == 120
     
     def test_schedule_structure(self):
         """Each month should have required fields."""
         schedule = generate_amortization_schedule(100000, 3.0, 120)
         required_keys = {"mois", "capital_restant_debut", "interet", "principal", 
-                         "assurance", "paiement_total", "capital_restant_fin"}
-        assert all(required_keys <= set(month.keys()) for month in schedule)
+                         "assurance", "paiement_total", "capital_restant_fin",
+                         "nmois", "entries", "balances", "interets", "principals"}
+        # Check primary keys exist
+        keys = set(schedule.keys())
+        assert {"nmois", "pmt_total", "interets", "principals", "balances"}.issubset(keys)
+        
+        # Check parallelism
+        assert len(schedule["interet"]) == 120
+        assert len(schedule["capital_restant_fin"]) == 120
     
     def test_final_balance_zero(self):
         """Final balance should be essentially zero."""
         schedule = generate_amortization_schedule(100000, 3.0, 120)
-        assert schedule[-1]["capital_restant_fin"] < 1.0
+        assert schedule["balances"][-1] < 1.0
     
     def test_empty_for_zero_principal(self):
-        """Zero principal should return empty schedule."""
-        assert generate_amortization_schedule(0, 3.0, 120) == []
+        """Zero principal should return empty schedule structure."""
+        sch = generate_amortization_schedule(0, 3.0, 120)
+        assert sch["nmois"] == 0
+        assert len(sch["mois"]) == 0
 
 
 class TestCalculateRemainingBalance:

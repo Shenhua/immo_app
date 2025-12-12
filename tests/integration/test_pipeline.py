@@ -60,24 +60,32 @@ class TestStrategyPipeline:
     
     def test_create_bricks_from_archetypes(self, sample_archetypes):
         """Test that bricks can be created from archetypes."""
-        from strategy_finder import creer_briques_investissement
+        from src.services.brick_factory import create_investment_bricks, FinancingConfig, OperatingConfig
         
         taux_credits = {15: 3.2, 20: 3.4, 25: 3.6}
         
-        briques = creer_briques_investissement(
-            archetypes=sample_archetypes,
-            _taux_credits=taux_credits,
-            frais_gestion_pct=5.0,
-            provision_pct=5.0,
+        fin_config = FinancingConfig(
+            credit_rates=taux_credits,
             frais_notaire_pct=7.5,
-            apport_min_pct_prix=10.0,
+            apport_min_pct=10.0,
+            assurance_ann_pct=0.36,
+            frais_pret_pct=1.0,
             inclure_travaux=True,
             inclure_reno_ener=True,
             inclure_mobilier=True,
             financer_mobilier=True,
-            assurance_ann_pct=0.36,
-            frais_pret_pct=1.0,
+        )
+        
+        op_config = OperatingConfig(
+            frais_gestion_pct=5.0,
+            provision_pct=5.0,
             cfe_par_bien_ann=150.0,
+        )
+        
+        briques = create_investment_bricks(
+            archetypes=sample_archetypes,
+            finance=fin_config,
+            operating=op_config,
         )
         
         assert len(briques) > 0
@@ -92,13 +100,16 @@ class TestStrategyPipeline:
         assert first_brick["cout_total"] > 0
     
     def test_archetype_validation(self, sample_archetypes):
-        """Test archetype validation."""
-        from utils import validate_archetypes_v2
+        """Test archetype validation via Pydantic model."""
+        from src.models.archetype import ArchetypeV2
         
-        validated = validate_archetypes_v2(sample_archetypes)
+        validated = []
+        for a in sample_archetypes:
+            obj = ArchetypeV2(**a)
+            validated.append(obj)
         
         assert len(validated) == len(sample_archetypes)
-        assert all("tension_locative_score_norm" in a for a in validated)
+        assert all(isinstance(v, ArchetypeV2) for v in validated)
     
     def test_qualitative_scoring_integration(self, sample_archetypes):
         """Test qualitative scoring on real archetype data."""
@@ -137,8 +148,9 @@ class TestStrategyPipeline:
         
         # Amortization
         schedule = generate_amortization_schedule(principal, rate, duration)
-        assert len(schedule) == 240
-        assert schedule[-1]["capital_restant_fin"] < 1.0
+        assert schedule["nmois"] == 240
+        assert len(schedule["mois"]) == 240
+        assert schedule["balances"][-1] < 1.0
         
         # Remaining balance at 10 years
         bal_120 = calculate_remaining_balance(principal, rate, duration, 120)

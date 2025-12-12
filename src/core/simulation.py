@@ -384,8 +384,8 @@ def simulate_long_term_strategy(
     This is a convenience wrapper around SimulationEngine.
     For full control, use SimulationEngine directly.
     """
-    # Import legacy for schedule generation
-    from financial_calculations import echeancier_mensuel
+    # Import modular generator
+    from src.core.financial import generate_amortization_schedule
     
     if not strategy or not strategy.get("details"):
         return pd.DataFrame(), {}
@@ -412,13 +412,13 @@ def simulate_long_term_strategy(
         frais_vente_pct=tax_dict.get("frais_vente_pct", 6.0),
     )
     
-    # Generate schedules
+    # Generate schedules using modular function
     schedules = [
-        echeancier_mensuel(
-            p["credit_final"], 
-            p["taux_pret"], 
-            p["duree_pret"], 
-            p["assurance_ann_pct"]
+        generate_amortization_schedule(
+            float(p["credit_final"]), 
+            float(p["taux_pret"]), 
+            int(p["duree_pret"]), 
+            float(p["assurance_ann_pct"])
         ) 
         for p in strategy["details"]
     ]
