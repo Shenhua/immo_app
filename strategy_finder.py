@@ -6,8 +6,8 @@ from financial_calculations import simuler_strategie_long_terme, mensualite_et_a
 from utils import calculate_qualitative_score
 from typing import Any, Dict, List, Tuple, Callable, Optional
 
-eval_params: Dict[str, Any] = {}, Optional
-eval_params: Dict[str, Any] = {}
+# Module-level default eval params (used by local_optimality_check adapter)
+_default_eval_params: Dict[str, Any] = {}
 BASE_WEIGHTS = {
     'enrich_net': 0.30,
     'irr': 0.25,
@@ -447,9 +447,16 @@ def optimise_apport_greedy(
 
     best_score = eval_proxy(apports)
 
+    # Get config values with defaults (optim_cfg is a dict, not an object)
+    cfg = optim_cfg or {}
+    step_coarse = int(cfg.get('step_coarse', 5000))
+    step_fine = int(cfg.get('step_fine', 1000))
+    max_passes = int(cfg.get('max_passes', 10))
+    eps_gain = float(cfg.get('eps_gain', 1e-6))
+
     # Coarse then fine passes
-    for step in (optim_cfg.step_coarse, optim_cfg.step_fine):
-        for _ in range(optim_cfg.max_passes):
+    for step in (step_coarse, step_fine):
+        for _ in range(max_passes):
             improved = False
             # try moving 'step' from i -> j
             for i in range(n):
@@ -458,17 +465,14 @@ def optimise_apport_greedy(
                 for j in range(n):
                     if i == j:
                         continue
-                    if sum(apports) + 0 > apport_budget:
-                        # Not moving total apport here (redistribution); budget unaffected
-                        pass
                     # move
                     apports[i] -= step
                     apports[j] += step
                     # round to 100€
-                    apports[i] = int(round(apports[i]/100.0)*100)
-                    apports[j] = int(round(apports[j]/100.0)*100)
+                    apports[i] = int(round(apports[i] / 100.0) * 100)
+                    apports[j] = int(round(apports[j] / 100.0) * 100)
                     score = eval_proxy(apports)
-                    if score > best_score + optim_cfg.eps_gain:
+                    if score > best_score + eps_gain:
                         best_score = score
                         improved = True
                     else:
@@ -599,36 +603,36 @@ def optimise_and_resimulate_pipeline(
     out.sort(key=lambda x: sort_key_by_preset(preset_name, x), reverse=True)
     return out
 
+# ==== Proxy/Adapter Helpers ====
 
-# ==== CLEAN INTEGRATED HELPERS (override) ====
-
-def balanced_score(finance_score: float, qual_score_pct: float, w_qual: float) -> float:
-    wq = max(0.0, min(1.0, float(w_qual)))
-    return (1.0 - wq)*float(finance_score) + wq*(float(qual_score_pct)/100.0)
-
-def sort_key_by_preset(preset: str, s: Dict[str, float]) -> Tuple:
-    p = (preset or '').strip().lower()
-    if p.startswith('dscr'):
-        return (s.get('dscr_norm',0.0), s.get('finance_score',0.0), s.get('cf_prox_norm',0.0))
-    if p.startswith('rend') or 'irr' in p:
-        return (s.get('irr_norm',0.0), s.get('finance_score',0.0))
-    if 'cash' in p:
-        return (s.get('cf_prox_norm',0.0), s.get('finance_score',0.0), s.get('dscr_norm',0.0))
-    return (s.get('balanced_score',0.0), s.get('finance_score',0.0), s.get('dscr_norm',0.0))
-
-
-def proxy_finance_score_from_cf_dscr(cf, dscr, cap_eff, irr, enrich_net, weights, cf_target=0.0, cf_scale=300.0):
-    cf_prox = max(0.0, 1.0 - abs(cf - cf_target)/max(50.0, cf_scale))
+def proxy_finance_score_from_cf_dscr(
+    cf: float,
+    dscr: float,
+    cap_eff: float,
+    irr: float,
+    enrich_net: float,
+    weights: Dict[str, float],
+    cf_target: float = 0.0,
+    cf_scale: float = 300.0,
+) -> float:
+    """Compute a finance score from raw metrics using proxy normalization."""
+    cf_prox = max(0.0, 1.0 - abs(cf - cf_target) / max(50.0, cf_scale))
     norms = {
-        'dscr_norm': min(max(dscr,0.0),1.5)/1.5,
-        'irr_norm': _norm01(max(0.0,irr),0.0,0.20),
-        'cap_eff_norm': min(max(cap_eff,0.0),6.0)/6.0,
+        'dscr_norm': min(max(dscr, 0.0), 1.5) / 1.5,
+        'irr_norm': _norm01(max(0.0, irr), 0.0, 0.20),
+        'cap_eff_norm': min(max(cap_eff, 0.0), 6.0) / 6.0,
         'cf_prox_norm': cf_prox,
-        'enrich_norm': 1.0 - math.exp(-(max(0.0,enrich_net))/75000.0),
+        'enrich_norm': 1.0 - math.exp(-(max(0.0, enrich_net)) / 75000.0),
     }
     return compute_finance_score(norms, weights)
 
-def _simulate_final_adapter(strategy: dict, apports: list, horizon_years: int, eval_params: dict) -> dict:
+
+def _simulate_final_adapter(
+    strategy: dict,
+    apports: list,
+    horizon_years: int,
+    eval_params: dict,
+) -> dict:
     """Canonical adapter: merges apports and calls engine with keyword args only."""
     s = dict(strategy)
     if apports:
@@ -661,7 +665,7 @@ def _simulate_final_adapter(strategy: dict, apports: list, horizon_years: int, e
     except Exception:
         dscr = 0.0
     try:
-        cap_eff = float(df.get("cap_eff", 0.0).iloc[-1]) if hasattr(df,"empty") and not df.empty else 0.0
+        cap_eff = float(df.get("cap_eff", 0.0).iloc[-1]) if hasattr(df, "empty") and not df.empty else 0.0
     except Exception:
         cap_eff = 0.0
     irr = float(bilan.get("tri_annuel", 0.0)) / 100.0 if isinstance(bilan, dict) else 0.0
@@ -669,29 +673,55 @@ def _simulate_final_adapter(strategy: dict, apports: list, horizon_years: int, e
 
     return {"cf": cf, "dscr_y1": dscr, "cap_eff": cap_eff, "irr": irr, "enrich_net": enrich}
 
-def local_optimality_check(strategy: Dict[str, Any], horizon_years: int, apports: List[int], weights: Dict[str, float], delta: int = 1000):
+
+def local_optimality_check_with_adapter(
+    strategy: Dict[str, Any],
+    horizon_years: int,
+    apports: List[int],
+    weights: Dict[str, float],
+    eval_params: Dict[str, Any],
+    delta: int = 1000,
+) -> Dict[str, Any]:
+    """
+    Alternative local optimality check using _simulate_final_adapter.
+    
+    Use this when you have eval_params dict and don't want to pass a callback.
+    For callback-based usage, use local_optimality_check() instead.
+    """
     base = _simulate_final_adapter(strategy, apports, horizon_years, eval_params)
-    base_s = proxy_finance_score_from_cf_dscr(base['cf'], base['dscr_y1'], base['cap_eff'], base['irr'], base['enrich_net'], weights)
-    n = len(apports); improved = False
+    base_s = proxy_finance_score_from_cf_dscr(
+        base['cf'], base['dscr_y1'], base['cap_eff'], base['irr'], base['enrich_net'], weights
+    )
+    n = len(apports)
+    improved = False
     best = (apports[:], base_s, base)
+    
     for i in range(n):
         for j in range(n):
-            if i==j or apports[i] < delta: continue
-            trial = apports[:]; trial[i]-=delta; trial[j]+=delta
-            trial[i] = int(round(trial[i]/100.0)*100); trial[j] = int(round(trial[j]/100.0)*100)
+            if i == j or apports[i] < delta:
+                continue
+            trial = apports[:]
+            trial[i] -= delta
+            trial[j] += delta
+            trial[i] = int(round(trial[i] / 100.0) * 100)
+            trial[j] = int(round(trial[j] / 100.0) * 100)
             m = _simulate_final_adapter(strategy, trial, horizon_years, eval_params)
-            s = proxy_finance_score_from_cf_dscr(m['cf'], m['dscr_y1'], m['cap_eff'], m['irr'], m['enrich_net'], weights)
+            s = proxy_finance_score_from_cf_dscr(
+                m['cf'], m['dscr_y1'], m['cap_eff'], m['irr'], m['enrich_net'], weights
+            )
             if s > best[1] + 1e-6:
-                best = (trial, s, m); improved = True
+                best = (trial, s, m)
+                improved = True
+    
     if improved:
         return {"is_local_optimal": False, "better_variant": {"apports": best[0], "metrics": best[2]}}
     return {"is_local_optimal": True}
 
 
-
-
 def _get_finance_weights(eval_params: Optional[Dict[str, Any]] = None) -> Dict[str, float]:
+    """Get finance weights from eval_params or return BASE_WEIGHTS as default."""
     w = (eval_params or {}).get('finance_weights_override')
     if isinstance(w, dict) and w:
         return w
     return BASE_WEIGHTS
+

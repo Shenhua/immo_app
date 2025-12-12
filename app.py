@@ -7,23 +7,37 @@ import inspect
 import os
 import plotly.express as px
 import datetime
-from typing import List, Dict, Any
-from typing import Dict
-base_params: Dict = {}
-eval_params: Dict = {}
+from typing import Dict, Any
+# Note: base_params and eval_params are stored in st.session_state, not module globals
 
+# Import from config - explicit imports only
+from config import (
+    TAUX_PRELEVEMENTS_SOCIAUX,
+    TAXO_ICON,
+    TAXO_TIP,
+)
 
-# Import des modules personnalisés du projet
-from config import *
-from utils import *
+# Import from utils - explicit imports only
+from utils import (
+    classify_strategy,
+    colorize_kpi,
+    fmt_e,
+    fmt_pct,
+    badges_strategie,
+    display_score_stars,
+    to_json_safe,
+    load_archetypes_from_json,
+    enforce_compliance,
+    apply_rent_cap,
+)
 import utils as u
-from utils import to_json_safe
-from utils import classify_strategy
+
 from financial_calculations import simuler_strategie_long_terme, echeancier_mensuel
 from strategy_finder import (
     creer_briques_investissement,
-    trouver_top_strategies as trouver_top_strategies_core,  # alias to avoid shadowing
+    trouver_top_strategies as trouver_top_strategies_core,
 )
+
 # --- Horizon-aware compute wrappers (signature-compatible) ---
 def _call_simulation_with_horizon(sim_fn, *args, horizon_years=None, **kwargs):
     """Call a simulation function with horizon_years if it supports it; filter unknown kwargs."""
@@ -146,10 +160,10 @@ def display_comparison_content(processed_strategies, qualite_weight):
     # make sure the column length matches comp_df rows
     if len(ira_col) < len(comp_df):
         ira_col = ira_col + [0.0] * (len(comp_df) - len(ira_col))
-    comp_df[f"IRA (H{H}a) €"] = ira_col[:len(comp_df)]
-    # Add then optionally hide
     comp_df[f"IRA (H{H}a) €"] = ira_col
-    if (not base_params.get("apply_ira", False)) or all(abs(x or 0.0) < 1e-9 for x in ira_col):
+    # Get base_params from session state, not global
+    session_base_params = st.session_state.get("base_params", {})
+    if (not session_base_params.get("apply_ira", False)) or all(abs(x or 0.0) < 1e-9 for x in ira_col):
         comp_df.drop(columns=[f"IRA (H{H}a) €"], inplace=True)
 
     # 2. Afficher le tableau

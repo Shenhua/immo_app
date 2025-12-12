@@ -288,27 +288,48 @@ def validate_archetypes_v2(items: list) -> list:
         out.append(it2)
     return out
 
-def _dpe_score(letter: str) -> float:
-    m = {"A":1.0,"B":0.9,"C":0.8,"D":0.6,"E":0.3,"F":0.0,"G":0.0,"ND":0.6}
+def _dpe_score_v2(letter: str) -> float:
+    """DPE score mapping for v2 archetypes (includes ND handling)."""
+    m = {"A": 1.0, "B": 0.9, "C": 0.8, "D": 0.6, "E": 0.3, "F": 0.0, "G": 0.0, "ND": 0.6}
     return m.get((letter or "ND").upper(), 0.6)
 
+
 def compute_qual_score_bien_v2(bien: dict, *, weights: dict | None = None) -> float:
-    default_weights = {"tension":0.40,"transport":0.30,"liquidite":0.20,"dpe":0.10,"encadrement_margin":0.00}
+    """Compute qualitative score for a single v2 archetype bien."""
+    default_weights = {
+        "tension": 0.40,
+        "transport": 0.30,
+        "liquidite": 0.20,
+        "dpe": 0.10,
+        "encadrement_margin": 0.00,
+    }
     W = (weights or default_weights).copy()
     t = float(bien.get("tension_locative_score_norm", 0.5))
     tr = float(bien.get("transport_score", 0.5))
     liq = float(bien.get("liquidite_score", 0.5))
-    dpe = _dpe_score(bien.get("dpe_initial", "ND"))
+    dpe = _dpe_score_v2(bien.get("dpe_initial", "ND"))
     loyer = _coerce_float(bien.get("loyer_m2", 0.0))
     cap = bien.get("loyer_m2_max", None)
     enc_margin = 0.5
     if cap is not None:
         capf = _coerce_float(cap, None)
         if capf:
-            enc_margin = max(0.0, min(1.0, (capf - loyer)/max(capf,1e-6) + 0.5))
-    score01 = (W["tension"]*t + W["transport"]*tr + W["liquidite"]*liq + W["dpe"]*dpe + W["encadrement_margin"]*enc_margin)
+            enc_margin = max(0.0, min(1.0, (capf - loyer) / max(capf, 1e-6) + 0.5))
+    score01 = (
+        W["tension"] * t
+        + W["transport"] * tr
+        + W["liquidite"] * liq
+        + W["dpe"] * dpe
+        + W["encadrement_margin"] * enc_margin
+    )
     wsum = sum(abs(v) for v in W.values()) or 1.0
-    return max(0.0, min(100.0, (score01/wsum)*100.0))
+    return max(0.0, min(100.0, (score01 / wsum) * 100.0))
 
-def calculate_qualitative_score(bien: dict, *, weights: dict | None = None) -> float:
+
+def calculate_qualitative_score_for_bien(bien: dict, *, weights: dict | None = None) -> float:
+    """Calculate qualitative score for a single bien (v2 archetype format).
+    
+    Use calculate_qualitative_score() for scoring a full strategy with details.
+    """
     return compute_qual_score_bien_v2(bien, weights=weights)
+
