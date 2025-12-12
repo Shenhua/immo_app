@@ -49,12 +49,17 @@ def render_no_results() -> None:
     )
 
 
-def render_strategy_list(strategies: List[Dict[str, Any]], horizon: int = 25) -> int:
+def render_strategy_list(
+    strategies: List[Dict[str, Any]], 
+    horizon: int = 25,
+    df_sim: Optional[Any] = None,
+) -> int:
     """Render list of strategy cards.
     
     Args:
         strategies: List of strategies
         horizon: Simulation horizon
+        df_sim: Simulation data for selected strategy (needed for expansion)
         
     Returns:
         Selected strategy index
@@ -62,20 +67,27 @@ def render_strategy_list(strategies: List[Dict[str, Any]], horizon: int = 25) ->
     selected_idx = get_state("selected_strategy_idx", 0)
     
     for i, strategy in enumerate(strategies):
-        col1, col2 = st.columns([0.85, 0.15])
+        # Render Card with embedded button
+        is_selected = (i == selected_idx)
         
-        with col1:
-            render_strategy_card(
-                strategy,
-                index=i + 1,
-                horizon=horizon,
-                is_selected=(i == selected_idx),
-            )
-        
-        with col2:
-            if st.button("📊 Détails", key=f"details_{i}"):
-                set_state("selected_strategy_idx", i)
-                st.rerun()
+        # Capture click from inside the card component
+        if render_strategy_card(
+            strategy,
+            index=i + 1,
+            horizon=horizon,
+            is_selected=is_selected,
+        ):
+            set_state("selected_strategy_idx", i)
+            st.rerun()
+            
+        # Render Details Panel immediately if selected
+        if is_selected:
+            with st.container():
+                render_selected_strategy_panel(
+                    strategy,
+                    df_sim,
+                    horizon,
+                )
     
     return selected_idx
 
@@ -92,16 +104,16 @@ def render_selected_strategy_panel(
         df_sim: Simulation DataFrame
         horizon: Simulation horizon
     """
-    st.markdown("---")
-    st.markdown("## 📊 Analyse Détaillée")
-    
-    # KPI Summary
-    render_kpi_summary(strategy, horizon)
+    # Removed separate header "Analyse Détaillée" as it's implied by expansion
+    # render_kpi_summary(strategy, horizon) # Redundant with card? Maybe keep for detailed view
     
     # Tabs for different views
-    tab1, tab2, tab3 = st.tabs(["🏠 Biens", "📈 Projections", "🎯 Radar"])
+    tab1, tab2, tab3 = st.tabs(["🏠 Biens & KPIs", "📈 Projections", "🎯 Analyse Radar"])
     
     with tab1:
+        # Show KPI summary here inside tab
+        render_kpi_summary(strategy, horizon)
+        st.divider()
         render_strategy_details(strategy, horizon)
     
     with tab2:
@@ -154,14 +166,8 @@ def render_main_content(
     if show_comparison:
         render_comparison_panel(strategies, horizon)
     else:
-        selected_idx = render_strategy_list(strategies, horizon)
-        
-        if 0 <= selected_idx < len(strategies):
-            render_selected_strategy_panel(
-                strategies[selected_idx],
-                df_sim,
-                horizon,
-            )
+        # Render list AND details in one go
+        render_strategy_list(strategies, horizon, df_sim)
 
 
 def render_main_page(

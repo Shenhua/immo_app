@@ -1,0 +1,91 @@
+{
+  "metadata": {
+    "timestamp": "2025-12-12T13:32:31.990391",
+    "count": 1,
+    "min_yield": 4.0
+  },
+  "strategies": [
+    {
+      "details": [
+        {
+          "ville": "Saint-Martin-d’Hères",
+          "mode_loyer": "meuble_etudiant",
+          "surface": 20.0,
+          "prix_m2": 3100.0,
+          "loyer_m2": 23.5,
+          "loyer_m2_max": 19.4,
+          "charges_m2_an": 46.0,
+          "taxe_fonciere_m2_an": 38.0,
+          "budget_travaux": 6000.0,
+          "renovation_energetique_cout": 0.0,
+          "valeur_mobilier": 4000.0,
+          "meuble": true,
+          "soumis_encadrement": true,
+          "dpe_initial": "D",
+          "tension_locative_score_norm": 1.0,
+          "transport_score": 1.0,
+          "liquidite_score": 0.76,
+          "indice_tension": 0.5,
+          "delai_vente_j_median": 90,
+          "dpe_objectif": "D",
+          "facteurs_qualitatifs": {
+            "tension_locative": "Élevée",
+            "potentiel_valorisation": "Moyen",
+            "qualite_emplacement": "Excellent"
+          },
+          "tension_locative_score_abs": 23.5,
+          "transport_modes": [
+            "tram",
+            "bus"
+          ],
+          "data_sources": {
+            "tension": "LocService / observatoires locaux (approx); à préciser par adresse",
+            "transport": "SMTC/M TAG (tram/bus), SNCF TER; vérif locale recommandée",
+            "delai_vente": "Baromètres locaux & portails; ordre de grandeur"
+          },
+          "mode_loyer_label": "Meuble Etudiant",
+          "nom_bien": "Studio Étudiant (Saint‑Martin‑d’Hères - Campus)",
+          "prix_achat_bien": 62000.0,
+          "frais_notaire": 4650.0,
+          "renovation_energetique": 0.0,
+          "mobilier": 4000.0,
+          "cout_total": 76650.0,
+          "apport_min": 10850.0,
+          "capital_emprunte": 66458.0,
+          "credit_final": 66458.0,
+          "duree_pret": 25,
+          "taux_pret": 3.8,
+          "assurance_ann_pct": 0.36,
+          "pmt_total": 363.42993376842287,
+          "loyer_mensuel_initial": 470.0,
+          "charges_const_mth0": 76.66666666666667,
+          "tf_const_mth0": 63.333333333333336,
+          "frais_gestion_pct": 5.0,
+          "provision_pct": 5.0,
+          "depenses_mensuelles_hors_credit_initial": 199.5,
+          "capital_restant": 66458.0,
+          "apport_add_bien": 0.0,
+          "apport_final_bien": 10850.0
+        }
+      ],
+      "apport_total": 10850.0,
+      "patrimoine_acquis": 76650.0,
+      "cash_flow_final": -92.92993376842287,
+      "renta_brute": 7.35812133072407,
+      "tri_annuel": 6.3663614500200305,
+      "liquidation_nette": 91644.26422663446,
+      "dscr_y1": 0.744297593566187,
+      "qual_score": 50.0,
+      "cf_distance": 92.92993376842287,
+      "cap_eff": 7.44647596558843,
+      "enrich_net": 80794.26422663446,
+      "enrich_norm": 0.5,
+      "tri_norm": 0.5,
+      "cap_eff_norm": 1.0,
+      "dscr_norm": 0.49619839571079133,
+      "cf_proximity": 0.6902335541052571,
+      "finance_score": 0.5874764701776701,
+      "balanced_score": 0.5656073526332526
+    }
+  ]
+}

@@ -66,16 +66,19 @@ def render_strategy_card(
             unsafe_allow_html=True,
         )
         
-        # Header with badge
-        col1, col2 = st.columns([0.7, 0.3])
+        # Header with badge and button
+        col1, col2, col3 = st.columns([0.6, 0.2, 0.2])
         with col1:
             st.markdown(f"### {icon} Stratégie #{index}")
         with col2:
             st.markdown(
-                f'<span style="background:{color};color:white;padding:4px 8px;'
-                f'border-radius:4px;font-size:0.9em">{label}</span>',
+                f'<div style="text-align:right"><span style="background:{color};color:white;padding:4px 8px;'
+                f'border-radius:4px;font-size:0.9em">{label}</span></div>',
                 unsafe_allow_html=True,
             )
+        with col3:
+            # Button with key based on index
+            clicked = st.button("📊 Détails", key=f"btn_details_{index}", use_container_width=True)
         
         # Key metrics
         cols = st.columns(4)
@@ -101,6 +104,8 @@ def render_strategy_card(
         st.caption(f"{len(details)} bien(s) • Apport: {format_euro(strategy.get('apport_total', 0))}")
         
         st.markdown("</div>", unsafe_allow_html=True)
+        
+        return clicked
 
 
 def render_strategy_details(strategy: Dict[str, Any], horizon: int = 25) -> None:

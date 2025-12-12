@@ -1,0 +1,12 @@
+services:
+  app-immo:
+    build: .
+    container_name: app-immo
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./results:/app/results
+      - ./data:/app/data
+    environment:
+      - STREAMLIT_SERVER_HEADLESS=true
+    restart: unless-stopped

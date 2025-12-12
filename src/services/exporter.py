@@ -1,47 +1,75 @@
-"""Export services for strategies and results.
+"""Export services for simulation results.
 
-JSON and CSV export functionality.
+Handles saving strategies to JSON files for persistence and analysis.
 """
 
-from __future__ import annotations
-
 import json
-from typing import Any, Dict, List
+import os
+from datetime import datetime
+from typing import List, Dict, Any, Optional
+
+from src.core.logging import get_logger
+
+log = get_logger(__name__)
 
 
-class JSONExporter:
-    """Export strategies and results to JSON format."""
+class ResultExporter:
+    """Handles exporting of simulation results."""
     
-    @staticmethod
-    def export_strategies(
-        strategies: List[Dict[str, Any]],
-        include_simulation: bool = True,
-    ) -> str:
-        """Export strategies to JSON string.
+    def __init__(self, output_dir: str = "results"):
+        """Initialize exporter.
         
         Args:
-            strategies: List of strategy dicts
-            include_simulation: Whether to include simulation data
+            output_dir: Directory where results will be saved.
+        """
+        self.output_dir = output_dir
+        self._ensure_dir()
+        
+    def _ensure_dir(self):
+        """Ensure output directory exists."""
+        if not os.path.exists(self.output_dir):
+            try:
+                os.makedirs(self.output_dir)
+                log.info("created_output_directory", path=self.output_dir)
+            except Exception as e:
+                log.error("output_directory_creation_failed", error=str(e))
+
+    def save_results(
+        self, 
+        strategies: List[Dict[str, Any]], 
+        prefix: str = "simulation",
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """Save results to a JSON file.
+        
+        Args:
+            strategies: List of strategy dictionaries.
+            prefix: Filename prefix.
+            metadata: Optional metadata to include in the file (e.g. config used).
             
         Returns:
-            JSON string
+            Path to the saved file.
         """
-        from utils import to_json_safe
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{prefix}_{timestamp}.json"
+        filepath = os.path.join(self.output_dir, filename)
         
-        data = to_json_safe(strategies)
-        return json.dumps(data, ensure_ascii=False, indent=2)
-    
-    @staticmethod
-    def export_to_file(
-        strategies: List[Dict[str, Any]],
-        filepath: str,
-    ) -> None:
-        """Export strategies to a JSON file.
+        payload = {
+            "metadata": {
+                "timestamp": datetime.now().isoformat(),
+                "count": len(strategies),
+                **(metadata or {})
+            },
+            "strategies": strategies
+        }
         
-        Args:
-            strategies: List of strategy dicts
-            filepath: Output file path
-        """
-        content = JSONExporter.export_strategies(strategies)
-        with open(filepath, "w", encoding="utf-8") as f:
-            f.write(content)
+        try:
+            with open(filepath, "w", encoding="utf-8") as f:
+                json.dump(payload, f, indent=2, ensure_ascii=False)
+            
+            log.info("results_saved", path=filepath, count=len(strategies))
+            return filepath
+            
+        except Exception as e:
+            log.error("results_save_failed", path=filepath, error=str(e))
+            raise

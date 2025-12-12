@@ -163,6 +163,16 @@ class SessionManager:
     def get_strategies(cls) -> List[Dict[str, Any]]:
         """Get current strategies list."""
         return get_state("strategies", [])
+        
+    @classmethod
+    def get_archetypes(cls) -> List[Dict[str, Any]]:
+        """Get loaded archetypes."""
+        return get_state("archetypes", [])
+    
+    @classmethod
+    def set_archetypes(cls, archetypes: List[Dict[str, Any]]) -> None:
+        """Set archetypes data."""
+        set_state("archetypes", archetypes)
     
     @classmethod
     def set_strategies(cls, strategies: List[Dict[str, Any]]) -> None:
@@ -180,6 +190,16 @@ class SessionManager:
         return None
     
     @classmethod
+    def get_selected_idx(cls) -> int:
+        """Get selected strategy index."""
+        return get_state("selected_strategy_idx", 0)
+        
+    @classmethod
+    def set_selected_idx(cls, idx: int) -> None:
+        """Set selected strategy index."""
+        set_state("selected_strategy_idx", idx)
+    
+    @classmethod
     def get_base_params(cls) -> BaseParams:
         """Get current base parameters."""
         return BaseParams.from_session_state()
@@ -188,6 +208,11 @@ class SessionManager:
     def get_horizon(cls) -> int:
         """Get current horizon in years."""
         return get_state("horizon_ans", 25)
+    
+    @classmethod
+    def set_horizon(cls, horizon: int) -> None:
+        """Set current horizon."""
+        set_state("horizon_ans", horizon)
     
     @classmethod
     def is_ira_enabled(cls) -> bool:

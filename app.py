@@ -7,6 +7,7 @@ Orchestrates UI components and services.
 import json
 import os
 import sys
+from typing import Dict, Any, List
 
 import streamlit as st
 import pandas as pd
@@ -14,12 +15,14 @@ import pandas as pd
 # Add src to path if not present (for running executing from root)
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+from src.core.logging import get_logger
 from src.ui.state import SessionManager, BaseParams
 from src.ui.components.sidebar import render_objectives_section, render_credit_params_tab
 from src.ui.components.filters import render_property_filters, filter_archetypes
 from src.ui.pages.main import render_main_page
 from src.services.brick_factory import create_investment_bricks, FinancingConfig, OperatingConfig
 from src.services.strategy_finder import StrategyFinder
+from src.models.archetype import ArchetypeV2
 
 
 # --- Configuration & Setup ---
@@ -32,17 +35,28 @@ st.set_page_config(
 )
 
 
-def load_data() -> list:
-    """Load and validate archetype data."""
+log = get_logger(__name__)
+
+
+def load_data() -> List[Dict[str, Any]]:
+    """Charge les données des archétypes."""
     try:
-        with open("archetypes_v2.json", "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return data
-    except FileNotFoundError:
-        st.error("❌ Fichier 'archetypes_v2.json' introuvable.")
-        return []
-    except json.JSONDecodeError:
-        st.error("❌ Erreur de format JSON dans archetypes_v2.json")
+        archetypes = SessionManager.get_archetypes()
+        if not archetypes:
+            path = os.path.join(os.path.dirname(__file__), "data/archetypes_recale_2025_v2.json")
+            with open(path, "r", encoding="utf-8") as f:
+                raw_data = json.load(f)
+                archetypes = [ArchetypeV2(**item).model_dump() for item in raw_data]
+            
+            SessionManager.set_archetypes(archetypes)
+            log.info("archetypes_loaded_from_disk", count=len(archetypes))
+        else:
+            log.info("archetypes_loaded_from_session", count=len(archetypes))
+            
+        return archetypes
+    except Exception as e:
+        log.error("data_load_failed", error=str(e))
+        st.error(f"Erreur lors du chargement des données: {e}")
         return []
 
 
@@ -65,6 +79,7 @@ def apply_compliance(archetypes: list, apply_cap: bool = True) -> list:
 def main():
     # 1. Initialization
     SessionManager.initialize()
+    log.info("app_started")
     
     # 2. Sidebar Configuration
     with st.sidebar:
@@ -78,7 +93,7 @@ def main():
         # Actually render_objectives_section returns values, we should store them if needed for persistence across reruns 
         # or use them directly.
         # But SessionManager has setters.
-        SessionManager.set_horizon(horizon)
+        # SessionManager.set_horizon(horizon) # Removed: Widget with key handles state automatically
         
         # Credit & Costs
         with st.expander("Financement & Frais", expanded=False):
@@ -120,8 +135,11 @@ def main():
     # 4. Action Button
     if st.sidebar.button("🚀 Lancer l'analyse", type="primary"):
         with st.spinner("Analyse des stratégies en cours..."):
+            log.info("analysis_started", 
+                     archetypes_count=len(compliant_archetypes),
+                     horizon=horizon)
             
-            # A. Create Bricks
+            # 1. Création des briques
             fin_config = FinancingConfig(
                 credit_rates=credit_params["taux_credits"],
                 frais_notaire_pct=credit_params["frais_notaire_pct"],
@@ -183,8 +201,22 @@ def main():
                 horizon_years=horizon,
             )
             
-            # Store results
+            # 3. Sauvegarde
             SessionManager.set_strategies(strategies)
+            
+            # Auto-save to results/
+            try:
+                from src.services.exporter import ResultExporter
+                exporter = ResultExporter()
+                exporter.save_results(
+                    strategies, 
+                    metadata={"horizon": horizon, "compliance": use_compliance}
+                )
+            except Exception as e:
+                log.warning("autosave_failed", error=str(e))
+            
+            log.info("analysis_completed", 
+                     strategies_found=len(strategies))
             st.rerun()
 
     # 5. Render Results

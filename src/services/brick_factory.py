@@ -15,22 +15,22 @@ from src.core.financial import calculate_total_monthly_payment
 class FinancingConfig:
     """Configuration for financing parameters."""
     credit_rates: Dict[int, float]  # duration -> rate
-    frais_notaire_pct: float
-    apport_min_pct: float
-    assurance_ann_pct: float
-    frais_pret_pct: float
-    inclure_travaux: bool
-    inclure_reno_ener: bool
-    inclure_mobilier: bool
-    financer_mobilier: bool
+    frais_notaire_pct: float = 7.5
+    apport_min_pct: float = 10.0
+    assurance_ann_pct: float = 0.36
+    frais_pret_pct: float = 1.0
+    inclure_travaux: bool = True
+    inclure_reno_ener: bool = True
+    inclure_mobilier: bool = True
+    financer_mobilier: bool = True
 
 
 @dataclass
 class OperatingConfig:
     """Configuration for operating costs."""
-    frais_gestion_pct: float
-    provision_pct: float
-    cfe_par_bien_ann: float
+    frais_gestion_pct: float = 5.0
+    provision_pct: float = 5.0
+    cfe_par_bien_ann: float = 150.0
 
 
 def create_investment_bricks(

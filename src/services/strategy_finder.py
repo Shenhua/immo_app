@@ -11,6 +11,10 @@ from dataclasses import dataclass, field
 from math import isfinite
 from typing import Any, Dict, List, Optional, Tuple, Callable
 
+from src.core.logging import get_logger
+
+log = get_logger(__name__)
+
 
 # Base financial scoring weights
 BASE_WEIGHTS = {
@@ -205,6 +209,7 @@ class StrategyFinder:
         self,
         eval_params: Optional[Dict[str, Any]] = None,
         horizon_years: int = 25,
+        top_n: int = 10,
     ) -> List[Dict[str, Any]]:
         """Find top strategies matching criteria.
         
@@ -230,12 +235,10 @@ class StrategyFinder:
         tax = TaxParams(
             tmi_pct=ep.tmi_pct,
             regime_fiscal=ep.regime_fiscal,
-            cfe_par_bien_ann=ep.cfe_par_bien_ann,
         )
         ira = IRACalculator(
             apply_ira=ep.apply_ira,
             ira_cap_pct=ep.ira_cap_pct,
-            frais_vente_pct=ep.frais_vente_pct,
         )
         engine = SimulationEngine(
             market=market, 
@@ -247,8 +250,14 @@ class StrategyFinder:
         
         allocator = PortfolioAllocator(self.mode_cf)
         
+        log.info("strategy_search_started", 
+                 brick_count=len(self.bricks), 
+                 apport=self.apport_disponible)
+                 
         # 2. Generate combinations
         combos = self.combo_generator.generate(self.bricks, self.apport_disponible)
+        log.debug("combinations_generated", count=len(combos))
+        
         strategies = []
         
         # 3. Process candidates
@@ -270,13 +279,18 @@ class StrategyFinder:
                     "cash_flow_final": cf_final,
                 }
                 
+                # Basic Metrics
+                total_rent = sum(b.get("loyer_mensuel_initial", 0.0) for b in strat["details"]) * 12
+                total_cost = sum(b.get("cout_total", 0.0) for b in strat["details"])
+                strat["renta_brute"] = (total_rent / total_cost * 100.0) if total_cost > 0 else 0.0
+                
                 # Simulation
                 try:
                     schedules = [
                         generate_amortization_schedule(
                             float(p["credit_final"]), 
                             float(p["taux_pret"]), 
-                            int(p["duree_pret"]), 
+                            int(p["duree_pret"]) * 12, 
                             float(p["assurance_ann_pct"])
                         ) for p in strat["details"]
                     ]
@@ -291,33 +305,39 @@ class StrategyFinder:
                     if not df_sim.empty:
                         row = df_sim.iloc[0]
                         ds = row["Capital Remboursé"] + row["Intérêts & Assurance"]
-                        noi = row["Loyers Bruts"] + row["Charges Déductibles"] # Charges are neg
+                        # Charges Deductibles (neg) includes Interest. Add back to get OpEx (neg).
+                        opex = row["Charges Déductibles"] + row["Intérêts & Assurance"] 
+                        noi = row["Loyers Bruts"] + opex
                         strat["dscr_y1"] = (noi / ds) if ds > 1e-9 else 0.0
                     else:
                         strat["dscr_y1"] = 0.0
 
-                except Exception:
-                    strat["tri_annuel"] = 0.0
-                    strat["liquidation_nette"] = 0.0
-                    strat["dscr_y1"] = 0.0
+                    # Qualitative
+                    strat["qual_score"] = self._calculate_qualitative_score(strat)
+                    strat["cf_distance"] = abs(strat["cash_flow_final"] - self.cash_flow_cible)
+                    
+                    ap = float(strat.get("apport_total", 1.0)) or 1.0
+                    strat["cap_eff"] = (strat["liquidation_nette"] - ap) / ap
+                    strat["enrich_net"] = strat["liquidation_nette"] - ap
+                    
+                    strategies.append(strat)
+
+                except Exception as e:
+                    log.warning("strategy_simulation_failed", error=str(e))
+                    continue
                 
-                # Qualitative
-                strat["qual_score"] = self._calculate_qualitative_score(strat)
-                strat["cf_distance"] = abs(strat["cash_flow_final"] - self.cash_flow_cible)
-                
-                ap = float(strat.get("apport_total", 1.0)) or 1.0
-                strat["cap_eff"] = (strat["liquidation_nette"] - ap) / ap
-                strat["enrich_net"] = strat["liquidation_nette"] - ap
-                
-                strategies.append(strat)
-        
         # 4. Score & Rank
         self.scorer.score_strategies(strategies, self.cash_flow_cible)
         
         # Dedupe
         strategies = self.dedupe_strategies(strategies)
         
-        return self.rank_strategies(strategies, ep.finance_preset_name)
+        top_strategies = self.rank_strategies(strategies, ep.finance_preset_name, top_n)
+        log.info("strategy_search_completed", 
+                 total_evaluated=len(strategies), 
+                 top_kept=len(top_strategies))
+                 
+        return top_strategies
 
     def _calculate_qualitative_score(self, strategy: Dict[str, Any]) -> float:
         """Calculate qualitative score (internal helper)."""
@@ -363,6 +383,7 @@ class StrategyFinder:
         self,
         strategies: List[Dict[str, Any]],
         preset_name: str = "Équilibré (défaut)",
+        top_n: int = 10,
     ) -> List[Dict[str, Any]]:
         """Sort strategies by preset priority."""
         name = preset_name.lower()
@@ -379,4 +400,5 @@ class StrategyFinder:
             # Default: balanced
             return (x.get("balanced_score", 0), x.get("dscr_norm", 0), x.get("tri_norm", 0))
         
-        return sorted(strategies, key=sort_key, reverse=True)
+        sorted_strategies = sorted(strategies, key=sort_key, reverse=True)
+        return sorted_strategies[:top_n]
