@@ -187,13 +187,13 @@ class SimulationEngine:
         total_impot = 0.0
         
         for year in range(1, horizons_years + 1):
-            result = self._simulate_year(
+            result, next_deficit = self._simulate_year(
                 year, projets, schedules, valeur_biens, deficit_reportable
             )
             results.append(result)
             
             total_impot += result.impot_du
-            deficit_reportable = 0.0  # Updated in tax calc
+            deficit_reportable = next_deficit
             valeur_biens = result.valeur_biens
             flux.append(result.cash_flow_net)
         
@@ -212,8 +212,12 @@ class SimulationEngine:
         schedules: List[Dict[str, Any]],
         valeur_biens: float,
         deficit_reportable: float,
-    ) -> YearResult:
-        """Simulate a single year."""
+    ) -> Tuple[YearResult, float]:
+        """Simulate a single year.
+        
+        Returns:
+            Tuple of (YearResult, next_year_deficit_reportable)
+        """
         # Appreciate property value
         if year > 1:
             valeur_biens *= (1.0 + self.market.appreciation_bien_pct / 100.0)
@@ -269,7 +273,7 @@ class SimulationEngine:
             dette_fin += solde_fin
         
         # Tax calculation
-        impot, _, base_imposable = self.tax.calculate_tax(
+        impot, new_deficit, base_imposable = self.tax.calculate_tax(
             loyers_bruts_pf, charges_deductibles_pf, amortissements_pf, deficit_reportable
         )
         cf_ann -= impot
@@ -287,7 +291,7 @@ class SimulationEngine:
             loyers_bruts=loyers_bruts_pf,
             charges_deductibles=charges_deductibles_pf,
             amortissements=amortissements_pf,
-        )
+        ), new_deficit
     
     def _calculate_liquidation(
         self,
