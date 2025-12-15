@@ -12,7 +12,7 @@ def get_cf_color(value: float, target: float) -> str:
     """Calculate color based on deviation from target."""
     diff = value - target
     if abs(diff) < 5:
-        return "#ffffff"
+        return "inherit"
     if diff > 0:
         return "#28a745"
     dist = abs(diff)
@@ -47,6 +47,20 @@ def get_taxonomy_badge(taxonomy: str) -> tuple:
         "Mix": ("⚖️", "Mix", "#ffc107"),
     }
     return badges.get(taxonomy, ("🔀", taxonomy or "—", "#6c757d"))
+
+
+def get_star_rating(score: float, max_stars: int = 5) -> str:
+    """Convert 0-100 score to star rating string."""
+    if score is None: 
+        return "—"
+    
+    # Calculate filled stars
+    normalized = (score / 100) * max_stars
+    filled = int(round(normalized))
+    
+    # Build string
+    stars = "★" * filled + "☆" * (max_stars - filled)
+    return stars
 
 
 def render_strategy_card(
@@ -92,8 +106,9 @@ def render_strategy_card(
 
         with c1:
              score = strategy.get("balanced_score", 0) * 100
+             stars = get_star_rating(score)
              st.markdown("<div style='font-size: 0.9em; color: gray;'>Score</div>", unsafe_allow_html=True)
-             st.markdown(f"<div style='font-size: 2.5em; font-weight: bold;'>{score:.0f}/100</div>", unsafe_allow_html=True)
+             st.markdown(f"<div style='font-size: 2.5em; font-weight: bold; line-height: 1.0;'>{stars}<div style='font-size:0.4em; color:gray; font-weight:normal; margin-top:5px'>({score:.0f}/100)</div></div>", unsafe_allow_html=True)
 
 
 
@@ -159,6 +174,11 @@ def render_strategy_details(strategy: dict[str, Any], horizon: int = 25) -> None
 
             with col1:
                 st.markdown("**Acquisition**")
+                # Restore Property Score Display with Stars
+                qs = bien.get('qual_score_bien', 50)
+                stars = get_star_rating(qs, 5)
+                st.markdown(f"**Qualité**: {stars} <span style='color:grey;font-size:0.8em'>({qs:.0f}/100)</span>", unsafe_allow_html=True)
+                
                 st.write(f"Prix: {format_euro(bien.get('prix_achat_bien', 0))}")
                 st.write(f"Frais notaire: {format_euro(bien.get('frais_notaire', 0))}")
                 st.write(f"Travaux: {format_euro(bien.get('budget_travaux', 0))}")
@@ -172,12 +192,32 @@ def render_strategy_details(strategy: dict[str, Any], horizon: int = 25) -> None
                 st.write(f"Taux: {bien.get('taux_pret', 0):.2f}%")
 
             with col3:
-                st.markdown("**Revenus**")
-                st.write(f"Loyer: {format_euro(bien.get('loyer_mensuel_initial', 0))}/mois")
-                st.write(f"Surface: {bien.get('surface', 0):.0f} m²")
-                st.write(f"DPE: {bien.get('dpe_initial', '?')}")
-                qs = bien.get('qual_score_bien', 50)
-                st.write(f"Score qualité: {qs:.0f}/100")
+                st.markdown("**Flux Mensuels (Moy)**")
+                st.metric(
+                    label="Loyer brut",
+                    value=f"{format_euro(bien.get('loyer_mensuel_initial', 0))}",
+                    delta="+ Revenu",
+                    delta_color="normal"
+                )
+                
+                charges_tot = bien.get("charges_non_recuperables_mensuel", 0) + bien.get("taxe_fonciere_mensuel", 0)
+                st.metric(
+                    label="Mensualité Crédit",
+                    value=f"{format_euro(bien.get('pmt_total', 0))}",
+                    delta="- Crédit",
+                    delta_color="inverse"
+                )
+ 
+            # Qualitative Factors Restoration
+            if "facteurs_qualitatifs" in bien:
+                with st.expander("🔍 Voir le détail du score qualitatif"):
+                    factors = bien["facteurs_qualitatifs"]
+                    # If factors is dict
+                    if isinstance(factors, dict):
+                         for k, v in factors.items():
+                             st.write(f"- **{k.replace('_', ' ').title()}**: {v}")
+                    else:
+                         st.write("Détails disponibles.")
 
 
 def render_kpi_summary(strategy: dict[str, Any], horizon: int = 25) -> None:
@@ -194,10 +234,19 @@ def render_kpi_summary(strategy: dict[str, Any], horizon: int = 25) -> None:
         (f"TRI ({horizon}a)", strategy.get("tri_annuel", 0), format_pct),
         ("Enrichissement", strategy.get("liquidation_nette", 0), format_euro),
         ("DSCR Y1", strategy.get("dscr_y1", 0), lambda x: f"{x:.2f}" if x else "—"),
-        ("Score Qualité", strategy.get("qual_score", 50), lambda x: f"{x:.0f}/100"),
-        ("Score Global", strategy.get("balanced_score", 0) * 100, lambda x: f"{x:.0f}/100"),
+        ("Score Qualité", strategy.get("qual_score", 50), lambda x: f"{get_star_rating(x)}"), 
+        ("Score Global", strategy.get("balanced_score", 0) * 100, lambda x: f"{get_star_rating(x)}"), # Star Rating for Global too
     ]
 
     for col, (label, value, formatter) in zip(cols, metrics):
         with col:
-            st.metric(label, formatter(value))
+            # Special handling for Scores to show numeric value as secondary (delta)
+            if label in ["Score Qualité", "Score Global"]:
+                 st.metric(
+                     label, 
+                     formatter(value),
+                     delta=f"{value:.0f}/100",
+                     delta_color="off"
+                 )
+            else:
+                 st.metric(label, formatter(value))

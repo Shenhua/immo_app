@@ -13,6 +13,10 @@ import streamlit as st
 from src.ui.components.charts import (
     render_cashflow_chart,
     render_comparison_charts,
+    render_comparison_heatmap,
+    render_credit_breakdown_chart,
+    render_fiscal_chart,
+    render_risk_reward_scatter,
     render_simulation_chart,
     render_strategy_radar,
 )
@@ -90,11 +94,19 @@ def render_strategy_list(
                 render_strategy_details(current_strat, horizon)
             with tab2:
                if df_sim is not None and not df_sim.empty:
+                   # Row 1: Patrimoine & CashFlow
                    col1, col2 = st.columns(2)
                    with col1:
                        render_simulation_chart(df_sim, key=f"strat_chart_{selected_idx}")
                    with col2:
                        render_cashflow_chart(df_sim, key=f"strat_cf_{selected_idx}")
+                   
+                   # Row 2: Credit breakdown & Fiscal (if LMNP)
+                   col3, col4 = st.columns(2)
+                   with col3:
+                       render_credit_breakdown_chart(df_sim, key=f"strat_cred_{selected_idx}")
+                   with col4:
+                       render_fiscal_chart(df_sim, key=f"strat_fisc_{selected_idx}")
                else:
                    st.info("Projections disponibles après sélection.")
             with tab3:
@@ -220,6 +232,11 @@ def render_comparison_panel(strategies: list[dict[str, Any]], horizon: int = 25)
     st.markdown("---")
     st.markdown("## ⚖️ Comparaison des Stratégies")
 
+    render_risk_reward_scatter(strategies)
+    st.markdown("#### Performance Relative")
+    render_comparison_heatmap(strategies)
+    
+    st.markdown("#### Détails côte-à-côte")
     render_comparison_charts(strategies[:6], horizon)
 
 
@@ -270,6 +287,21 @@ def render_main_page(
     # Get current state
     horizon = SessionManager.get_horizon()
     show_comparison = get_state("show_comparison", False)
+    
+    # View Mode Toggle
+    mode = st.radio(
+        "Mode d'affichage",
+        ["📝 Liste & Détails", "⚖️ Comparaison Globale"],
+        index=1 if show_comparison else 0,
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+    
+    # Update state only if changed
+    new_show_comp = (mode == "⚖️ Comparaison Globale")
+    if new_show_comp != show_comparison:
+        set_state("show_comparison", new_show_comp)
+        st.rerun()
 
     if strategies is None:
         st.info("👈 Configurez vos paramètres dans la barre latérale puis lancez l'analyse.")
