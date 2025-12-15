@@ -64,29 +64,29 @@ def render_objectives_section() -> tuple[float, float, float, str, float, int]:
             help="Votre capacité d'apport personnel pour tous les projets.",
         )
 
-        cf_cible = st.number_input(
-            "CF mensuel cible (€)",
-            value=-100,
-            step=10,
-            key="cf_cible",
-            help="Le cash-flow net que vous visez chaque mois.",
-        )
-
-        col1, col2 = st.columns([0.6, 0.4])
-        with col1:
+        c_target, c_tol = st.columns(2)
+        with c_target:
+            cf_cible = st.number_input(
+                "CF mensuel cible (€)",
+                value=-100,
+                step=10,
+                key="cf_cible",
+                help="Le cash-flow net que vous visez chaque mois.",
+            )
+        with c_tol:
             tolerance = st.number_input(
                 "Tolérance (€/mois)",
                 value=50,
                 step=10,
                 help="Marge d'erreur acceptable autour de votre cible de cash-flow.",
             )
-        with col2:
-            is_precise = st.toggle(
-                "Ciblage Précis (±)",
-                value=True,
-                help="Désactivé : le CF sera au MINIMUM la cible.\n\nActivé : le CF visera à être le plus PROCHE possible de la cible.",
-            )
-            mode_cf = "target" if is_precise else "min"
+
+        is_precise = st.toggle(
+            "Ciblage Précis (±)",
+            value=True,
+            help="Désactivé : le CF sera au MINIMUM la cible.\n\nActivé : le CF visera à être le plus PROCHE possible de la cible.",
+        )
+        mode_cf = "target" if is_precise else "min"
 
         st.markdown("---")
         st.markdown(
