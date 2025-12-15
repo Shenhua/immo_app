@@ -92,12 +92,12 @@ def render_objectives_section() -> tuple[float, float, float, str, float, int]:
         if "horizon_ans" not in st.session_state:
             st.session_state.horizon_ans = 25
 
+        curr_h = st.session_state.get("horizon_ans", 25)
         horizon = st.slider(
-            "Horizon d'investissement (ans)",
+            f"Horizon d'investissement ({curr_h} ans)",
             10, 30,
             key="horizon_ans",
         )
-        st.caption(f"Horizon de simulation : **{horizon} ans**")
 
         st.markdown("---")
         st.markdown(

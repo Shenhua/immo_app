@@ -70,7 +70,7 @@ div[data-testid="stMetricValue"] {
 /* This relies on aria-label selectors, which are stable as long as the label text doesn't change */
 div[data-testid="stNumberInput"] input[aria-label="Apport total disponible (€)"] {
     font-size: 1.3rem !important;
-    font-weight: 600 !important;
+    font-weight: 400 !important;
     background-color: rgba(255, 215, 0, 0.1) !important;
     /* Subtle yellow background */
     border: 1px solid rgba(255, 215, 0, 0.5) !important;
