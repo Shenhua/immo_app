@@ -77,23 +77,23 @@ def render_strategy_card(
         with c1:
              score = strategy.get("balanced_score", 0) * 100
              st.markdown(f"<div style='font-size: 0.9em; color: gray;'>Score</div>", unsafe_allow_html=True)
-             st.markdown(f"<div style='font-size: 1.5em; font-weight: bold;'>{score:.0f}/100</div>", unsafe_allow_html=True)
+             st.markdown(f"<div style='font-size: 2.5em; font-weight: bold;'>{score:.0f}/100</div>", unsafe_allow_html=True)
 
         with c2:
             cf = strategy.get("cash_flow_final", 0)
             color_cf = "green" if cf >= 0 else "red"
             st.markdown(f"<div style='font-size: 0.9em; color: gray;'>Cash-flow</div>", unsafe_allow_html=True)
-            st.markdown(f"<div style='font-size: 1.5em; font-weight: bold; color: {color_cf};'>{format_euro(cf)}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size: 2.5em; font-weight: bold; color: {color_cf};'>{format_euro(cf)}</div>", unsafe_allow_html=True)
         
         with c3:
             tri = strategy.get("tri_annuel", 0)
             st.markdown(f"<div style='font-size: 0.9em; color: gray;'>Rentabilité (TRI)</div>", unsafe_allow_html=True)
-            st.markdown(f"<div style='font-size: 1.5em;'>{format_pct(tri)}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size: 2.5em;'>{format_pct(tri)}</div>", unsafe_allow_html=True)
         
         with c4:
             enrich = strategy.get("liquidation_nette", 0)
             st.markdown(f"<div style='font-size: 0.9em; color: gray;'>Enrichissement</div>", unsafe_allow_html=True)
-            st.markdown(f"<div style='font-size: 1.5em;'>{format_euro(enrich)}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size: 2.5em;'>{format_euro(enrich)}</div>", unsafe_allow_html=True)
 
         # Footer Actions
         st.markdown("") # Spacer
