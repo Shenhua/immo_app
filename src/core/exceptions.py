@@ -8,7 +8,6 @@ from __future__ import annotations
 from typing import Any
 
 
-
 class AppImmoError(Exception):
     """Base exception for all app_immo errors."""
     pass
@@ -57,7 +56,7 @@ class NoStrategiesFoundError(StrategyError):
 
 class InvalidParameterError(AppImmoError):
     """Invalid parameter value provided."""
-    
+
     def __init__(self, param_name: str, value: Any, reason: str = ""):
         self.param_name = param_name
         self.value = value

@@ -3,10 +3,10 @@
 Tests the complete flow from archetypes → bricks → strategies → simulation.
 """
 
-import pytest
 import os
 import sys
-import json
+
+import pytest
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 class TestStrategyPipeline:
     """Integration tests for the strategy finding pipeline."""
-    
+
     @pytest.fixture
     def sample_archetypes(self):
         """Load sample archetypes from test data."""
@@ -57,13 +57,13 @@ class TestStrategyPipeline:
                 "liquidite_score": 0.6,
             },
         ]
-    
+
     def test_create_bricks_from_archetypes(self, sample_archetypes):
         """Test that bricks can be created from archetypes."""
-        from src.services.brick_factory import create_investment_bricks, FinancingConfig, OperatingConfig
-        
+        from src.services.brick_factory import FinancingConfig, OperatingConfig, create_investment_bricks
+
         taux_credits = {15: 3.2, 20: 3.4, 25: 3.6}
-        
+
         fin_config = FinancingConfig(
             credit_rates=taux_credits,
             frais_notaire_pct=7.5,
@@ -75,46 +75,46 @@ class TestStrategyPipeline:
             inclure_mobilier=True,
             financer_mobilier=True,
         )
-        
+
         op_config = OperatingConfig(
             frais_gestion_pct=5.0,
             provision_pct=5.0,
             cfe_par_bien_ann=150.0,
         )
-        
+
         briques = create_investment_bricks(
             archetypes=sample_archetypes,
             finance=fin_config,
             operating=op_config,
         )
-        
+
         assert len(briques) > 0
         # Should create variants for different loan durations
         assert len(briques) >= len(sample_archetypes)
-        
+
         # Check brick structure
         first_brick = briques[0]
         assert "nom_bien" in first_brick
         assert "cout_total" in first_brick
         assert "pmt_total" in first_brick
         assert first_brick["cout_total"] > 0
-    
+
     def test_archetype_validation(self, sample_archetypes):
         """Test archetype validation via Pydantic model."""
         from src.models.archetype import ArchetypeV2
-        
+
         validated = []
         for a in sample_archetypes:
             obj = ArchetypeV2(**a)
             validated.append(obj)
-        
+
         assert len(validated) == len(sample_archetypes)
         assert all(isinstance(v, ArchetypeV2) for v in validated)
-    
+
     def test_qualitative_scoring_integration(self, sample_archetypes):
         """Test qualitative scoring on real archetype data."""
         from src.core.scoring import calculate_property_qualitative_score
-        
+
         for arch in sample_archetypes:
             score, features = calculate_property_qualitative_score(
                 arch,
@@ -123,35 +123,35 @@ class TestStrategyPipeline:
                 prix_achat=arch["surface"] * arch["prix_m2"],
                 travaux=arch.get("budget_travaux", 0),
             )
-            
+
             assert 0 <= score <= 100
             assert "tension" in features
             assert "transport" in features
             assert "dpe" in features
-    
+
     def test_financial_calculations_integration(self):
         """Test financial calculations with realistic values."""
         from src.core.financial import (
             calculate_monthly_payment,
-            generate_amortization_schedule,
             calculate_remaining_balance,
+            generate_amortization_schedule,
         )
-        
+
         # Typical Paris studio financing
         principal = 275000  # 25m² × 10000€ + frais
         rate = 3.5
         duration = 240  # 20 years
-        
+
         # Monthly payment
         pmt = calculate_monthly_payment(principal, rate, duration)
         assert 1500 < pmt < 1700  # Reasonable range
-        
+
         # Amortization
         schedule = generate_amortization_schedule(principal, rate, duration)
         assert schedule["nmois"] == 240
         assert len(schedule["mois"]) == 240
         assert schedule["balances"][-1] < 1.0
-        
+
         # Remaining balance at 10 years
         bal_120 = calculate_remaining_balance(principal, rate, duration, 120)
         assert 100000 < bal_120 < 180000  # About half paid off
@@ -159,14 +159,14 @@ class TestStrategyPipeline:
 
 class TestLoggingIntegration:
     """Test logging configuration."""
-    
+
     def test_logger_configuration(self):
         """Test that logger can be configured."""
         from src.core.logging import configure_logging, get_logger
-        
+
         # Should not raise
         log = configure_logging(level="DEBUG", json_output=False)
         assert log is not None
-        
+
         named_log = get_logger("test_module")
         assert named_log is not None

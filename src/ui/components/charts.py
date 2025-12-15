@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
-import streamlit as st
+from typing import Any
+
+import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import pandas as pd
+import streamlit as st
 
 
 def render_simulation_chart(df: pd.DataFrame, key: str = "sim") -> None:
     """Render simulation timeline chart.
-    
+
     Args:
         df: Simulation DataFrame with yearly data
         key: Unique key for the chart element
@@ -19,7 +20,7 @@ def render_simulation_chart(df: pd.DataFrame, key: str = "sim") -> None:
     if df is None or df.empty:
         st.warning("Pas de données de simulation disponibles.")
         return
-    
+
     # Patrimoine net over time
     fig = px.area(
         df,
@@ -37,14 +38,14 @@ def render_simulation_chart(df: pd.DataFrame, key: str = "sim") -> None:
 
 def render_cashflow_chart(df: pd.DataFrame, key: str = "cf") -> None:
     """Render cash flow timeline chart.
-    
+
     Args:
         df: Simulation DataFrame
         key: Unique key for the chart element
     """
     if df is None or df.empty:
         return
-    
+
     fig = px.bar(
         df,
         x="Année",
@@ -58,11 +59,11 @@ def render_cashflow_chart(df: pd.DataFrame, key: str = "cf") -> None:
 
 
 def render_comparison_charts(
-    strategies: List[Dict[str, Any]],
+    strategies: list[dict[str, Any]],
     horizon: int = 25,
 ) -> None:
     """Render comparison charts for multiple strategies.
-    
+
     Args:
         strategies: List of strategy dicts
         horizon: Simulation horizon
@@ -70,7 +71,7 @@ def render_comparison_charts(
     if not strategies:
         st.warning("Aucune stratégie à comparer.")
         return
-    
+
     # Build comparison DataFrame
     data = []
     for i, s in enumerate(strategies, 1):
@@ -82,12 +83,12 @@ def render_comparison_charts(
             "Apport (€)": s.get("apport_total", 0),
             "Score": s.get("balanced_score", 0) * 100,
         })
-    
+
     comp_df = pd.DataFrame(data)
-    
+
     # Layout
     col1, col2 = st.columns(2)
-    
+
     with col1:
         # Score comparison
         fig1 = px.bar(
@@ -100,7 +101,7 @@ def render_comparison_charts(
         )
         fig1.update_layout(showlegend=False)
         st.plotly_chart(fig1, use_container_width=True)
-        
+
         # Cash flow comparison
         fig2 = px.bar(
             comp_df,
@@ -112,7 +113,7 @@ def render_comparison_charts(
         )
         fig2.update_layout(showlegend=False)
         st.plotly_chart(fig2, use_container_width=True)
-    
+
     with col2:
         # TRI comparison
         fig3 = px.bar(
@@ -124,7 +125,7 @@ def render_comparison_charts(
         )
         fig3.update_layout(showlegend=False)
         st.plotly_chart(fig3, use_container_width=True)
-        
+
         # Apport vs Patrimoine
         fig4 = px.bar(
             comp_df,
@@ -136,9 +137,9 @@ def render_comparison_charts(
         st.plotly_chart(fig4, use_container_width=True)
 
 
-def render_strategy_radar(strategy: Dict[str, Any], key: str = "radar") -> None:
+def render_strategy_radar(strategy: dict[str, Any], key: str = "radar") -> None:
     """Render radar chart for strategy scores.
-    
+
     Args:
         strategy: Strategy dictionary
         key: Unique key for the chart element
@@ -150,7 +151,7 @@ def render_strategy_radar(strategy: Dict[str, Any], key: str = "radar") -> None:
         "Qualité",
         "Efficacité",
     ]
-    
+
     values = [
         strategy.get("tri_norm", 0) * 100,
         strategy.get("cf_proximity", 0) * 100,
@@ -158,7 +159,7 @@ def render_strategy_radar(strategy: Dict[str, Any], key: str = "radar") -> None:
         strategy.get("qual_score", 50),
         strategy.get("cap_eff_norm", 0) * 100,
     ]
-    
+
     fig = go.Figure()
     fig.add_trace(go.Scatterpolar(
         r=values,
@@ -167,16 +168,16 @@ def render_strategy_radar(strategy: Dict[str, Any], key: str = "radar") -> None:
         name="Performance",
         line_color="#4CAF50",
     ))
-    
+
     fig.update_layout(
-        polar=dict(
-            radialaxis=dict(
-                visible=True,
-                range=[0, 100],
-            ),
-        ),
+        polar={
+            "radialaxis": {
+                "visible": True,
+                "range": [0, 100],
+            },
+        },
         showlegend=False,
         title="Profil de la Stratégie",
     )
-    
+
     st.plotly_chart(fig, use_container_width=True, key=f"radar_{key}")

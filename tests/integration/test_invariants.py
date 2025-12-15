@@ -6,22 +6,22 @@ Caught bugs:
 - "Ranking not working" -> Caught by `test_ranking_integrity`
 """
 
-import pytest
-import numpy as np
 import random
-from typing import List, Dict, Any
+from typing import Any
+
+import pytest
 
 from src.services.brick_factory import (
-    create_investment_bricks,
     FinancingConfig,
     OperatingConfig,
+    create_investment_bricks,
 )
-from src.services.strategy_finder import StrategyFinder, EvaluationParams
+from src.services.strategy_finder import StrategyFinder
 
 # --- Fixtures ---
 
 @pytest.fixture
-def random_archetypes() -> List[Dict[str, Any]]:
+def random_archetypes() -> list[dict[str, Any]]:
     """Generate 50 random property archetypes."""
     res = []
     for i in range(50):
@@ -62,36 +62,36 @@ class TestScientificInvariants:
     def test_monotonicity_rent_increases_cashflow(self, random_archetypes, default_configs):
         """Invariant: Increasing rent MUST increase cash flow (all else equal)."""
         fin, op = default_configs
-        
+
         # Take a base property
         base_apt = random_archetypes[0].copy()
         base_apt["loyer_m2"] = 15.0
-        
+
         # Create a "better" version
         better_apt = base_apt.copy()
         better_apt["loyer_m2"] = 25.0
-        
+
         bricks_base = create_investment_bricks([base_apt], fin, op)
         bricks_better = create_investment_bricks([better_apt], fin, op)
-        
+
         # CF for same loan duration (e.g., 25 years)
         cf_base = next(b["loyer_mensuel_initial"] for b in bricks_base if b["duree_pret"] == 25)
         cf_better = next(b["loyer_mensuel_initial"] for b in bricks_better if b["duree_pret"] == 25)
-        
+
         assert cf_better > cf_base, "Higher rent did not increase revenue"
 
     def test_monotonicity_rate_increases_cost(self, random_archetypes, default_configs):
         """Invariant: Higher interest rate MUST increase monthly payment."""
         _, op = default_configs
-        
+
         apt = random_archetypes[0]
-        
+
         fin_low = FinancingConfig(credit_rates={25: 3.0})
         fin_high = FinancingConfig(credit_rates={25: 6.0})
-        
+
         bricks_low = create_investment_bricks([apt], fin_low, op)
         bricks_high = create_investment_bricks([apt], fin_high, op)
-        
+
         assert bricks_high[0]["pmt_total"] > bricks_low[0]["pmt_total"], "Higher rate did not increase payment"
 
 
@@ -102,12 +102,12 @@ class TestDataDiversity:
         """Invariant: With diverse inputs, qualitative scores MUST vary."""
         fin, op = default_configs
         bricks = create_investment_bricks(random_archetypes, fin, op)
-        
+
         scores = [b["qual_score_bien"] for b in bricks]
-        
+
         # Calculate entropy or just variance
         unique_vals = set(scores)
-        
+
         # We expect nearly 50 unique scores given random inputs
         assert len(unique_vals) > 10, f"Low diversity in qual scores: only {len(unique_vals)} unique values"
         assert min(scores) < max(scores), "All scores are identical!"
@@ -116,7 +116,7 @@ class TestDataDiversity:
         """Invariant: Strategies must have diverse financial scores."""
         fin, op = default_configs
         bricks = create_investment_bricks(random_archetypes, fin, op)
-        
+
         # Convert bricks to strategies
         strategies = []
         for b in bricks:
@@ -125,9 +125,9 @@ class TestDataDiversity:
                 "finance_score": random.random(), # Mock for now, normally computed
                 "qual_score": b["qual_score_bien"]
             })
-            
+
         # Real finder would compute these
-        finder = StrategyFinder(bricks, 100000, 0)
+        StrategyFinder(bricks, 100000, 0)
         # We manually trigger scoring logic if needed or test integration
         # Here we just verify the brick factory outputs allow for diversity
         pass
@@ -140,7 +140,7 @@ class TestRankingIntegrity:
         """Invariant: 'Cash-flow d'abord' must sort by CF proximity."""
         fin, op = default_configs
         bricks = create_investment_bricks(random_archetypes, fin, op)
-        
+
         # Mock strategies from bricks
         strategies = []
         for b in bricks:
@@ -152,28 +152,28 @@ class TestRankingIntegrity:
                 "finance_score": random.random(),
                 "cf_distance": random.uniform(0, 500)
             })
-            
+
         finder = StrategyFinder([], 0, 0)
-        
+
         # Sort by Cash Flow
         sorted_strats = finder.rank_strategies(strategies, "Cash-flow d'abord")
-        
+
         # Check first 5 are sorted loosely by cf_proximity (primary key)
         # Note: rank_strategies uses multiple keys, so strictly checking primary
         vals = [s["cf_proximity"] for s in sorted_strats]
-        
+
         # It's sorted descending
         assert vals[0] >= vals[-1], "Ranking failed to order by CF proximity"
 
 
 class TestBoundarySafety:
     """Verify system doesn't crash on edge cases."""
-    
+
     def test_zero_apport(self, random_archetypes, default_configs):
         """System handles 0 apport."""
         fin, op = default_configs
         fin.apport_min_pct = 0.0
-        
+
         # Should not raise
         bricks = create_investment_bricks(random_archetypes, fin, op)
         assert len(bricks) > 0
@@ -182,10 +182,10 @@ class TestBoundarySafety:
         """System handles potential negative inputs gracefully."""
         bad_apt = random_archetypes[0].copy()
         bad_apt["loyer_m2"] = -10.0 # Weird case
-        
+
         fin = FinancingConfig(credit_rates={25: 3.0})
         op = OperatingConfig()
-        
+
         # Should allow it (garbage in, garbage out) but not crash
         bricks = create_investment_bricks([bad_apt], fin, op)
         assert bricks[0]["loyer_mensuel_initial"] < 0

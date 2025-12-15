@@ -8,45 +8,45 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import pandas as pd
 import streamlit as st
 
-from src.core.logging import get_logger
 from src.core.financial import generate_amortization_schedule
-from src.core.simulation import SimulationEngine, MarketHypotheses, TaxParams, IRACalculator
-from src.ui.state import SessionManager
-from src.services.brick_factory import create_investment_bricks, FinancingConfig, OperatingConfig
-from src.services.strategy_finder import StrategyFinder
+from src.core.logging import get_logger
+from src.core.simulation import IRACalculator, MarketHypotheses, SimulationEngine, TaxParams
 from src.models.archetype import ArchetypeV2
+from src.services.brick_factory import FinancingConfig, OperatingConfig, create_investment_bricks
+from src.services.strategy_finder import StrategyFinder
+from src.ui.state import SessionManager
 
 log = get_logger(__name__)
 
 
-def load_archetypes_from_disk(data_path: str) -> List[Dict[str, Any]]:
+def load_archetypes_from_disk(data_path: str) -> list[dict[str, Any]]:
     """Load archetype data from JSON file.
-    
+
     Args:
         data_path: Path to archetypes JSON file
-        
+
     Returns:
         List of archetype dictionaries
-        
+
     Raises:
         FileNotFoundError: If data file doesn't exist
         json.JSONDecodeError: If JSON is invalid
     """
-    with open(data_path, "r", encoding="utf-8") as f:
+    with open(data_path, encoding="utf-8") as f:
         raw_data = json.load(f)
         archetypes = [ArchetypeV2(**item).model_dump() for item in raw_data]
     log.info("archetypes_loaded_from_disk", count=len(archetypes))
     return archetypes
 
 
-def load_archetypes() -> List[Dict[str, Any]]:
+def load_archetypes() -> list[dict[str, Any]]:
     """Load archetypes from session or disk.
-    
+
     Returns:
         List of archetype dictionaries
     """
@@ -66,19 +66,19 @@ def load_archetypes() -> List[Dict[str, Any]]:
         return []
 
 
-def apply_rent_caps(archetypes: List[Dict[str, Any]], apply_cap: bool = True) -> List[Dict[str, Any]]:
+def apply_rent_caps(archetypes: list[dict[str, Any]], apply_cap: bool = True) -> list[dict[str, Any]]:
     """Apply regulatory rent caps to archetypes.
-    
+
     Args:
         archetypes: List of archetype data
         apply_cap: Whether to enforce rent caps
-        
+
     Returns:
         Processed archetypes with rent caps applied
     """
     if not apply_cap:
         return archetypes
-        
+
     processed = []
     for item in archetypes:
         a = item.copy()
@@ -93,12 +93,12 @@ def apply_rent_caps(archetypes: List[Dict[str, Any]], apply_cap: bool = True) ->
     return processed
 
 
-def build_financing_config(credit_params: Dict[str, Any]) -> FinancingConfig:
+def build_financing_config(credit_params: dict[str, Any]) -> FinancingConfig:
     """Build FinancingConfig from credit parameters.
-    
+
     Args:
         credit_params: Dict from sidebar credit tab
-        
+
     Returns:
         FinancingConfig instance
     """
@@ -118,12 +118,12 @@ def build_financing_config(credit_params: Dict[str, Any]) -> FinancingConfig:
 
 def build_operating_config(gestion: float, vacance: float, cfe: float) -> OperatingConfig:
     """Build OperatingConfig from sidebar values.
-    
+
     Args:
         gestion: Management fee percentage
         vacance: Vacancy/unpaid provision percentage
         cfe: Annual CFE per property
-        
+
     Returns:
         OperatingConfig instance
     """
@@ -135,7 +135,7 @@ def build_operating_config(gestion: float, vacance: float, cfe: float) -> Operat
 
 
 def run_strategy_search(
-    archetypes: List[Dict[str, Any]],
+    archetypes: list[dict[str, Any]],
     fin_config: FinancingConfig,
     op_config: OperatingConfig,
     apport: float,
@@ -143,13 +143,13 @@ def run_strategy_search(
     tolerance: float,
     qual_weight: float,
     mode_cf: str,
-    eval_params: Dict[str, Any],
+    eval_params: dict[str, Any],
     horizon_years: int,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Execute the strategy search pipeline.
-    
+
     This is the core business logic extracted from main().
-    
+
     Args:
         archetypes: Filtered and compliant archetypes
         fin_config: Financing configuration
@@ -161,15 +161,15 @@ def run_strategy_search(
         mode_cf: Cash flow mode
         eval_params: Evaluation parameters for simulation
         horizon_years: Simulation horizon
-        
+
     Returns:
         List of ranked strategies
     """
     log.info("analysis_started", archetypes_count=len(archetypes), horizon=horizon_years)
-    
+
     # 1. Create investment bricks
     bricks = create_investment_bricks(archetypes, fin_config, op_config)
-    
+
     # 2. Find strategies
     finder = StrategyFinder(
         bricks=bricks,
@@ -179,30 +179,30 @@ def run_strategy_search(
         qualite_weight=qual_weight,
         mode_cf=mode_cf,
     )
-    
+
     strategies = finder.find_strategies(
         eval_params=eval_params,
         horizon_years=horizon_years,
     )
-    
+
     log.info("analysis_completed", strategies_found=len(strategies))
     return strategies
 
 
 def simulate_selected_strategy(
-    strategy: Dict[str, Any],
+    strategy: dict[str, Any],
     horizon: int,
-    credit_params: Dict[str, Any],
+    credit_params: dict[str, Any],
     tmi: float,
     regime: str,
     cfe: float,
     frais_vente: float,
-    market_hypo: Dict[str, float],
-) -> Optional[pd.DataFrame]:
+    market_hypo: dict[str, float],
+) -> pd.DataFrame | None:
     """Run detailed simulation for a selected strategy.
-    
+
     Creates yearly projection data for charts.
-    
+
     Args:
         strategy: Strategy to simulate
         horizon: Simulation years
@@ -212,7 +212,7 @@ def simulate_selected_strategy(
         cfe: CFE per property
         frais_vente: Sale costs percentage
         market_hypo: Market hypotheses
-        
+
     Returns:
         DataFrame with yearly projections or None on error
     """
@@ -234,7 +234,7 @@ def simulate_selected_strategy(
             cfe_par_bien_ann=cfe,
             frais_vente_pct=frais_vente,
         )
-        
+
         schedules = [
             generate_amortization_schedule(
                 float(p["credit_final"]),
@@ -244,21 +244,21 @@ def simulate_selected_strategy(
             )
             for p in strategy["details"]
         ]
-        
+
         df_sim, _ = eng.simulate(strategy, horizon, schedules)
         return df_sim
-        
+
     except Exception as e:
         log.warning("simulation_failed", error=str(e))
         return None
 
 
 def autosave_results(
-    strategies: List[Dict[str, Any]],
-    metadata: Dict[str, Any],
+    strategies: list[dict[str, Any]],
+    metadata: dict[str, Any],
 ) -> None:
     """Auto-save results to disk.
-    
+
     Args:
         strategies: Strategies to save
         metadata: Additional metadata

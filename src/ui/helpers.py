@@ -5,17 +5,16 @@ Common formatting and display utilities.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Union
 import streamlit as st
 
 
 def format_euro(value: float, decimals: int = 0) -> str:
     """Format a number as Euro currency.
-    
+
     Args:
         value: Amount to format
         decimals: Number of decimal places
-        
+
     Returns:
         Formatted string like "1 234 567 €"
     """
@@ -28,11 +27,11 @@ def format_euro(value: float, decimals: int = 0) -> str:
 
 def format_pct(value: float, decimals: int = 1) -> str:
     """Format a number as percentage.
-    
+
     Args:
         value: Value to format (as percentage, not decimal)
         decimals: Number of decimal places
-        
+
     Returns:
         Formatted string like "3.5 %"
     """
@@ -47,26 +46,25 @@ def colorize_kpi(
     size: str = "normal",
 ) -> str:
     """Return colored HTML for a KPI value.
-    
+
     Args:
         value: The KPI value
         kpi_type: Type of KPI (cf, dscr, tri, coc)
         size: Font size (normal, h2, h3)
-        
+
     Returns:
         HTML string with appropriate coloring
     """
     if value is None:
         return "<span>—</span>"
-    
+
     # Determine color based on KPI type and value
     color = "#333333"  # default
-    
+
     if kpi_type == "cf":
         # Cash flow: green if positive, red if negative
         color = "#28a745" if value >= 0 else "#dc3545"
         formatted = format_euro(value)
-        label = "CF Mensuel"
     elif kpi_type == "dscr":
         # DSCR: green if > 1.3, yellow if > 1.0, red if < 1.0
         if value >= 1.3:
@@ -76,7 +74,6 @@ def colorize_kpi(
         else:
             color = "#dc3545"
         formatted = f"{value:.2f}"
-        label = "DSCR"
     elif kpi_type == "tri":
         # IRR: gradient based on value
         if value >= 8:
@@ -86,7 +83,6 @@ def colorize_kpi(
         else:
             color = "#6c757d"
         formatted = format_pct(value)
-        label = "TRI"
     elif kpi_type == "coc":
         # Cash-on-cash: similar to TRI
         if value >= 10:
@@ -96,11 +92,9 @@ def colorize_kpi(
         else:
             color = "#6c757d"
         formatted = format_pct(value)
-        label = "Cash-on-Cash"
     else:
         formatted = str(value)
-        label = ""
-    
+
     # Size styling
     if size == "h2":
         return f'<h2 style="color:{color};margin:0">{formatted}</h2>'
@@ -112,30 +106,30 @@ def colorize_kpi(
 
 def display_score_stars(score: float, help_text: str = "") -> None:
     """Display a score as stars (0-5).
-    
+
     Accepts scores from 0-5 or 0-100 and auto-converts.
-    
+
     Args:
         score: Score value
         help_text: Optional tooltip text
     """
     if score is None:
         score = 0
-    
+
     # Auto-convert 0-100 to 0-5
     if score > 5:
         score = score / 20.0
-    
+
     # Clamp to 0-5
     score = max(0, min(5, score))
-    
+
     # Build star string
     full_stars = int(score)
     half_star = 1 if (score - full_stars) >= 0.5 else 0
     empty_stars = 5 - full_stars - half_star
-    
+
     stars = "★" * full_stars + "☆" * (half_star + empty_stars)
-    
+
     if help_text:
         st.caption(f"{stars} ({score:.1f}/5)", help=help_text)
     else:
@@ -144,10 +138,10 @@ def display_score_stars(score: float, help_text: str = "") -> None:
 
 def get_taxonomy_badge(taxonomy: str) -> tuple[str, str, str]:
     """Get badge info for a strategy taxonomy.
-    
+
     Args:
         taxonomy: Strategy type (Optimisé, Patrimonial, Mix)
-        
+
     Returns:
         Tuple of (icon, label, tooltip)
     """

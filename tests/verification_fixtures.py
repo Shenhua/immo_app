@@ -16,22 +16,22 @@ import os
 from datetime import datetime
 
 from src.core.financial import (
-    calculate_monthly_payment,
     calculate_insurance,
+    calculate_monthly_payment,
     generate_amortization_schedule,
 )
 from src.core.simulation import (
-    SimulationEngine,
-    MarketHypotheses,
-    TaxParams,
     IRACalculator,
+    MarketHypotheses,
+    SimulationEngine,
+    TaxParams,
 )
 
 
 def generate_loan_fixtures():
     """Generate loan calculation fixtures for Excel comparison."""
     fixtures = []
-    
+
     test_cases = [
         # (principal, rate%, months, description)
         (100_000, 3.6, 300, "100k @ 3.6% 25yr"),
@@ -40,11 +40,11 @@ def generate_loan_fixtures():
         (144_000, 3.6, 300, "144k @ 3.6% 25yr"),
         (200_000, 3.0, 180, "200k @ 3.0% 15yr"),
     ]
-    
+
     for principal, rate, months, desc in test_cases:
         pmt = calculate_monthly_payment(principal, rate, months)
         ins = calculate_insurance(principal, 0.35)
-        
+
         fixtures.append({
             "Description": desc,
             "Principal (€)": principal,
@@ -56,7 +56,7 @@ def generate_loan_fixtures():
             "Excel Formula PMT": f'=PMT({rate}%/12, {months}, -{principal})',
             "Excel Formula Ins": f'={principal}*0.35%/12',
         })
-    
+
     return fixtures
 
 
@@ -84,7 +84,7 @@ def generate_simulation_fixture():
             }
         ],
     }
-    
+
     engine = SimulationEngine(
         market=MarketHypotheses(
             appreciation_bien_pct=2.0,
@@ -94,13 +94,13 @@ def generate_simulation_fixture():
         tax=TaxParams(tmi_pct=30.0, regime_fiscal="lmnp"),
         ira=IRACalculator(apply_ira=False),
     )
-    
+
     schedules = [
         generate_amortization_schedule(100_000, 3.6, 300, 0.35)
     ]
-    
+
     df, bilan = engine.simulate(strategy, 25, schedules)
-    
+
     return df.to_dict('records'), bilan
 
 
@@ -108,40 +108,40 @@ def save_fixtures():
     """Save all fixtures to CSV files."""
     os.makedirs("results", exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    
+
     # Loan fixtures
     loan_fixtures = generate_loan_fixtures()
     loan_file = f"results/loan_validation_{timestamp}.csv"
-    
+
     with open(loan_file, 'w', newline='', encoding='utf-8') as f:
         writer = csv.DictWriter(f, fieldnames=loan_fixtures[0].keys())
         writer.writeheader()
         writer.writerows(loan_fixtures)
-    
+
     print(f"✓ Loan fixtures saved to: {loan_file}")
-    
+
     # Simulation fixtures
     sim_records, bilan = generate_simulation_fixture()
     sim_file = f"results/simulation_validation_{timestamp}.csv"
-    
+
     with open(sim_file, 'w', newline='', encoding='utf-8') as f:
         writer = csv.DictWriter(f, fieldnames=sim_records[0].keys())
         writer.writeheader()
         writer.writerows(sim_records)
-    
+
     print(f"✓ Simulation fixtures saved to: {sim_file}")
-    
+
     # Bilan summary
     bilan_file = f"results/bilan_validation_{timestamp}.csv"
-    
+
     with open(bilan_file, 'w', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
         writer.writerow(["Metric", "Value"])
         for key, value in bilan.items():
             writer.writerow([key, value])
-    
+
     print(f"✓ Final bilan saved to: {bilan_file}")
-    
+
     # Print summary
     print("\n" + "="*50)
     print("VALIDATION FIXTURE SUMMARY")
@@ -149,18 +149,18 @@ def save_fixtures():
     print(f"\nLoan Calculations ({len(loan_fixtures)} cases):")
     for fix in loan_fixtures:
         print(f"  {fix['Description']}: PMT = {fix['PMT (€/month)']}€")
-    
-    print(f"\nSimulation (25 years):")
+
+    print("\nSimulation (25 years):")
     last_year = sim_records[-1]
     print(f"  Year 25 Property Value: {last_year['Valeur Biens']:,.0f}€")
     print(f"  Year 25 Net Patrimony: {last_year['Patrimoine Net']:,.0f}€")
     cf_key = "Cash-Flow Net d'Impôt"
     print(f"  Year 25 Cash Flow: {last_year[cf_key]:,.0f}€")
-    
-    print(f"\nFinal Bilan:")
+
+    print("\nFinal Bilan:")
     print(f"  TRI (IRR): {bilan.get('tri_annuel', 0):.2f}%")
     print(f"  Liquidation Nette: {bilan.get('liquidation_nette', 0):,.0f}€")
-    
+
     return loan_file, sim_file, bilan_file
 
 

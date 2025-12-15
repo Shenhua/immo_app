@@ -1,40 +1,38 @@
 """Sensitivity analysis component."""
 
 import copy
-from typing import Any, Dict, List
+from typing import Any
 
 import streamlit as st
-import pandas as pd
-import plotly.graph_objects as go
 
 from src.core.simulation import simulate_long_term_strategy
-from src.ui.state import SessionManager
 from src.ui.components.results import format_euro, format_pct
+from src.ui.state import SessionManager
 
 
 def run_sensitivity_simulation(
-    strategy: Dict[str, Any],
+    strategy: dict[str, Any],
     delta_loyer_pct: float,
     delta_vacance_pct: float,
     delta_travaux_pct: float,
     horizon: int,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Run simulation with modified parameters."""
     # Deep copy to avoid mutating original
     modified = copy.deepcopy(strategy)
-    
+
     # Apply modifiers
     for brick in modified.get("details", []):
         # Loyer
         if delta_loyer_pct != 0:
             brick["loyer_mensuel_initial"] *= (1.0 + delta_loyer_pct / 100.0)
-        
+
         # Vacance (Provision)
         if delta_vacance_pct != 0:
             # Add to provision_pct (additive)
             current = brick.get("provision_pct", 5.0)
             brick["provision_pct"] = max(0.0, current + delta_vacance_pct)
-            
+
         # Travaux
         if delta_travaux_pct != 0:
             budget = brick.get("budget_travaux", 0.0)
@@ -53,7 +51,7 @@ def run_sensitivity_simulation(
     # Get current session params for context (Market, Tax)
     base_params = SessionManager.get_base_params()
     eval_params = base_params.to_eval_params()
-    
+
     # Run simulation
     df, bilan = simulate_long_term_strategy(
         modified,
@@ -66,19 +64,19 @@ def run_sensitivity_simulation(
             "ira_cap_pct": eval_params.get("ira_cap_pct"),
         }
     )
-    
+
     # Construct result dict similar to strategy dict
     if not df.empty:
         final_row = df.iloc[-1] if not df.empty else {}
         first_row = df.iloc[0] if not df.empty else {}
-        
+
         # Calculate DSCR Y1
         ds = first_row["Capital Remboursé"] + first_row["Intérêts & Assurance"]
         noi = first_row["Loyers Bruts"] + (first_row["Charges Déductibles"] + first_row["Intérêts & Assurance"])
         dscr = (noi / ds) if ds > 1 else 0.0
-        
+
         return {
-            "cash_flow_final": final_row.get("Cash-Flow Net d'Impôt", 0), # Wait, CF Final is ambiguous. Use Avg or Year 1? 
+            "cash_flow_final": final_row.get("Cash-Flow Net d'Impôt", 0), # Wait, CF Final is ambiguous. Use Avg or Year 1?
             # StrategyFinder uses mean? Or Year 1?
             # Let's use first year CF for "Monthly CF" usually displayed
             "cash_flow_mensuel": first_row.get("Cash-Flow Net d'Impôt", 0) / 12.0,
@@ -89,9 +87,9 @@ def run_sensitivity_simulation(
     return {}
 
 
-def render_sensitivity_analysis(strategy: Dict[str, Any], horizon: int = 25, key: str = "0") -> None:
+def render_sensitivity_analysis(strategy: dict[str, Any], horizon: int = 25, key: str = "0") -> None:
     """Render interactive sensitivity analysis.
-    
+
     Args:
         strategy: Strategy dictionary
         horizon: Simulation horizon
@@ -99,23 +97,23 @@ def render_sensitivity_analysis(strategy: Dict[str, Any], horizon: int = 25, key
     """
     st.markdown("### ⚡ Stress Test & Sensibilité")
     st.caption("Simulez des variations de marché pour tester la robustesse de cette stratégie.")
-    
+
     col_input, col_res = st.columns([0.4, 0.6])
-    
+
     with col_input:
         st.markdown("**Paramètres**")
         d_loyer = st.slider("Loyer", -30, 30, 0, 5, format="%+d%%", key=f"sens_rent_{key}")
         d_vacance = st.slider("Vacance (pts)", -5, 15, 0, 1, format="%+d pt", key=f"sens_vac_{key}")
         d_travaux = st.slider("Budget Travaux", -20, 50, 0, 10, format="%+d%%", key=f"sens_works_{key}")
-    
+
     # Recalculate on fly
     if d_loyer != 0 or d_vacance != 0 or d_travaux != 0:
         res = run_sensitivity_simulation(strategy, d_loyer, d_vacance, d_travaux, horizon)
-        
+
         # Display comparison
         with col_res:
             st.markdown("**Impact Projeté**")
-            
+
             # Helper to show delta
             def show_impact(label, original, new, fmt_func):
                 delta = new - original
@@ -123,7 +121,7 @@ def render_sensitivity_analysis(strategy: Dict[str, Any], horizon: int = 25, key
                 # Invert color for cost/risk metrics? None here.
                 # Actually DSCR lower is bad (red). Cashflow lower is bad (red).
                 # So green if positive is correct.
-                
+
                 cols = st.columns([0.4, 0.3, 0.3])
                 cols[0].write(label)
                 cols[1].write(fmt_func(original))
@@ -132,12 +130,12 @@ def render_sensitivity_analysis(strategy: Dict[str, Any], horizon: int = 25, key
                     cols[2].markdown(f"**{code}**")
                 else:
                     cols[2].write("—")
-            
+
             show_impact("CF Mensuel", strategy.get("cash_flow_final", 0), res.get("cash_flow_mensuel", 0), format_euro)
             show_impact("TRI", strategy.get("tri_annuel", 0), res.get("tri_annuel", 0), format_pct)
             show_impact("Enrichissement", strategy.get("liquidation_nette", 0), res.get("liquidation_nette", 0), format_euro)
             show_impact("DSCR Y1", strategy.get("dscr_y1", 0), res.get("dscr_y1", 0), lambda x: f"{x:.2f}")
-            
+
     else:
         with col_res:
             st.info("👈 Modifiez les curseurs pour voir l'impact.")
