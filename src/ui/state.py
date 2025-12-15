@@ -152,6 +152,7 @@ class SessionManager:
         "inflation": 2.0,
         "apply_ira": True,
         "ira_cap_pct": 3.0,
+        "show_details": False, # New state for Details Panel visibility
     }
     
     @classmethod

@@ -37,7 +37,9 @@ def render_strategy_card(
     index: int,
     horizon: int = 25,
     is_selected: bool = False,
-) -> None:
+    show_details: bool = False,
+    expanded_content: Optional[Callable[[], None]] = None,
+) -> bool:
     """Render a single strategy card.
     
     Args:
@@ -45,66 +47,73 @@ def render_strategy_card(
         index: Strategy index (1-based for display)
         horizon: Simulation horizon in years
         is_selected: Whether this card is currently selected
+        show_details: Whether details are currently shown
+        expanded_content: Optional function to render content inside the card when expanded
     """
     taxonomy = strategy.get("taxonomy", "Mix")
     icon, label, color = get_taxonomy_badge(taxonomy)
     
-    # Card styling
-    border = "3px solid #4CAF50" if is_selected else "1px solid #ddd"
+    # Card styling - Minimalist container
+    border_color = "#FFD700" if is_selected else None # Gold border if selected
+    # Note: st.container(border=True) doesn't support custom color yet, 
+    # so we use a visual indicator inside or markdown
     
-    with st.container():
-        st.markdown(
-            f"""
-            <div style="
-                border: {border};
-                border-radius: 10px;
-                padding: 15px;
-                margin-bottom: 10px;
-                background: linear-gradient(135deg, #f8f9fa, #ffffff);
-            ">
-            """,
-            unsafe_allow_html=True,
-        )
+    with st.container(border=True):        
+        # Header with Feature Title and Badge
+        col_header, col_badge = st.columns([0.7, 0.3])
+        with col_header:
+            if is_selected:
+                 st.markdown(f"#### {icon} {taxonomy} <span style='color:#FFD700;font-size:0.8em'>● Sélectionné</span>", unsafe_allow_html=True)
+            else:
+                 st.markdown(f"#### {icon} {taxonomy}")
+            st.caption(f"Stratégie #{index}")
+            
+        with col_badge:
+            # Score as a progress-like metric
+            score = strategy.get("balanced_score", 0) * 100
+            st.metric("Score Global", f"{score:.0f}/100")
+
+        st.markdown("---")
         
-        # Header with badge and button
-        col1, col2, col3 = st.columns([0.6, 0.2, 0.2])
-        with col1:
-            st.markdown(f"### {icon} Stratégie #{index}")
-        with col2:
-            st.markdown(
-                f'<div style="text-align:right"><span style="background:{color};color:white;padding:4px 8px;'
-                f'border-radius:4px;font-size:0.9em">{label}</span></div>',
-                unsafe_allow_html=True,
-            )
-        with col3:
-            # Button with key based on index
-            clicked = st.button("📊 Détails", key=f"btn_details_{index}", use_container_width=True)
-        
-        # Key metrics
-        cols = st.columns(4)
+        # Key metrics row
+        cols = st.columns(3)
         with cols[0]:
             cf = strategy.get("cash_flow_final", 0)
-            cf_color = "#28a745" if cf >= 0 else "#dc3545"
-            st.metric("CF Mensuel", format_euro(cf), delta_color="off")
+            color_cf = "green" if cf >= 0 else "red"
+            st.markdown(f"<div style='font-size: 0.9em; color: gray;'>Cash-flow</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size: 1.4em; font_weight: bold; color: {color_cf};'>{format_euro(cf)}</div>", unsafe_allow_html=True)
+            st.caption("/mois")
         
         with cols[1]:
             tri = strategy.get("tri_annuel", 0)
-            st.metric(f"TRI ({horizon}a)", format_pct(tri))
+            st.markdown(f"<div style='font-size: 0.9em; color: gray;'>Rentabilité (TRI)</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size: 1.4em;'>{format_pct(tri)}</div>", unsafe_allow_html=True)
+            st.caption(f"sur {horizon} ans")
         
         with cols[2]:
-            patrimoine = strategy.get("patrimoine_acquis", 0)
-            st.metric("Patrimoine", format_euro(patrimoine))
+            enrich = strategy.get("liquidation_nette", 0)
+            st.markdown(f"<div style='font-size: 0.9em; color: gray;'>Enrichissement</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size: 1.2em;'>{format_euro(enrich)}</div>", unsafe_allow_html=True)
+            st.caption("Net de tout")
+
+        # Footer Actions
+        st.markdown("") # Spacer
         
-        with cols[3]:
-            score = strategy.get("balanced_score", 0) * 100
-            st.metric("Score", f"{score:.0f}/100")
-        
-        # Property count
-        details = strategy.get("details", [])
-        st.caption(f"{len(details)} bien(s) • Apport: {format_euro(strategy.get('apport_total', 0))}")
-        
-        st.markdown("</div>", unsafe_allow_html=True)
-        
+        # Dynamic label based on state
+        btn_label = "🔽 Voir le détail"
+        if is_selected and show_details:
+             btn_label = "🔼 Masquer"
+             
+        if st.button(btn_label, key=f"btn_details_{index}", use_container_width=True):
+            clicked = True
+        else:
+            clicked = False
+            
+        # Render expanded content if active
+        if show_details and expanded_content:
+            st.markdown("---")
+            expanded_content()
+            
         return clicked
 
 
