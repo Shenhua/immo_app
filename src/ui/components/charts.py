@@ -9,11 +9,12 @@ import plotly.graph_objects as go
 import pandas as pd
 
 
-def render_simulation_chart(df: pd.DataFrame) -> None:
+def render_simulation_chart(df: pd.DataFrame, key: str = "sim") -> None:
     """Render simulation timeline chart.
     
     Args:
         df: Simulation DataFrame with yearly data
+        key: Unique key for the chart element
     """
     if df is None or df.empty:
         st.warning("Pas de données de simulation disponibles.")
@@ -31,14 +32,15 @@ def render_simulation_chart(df: pd.DataFrame) -> None:
         hovermode="x unified",
         showlegend=False,
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key=f"patrimoine_{key}")
 
 
-def render_cashflow_chart(df: pd.DataFrame) -> None:
+def render_cashflow_chart(df: pd.DataFrame, key: str = "cf") -> None:
     """Render cash flow timeline chart.
     
     Args:
         df: Simulation DataFrame
+        key: Unique key for the chart element
     """
     if df is None or df.empty:
         return
@@ -52,7 +54,7 @@ def render_cashflow_chart(df: pd.DataFrame) -> None:
         color_continuous_scale=["#dc3545", "#ffc107", "#28a745"],
     )
     fig.update_layout(showlegend=False)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key=f"cashflow_{key}")
 
 
 def render_comparison_charts(
@@ -134,11 +136,12 @@ def render_comparison_charts(
         st.plotly_chart(fig4, use_container_width=True)
 
 
-def render_strategy_radar(strategy: Dict[str, Any]) -> None:
+def render_strategy_radar(strategy: Dict[str, Any], key: str = "radar") -> None:
     """Render radar chart for strategy scores.
     
     Args:
         strategy: Strategy dictionary
+        key: Unique key for the chart element
     """
     categories = [
         "TRI",
@@ -176,4 +179,4 @@ def render_strategy_radar(strategy: Dict[str, Any]) -> None:
         title="Profil de la Stratégie",
     )
     
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key=f"radar_{key}")

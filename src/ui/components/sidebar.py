@@ -104,11 +104,13 @@ def render_objectives_section() -> Tuple[float, float, float, str, float, int]:
         col3.markdown('<div style="font-size: 1.5em; text-align: center;">🛡️</div>', unsafe_allow_html=True)
         qualite_weight = priorite_pct / 100.0
         
+        # Initialize horizon_ans if not set
+        if "horizon_ans" not in st.session_state:
+            st.session_state.horizon_ans = 25
+        
         horizon = st.slider(
             "Horizon d'investissement (ans)",
             10, 30,
-            int(st.session_state.get("horizon_ans", 25)),
-            1,
             key="horizon_ans",
         )
         st.caption(f"Horizon de simulation : **{horizon} ans**")
@@ -169,3 +171,123 @@ def render_credit_params_tab() -> Dict[str, Any]:
         "apply_ira": apply_ira,
         "ira_cap_pct": ira_cap,
     }
+
+
+def render_market_hypotheses() -> Dict[str, float]:
+    """Render market hypotheses section.
+    
+    Returns:
+        Dictionary with appreciation_bien_pct, revalo_loyer_pct, inflation_charges_pct
+    """
+    with st.expander("📈 Hypothèses de Marché", expanded=False):
+        st.caption("Projections annuelles utilisées pour la simulation long terme.")
+        
+        # Initialize session state defaults
+        if "appreciation_bien_pct" not in st.session_state:
+            st.session_state.appreciation_bien_pct = 2.5
+        if "revalo_loyer_pct" not in st.session_state:
+            st.session_state.revalo_loyer_pct = 1.5
+        if "inflation_charges_pct" not in st.session_state:
+            st.session_state.inflation_charges_pct = 2.0
+        
+        appreciation = st.slider(
+            "Appréciation annuelle biens (%)",
+            -2.0, 8.0,
+            step=0.1,
+            key="appreciation_bien_pct",
+            help="Croissance annuelle estimée de la valeur des biens immobiliers.",
+        )
+        
+        revalo = st.slider(
+            "Revalorisation annuelle loyers (%)",
+            -2.0, 5.0,
+            step=0.1,
+            key="revalo_loyer_pct",
+            help="Augmentation annuelle estimée des loyers (généralement basée sur l'IRL).",
+        )
+        
+        inflation = st.slider(
+            "Inflation annuelle charges (%)",
+            -2.0, 5.0,
+            step=0.1,
+            key="inflation_charges_pct",
+            help="Augmentation annuelle estimée des charges (copropriété, taxe foncière).",
+        )
+        
+    return {
+        "appreciation_bien_pct": appreciation,
+        "revalo_loyer_pct": revalo,
+        "inflation_charges_pct": inflation,
+    }
+
+
+def render_scoring_preset() -> Tuple[str, Dict[str, float]]:
+    """Render scoring preset selector.
+    
+    Returns:
+        Tuple of (preset_name, weights_dict)
+    """
+    with st.expander("🎲 Profil de Tri Financier", expanded=False):
+        st.caption(
+            "Le tri financier combine **Enrichissement**, **IRR**, **Efficacité**, "
+            "**DSCR** et **Proximité du CF** selon le profil choisi."
+        )
+        
+        # Initialize session state with robust checks
+        if "finance_preset" not in st.session_state or st.session_state.finance_preset is None:
+            st.session_state.finance_preset = "Équilibré (défaut)"
+        if "finance_custom" not in st.session_state or st.session_state.finance_custom is None:
+            st.session_state.finance_custom = FINANCIAL_PRESETS["Équilibré (défaut)"].copy()
+        
+        col_p, col_c = st.columns([2, 1])
+        with col_p:
+            preset = st.selectbox(
+                "Profil de tri",
+                list(FINANCIAL_PRESETS.keys()),
+                index=list(FINANCIAL_PRESETS.keys()).index(st.session_state.finance_preset),
+            )
+            if preset != st.session_state.finance_preset:
+                st.session_state.finance_preset = preset
+                st.session_state.finance_custom = FINANCIAL_PRESETS[preset].copy()
+        
+        with col_c:
+            custom_on = st.toggle(
+                "Personnaliser",
+                value=False,
+                help="Ajuster finement les poids (somme renormalisée).",
+            )
+        
+        weights = FINANCIAL_PRESETS[st.session_state.finance_preset].copy()
+        
+        if custom_on:
+            st.write("Réglage fin des poids :")
+            c1, c2, c3 = st.columns(3)
+            c4, c5 = st.columns(2)
+            
+            w1 = c1.slider("Enrich. net", 0, 100, int(st.session_state.finance_custom["enrich_net"] * 100), 1)
+            w2 = c2.slider("IRR", 0, 100, int(st.session_state.finance_custom["irr"] * 100), 1)
+            w3 = c3.slider("Efficacité", 0, 100, int(st.session_state.finance_custom["cap_eff"] * 100), 1)
+            w4 = c4.slider("DSCR", 0, 100, int(st.session_state.finance_custom["dscr"] * 100), 1)
+            w5 = c5.slider("Proximité CF", 0, 100, int(st.session_state.finance_custom["cf_proximity"] * 100), 1)
+            
+            raw_weights = {
+                "enrich_net": float(w1) / 100.0,
+                "irr": float(w2) / 100.0,
+                "cap_eff": float(w3) / 100.0,
+                "dscr": float(w4) / 100.0,
+                "cf_proximity": float(w5) / 100.0,
+            }
+            
+            # Normalize
+            total = sum(raw_weights.values())
+            if total > 0:
+                weights = {k: v / total for k, v in raw_weights.items()}
+            else:
+                weights = raw_weights
+            
+            st.session_state.finance_custom = raw_weights
+        
+        st.session_state.finance_weights_override = weights
+        
+    return st.session_state.finance_preset, weights
+

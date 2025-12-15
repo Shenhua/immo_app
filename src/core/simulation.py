@@ -417,7 +417,7 @@ def simulate_long_term_strategy(
         generate_amortization_schedule(
             float(p["credit_final"]), 
             float(p["taux_pret"]), 
-            int(p["duree_pret"]), 
+            int(p["duree_pret"]) * 12,  # Convert years to months
             float(p["assurance_ann_pct"])
         ) 
         for p in strategy["details"]

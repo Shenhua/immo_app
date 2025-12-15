@@ -52,8 +52,6 @@ def render_property_filters(
     Returns:
         Tuple of (selected_villes, selected_types, apply_rent_cap)
     """
-    st.markdown("### Sélection du périmètre")
-    
     # Get unique values
     villes = get_unique_values(archetypes, "ville")
     types_bien = get_unique_values(archetypes, "mode_loyer")

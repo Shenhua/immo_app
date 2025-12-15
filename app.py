@@ -17,7 +17,12 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from src.core.logging import get_logger
 from src.ui.state import SessionManager, BaseParams
-from src.ui.components.sidebar import render_objectives_section, render_credit_params_tab
+from src.ui.components.sidebar import (
+    render_objectives_section,
+    render_credit_params_tab,
+    render_market_hypotheses,
+    render_scoring_preset,
+)
 from src.ui.components.filters import render_property_filters, filter_archetypes
 from src.ui.pages.main import render_main_page
 from src.services.brick_factory import create_investment_bricks, FinancingConfig, OperatingConfig
@@ -97,13 +102,6 @@ def main():
         # Objectives
         apport, cf_cible, tolerance, mode_cf, qual_weight, horizon = render_objectives_section()
         
-        # Store basic params to session
-        # We update SessionManager/BaseParams implicitly via the render function? 
-        # Actually render_objectives_section returns values, we should store them if needed for persistence across reruns 
-        # or use them directly.
-        # But SessionManager has setters.
-        # SessionManager.set_horizon(horizon) # Removed: Widget with key handles state automatically
-        
         # Credit & Costs
         with st.expander("Financement & Frais", expanded=False):
             # Tabs for Credit vs Costs
@@ -122,14 +120,28 @@ def main():
             regime = st.selectbox("Régime", ["LMNP", "SCI IS"], index=0).lower().replace(" ", "")
             if "lmnp" in regime:
                  regime = "lmnp" # Normalize
+        
+        # Property Filters (moved to sidebar)
+        with st.expander("🏠 Sélection des Biens", expanded=True):
+            # Load data once for filters
+            raw_archetypes = load_data()
+            if raw_archetypes:
+                selected_villes, selected_types, apply_cap = render_property_filters(raw_archetypes)
+            else:
+                selected_villes, selected_types, apply_cap = [], [], True
+        
+        # Market Hypotheses
+        market_hypo = render_market_hypotheses()
+        
+        # Scoring Preset
+        finance_preset_name, finance_weights = render_scoring_preset()
             
-    # 3. Main Content - Filtering
-    raw_archetypes = load_data()
+    # 3. Main Content - Apply filters outside sidebar context
     if not raw_archetypes:
         return
-
-    # Filters
-    selected_villes, selected_types, apply_cap = render_property_filters(raw_archetypes)
+    
+    # Store filter results for use below
+    use_compliance = apply_cap  # Rename for clarity
     
     # Apply filters & compliance
     filtered_archetypes = filter_archetypes(
@@ -137,9 +149,7 @@ def main():
         selected_villes, 
         selected_types
     )
-    compliant_archetypes = apply_compliance(filtered_archetypes, apply_cap)
-    
-    st.write(f"*{len(compliant_archetypes)} biens éligibles sélectionnés*")
+    compliant_archetypes = apply_compliance(filtered_archetypes, use_compliance)
     
     # 4. Action Button
     if st.sidebar.button("🚀 Lancer l'analyse", type="primary"):
@@ -196,13 +206,11 @@ def main():
                 "apply_ira": credit_params["apply_ira"],
                 "ira_cap_pct": credit_params["ira_cap_pct"],
                 "cfe_par_bien_ann": cse_params,
-                # Simple hypotheses for now
-                "hypotheses_marche": {
-                    "appreciation_bien_pct": 2.5,
-                    "revalo_loyer_pct": 1.5,
-                    "inflation_charges_pct": 2.0,
-                },
-                "finance_preset_name": "Équilibré (défaut)", # Could add selector
+                # Market hypotheses from sidebar
+                "hypotheses_marche": market_hypo,
+                # Scoring preset from sidebar
+                "finance_preset_name": finance_preset_name,
+                "finance_weights_override": finance_weights,
             }
             
             strategies = finder.find_strategies(
@@ -258,7 +266,7 @@ def main():
              generate_amortization_schedule(
                 float(p["credit_final"]), 
                 float(p["taux_pret"]), 
-                int(p["duree_pret"]), 
+                int(p["duree_pret"]) * 12,  # Convert years to months
                 float(p["assurance_ann_pct"])
             ) for p in sel_strat["details"]
         ]

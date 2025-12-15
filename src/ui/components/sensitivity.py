@@ -89,8 +89,14 @@ def run_sensitivity_simulation(
     return {}
 
 
-def render_sensitivity_analysis(strategy: Dict[str, Any], horizon: int = 25) -> None:
-    """Render interactive sensitivity analysis."""
+def render_sensitivity_analysis(strategy: Dict[str, Any], horizon: int = 25, key: str = "0") -> None:
+    """Render interactive sensitivity analysis.
+    
+    Args:
+        strategy: Strategy dictionary
+        horizon: Simulation horizon
+        key: Unique key for widget elements
+    """
     st.markdown("### ⚡ Stress Test & Sensibilité")
     st.caption("Simulez des variations de marché pour tester la robustesse de cette stratégie.")
     
@@ -98,9 +104,9 @@ def render_sensitivity_analysis(strategy: Dict[str, Any], horizon: int = 25) -> 
     
     with col_input:
         st.markdown("**Paramètres**")
-        d_loyer = st.slider("Loyer", -30, 30, 0, 5, format="%+d%%", key="sens_rent")
-        d_vacance = st.slider("Vacance (pts)", -5, 15, 0, 1, format="%+d pt", key="sens_vac")
-        d_travaux = st.slider("Budget Travaux", -20, 50, 0, 10, format="%+d%%", key="sens_works")
+        d_loyer = st.slider("Loyer", -30, 30, 0, 5, format="%+d%%", key=f"sens_rent_{key}")
+        d_vacance = st.slider("Vacance (pts)", -5, 15, 0, 1, format="%+d pt", key=f"sens_vac_{key}")
+        d_travaux = st.slider("Budget Travaux", -20, 50, 0, 10, format="%+d%%", key=f"sens_works_{key}")
     
     # Recalculate on fly
     if d_loyer != 0 or d_vacance != 0 or d_travaux != 0:

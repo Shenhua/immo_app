@@ -227,6 +227,10 @@ class StrategyFinder:
         # 1. Setup
         ep = EvaluationParams.from_dict(eval_params or {})
         
+        # Update scorer weights from eval_params
+        if ep.finance_weights_override:
+            self.scorer.weights = self.scorer._normalize_weights(ep.finance_weights_override)
+        
         market = MarketHypotheses(
             appreciation_bien_pct=ep.hypotheses_marche["appreciation_bien_pct"],
             revalo_loyer_pct=ep.hypotheses_marche["revalo_loyer_pct"],

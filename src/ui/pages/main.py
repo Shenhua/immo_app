@@ -22,6 +22,7 @@ from src.ui.components.charts import (
     render_comparison_charts,
     render_strategy_radar,
 )
+from src.ui.components.sensitivity import render_sensitivity_analysis
 
 
 def render_header() -> None:
@@ -54,7 +55,7 @@ def render_strategy_list(
     horizon: int = 25,
     df_sim: Optional[Any] = None,
 ) -> int:
-    """Render list of strategy cards.
+    """Render list of strategy cards using expander pattern.
     
     Args:
         strategies: List of strategies
@@ -67,73 +68,49 @@ def render_strategy_list(
     selected_idx = get_state("selected_strategy_idx", 0)
     
     for i, strategy in enumerate(strategies):
-        # Render Card with embedded button
+        # Build expander title with key metrics
+        cf = strategy.get("cash_flow_final", 0)
+        score = int(strategy.get("balanced_score", 0) * 100)
+        taxonomy = strategy.get("taxonomy", "Mix")
+        icon = {"Optimisé": "🚀", "Patrimonial": "🏛️", "Mix": "⚖️"}.get(taxonomy, "🔀")
+        
+        title = f"{icon} Stratégie #{i+1} — CF: {cf:+.0f} €/mois | Score: {score}/100"
+        
         is_selected = (i == selected_idx)
         
-        # Capture click from inside the card component
-        if render_strategy_card(
-            strategy,
-            index=i + 1,
-            horizon=horizon,
-            is_selected=is_selected,
-        ):
-            set_state("selected_strategy_idx", i)
-            st.rerun()
+        with st.expander(title, expanded=is_selected):
+            # Click handler: update selection when expander is opened
+            if not is_selected:
+                set_state("selected_strategy_idx", i)
+                # Don't rerun here to avoid infinite loop; user sees content on click
             
-        # Render Details Panel immediately if selected
-        if is_selected:
-            with st.container():
-                render_selected_strategy_panel(
-                    strategy,
-                    df_sim,
-                    horizon,
-                )
+            # Hero KPI Row
+            render_kpi_summary(strategy, horizon)
+            st.divider()
+            
+            # Tabs for details
+            tab1, tab2, tab3, tab4 = st.tabs(["🏠 Biens", "📈 Projections", "🎯 Radar", "⚡ Stress Test"])
+            
+            with tab1:
+                render_strategy_details(strategy, horizon)
+            
+            with tab2:
+                if df_sim is not None and not df_sim.empty:
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        render_simulation_chart(df_sim, key=f"strat_{i}")
+                    with col2:
+                        render_cashflow_chart(df_sim, key=f"strat_{i}")
+                else:
+                    st.info("Les projections détaillées seront disponibles après sélection.")
+            
+            with tab3:
+                render_strategy_radar(strategy, key=f"strat_{i}")
+                
+            with tab4:
+                render_sensitivity_analysis(strategy, horizon, key=f"strat_{i}")
     
     return selected_idx
-
-
-from src.ui.components.sensitivity import render_sensitivity_analysis
-
-
-def render_selected_strategy_panel(
-    strategy: Dict[str, Any],
-    df_sim: Any,
-    horizon: int = 25,
-) -> None:
-    """Render detailed panel for selected strategy.
-    
-    Args:
-        strategy: Selected strategy
-    df_sim: Simulation DataFrame
-    horizon: Simulation horizon
-    """
-    # Removed separate header "Analyse Détaillée" as it's implied by expansion
-    # render_kpi_summary(strategy, horizon) # Redundant with card? Maybe keep for detailed view
-    
-    # Tabs for different views
-    tab1, tab2, tab3, tab4 = st.tabs(["🏠 Biens & KPIs", "📈 Projections", "🎯 Analyse Radar", "⚡ Stress Test"])
-    
-    with tab1:
-        # Show KPI summary here inside tab
-        render_kpi_summary(strategy, horizon)
-        st.divider()
-        render_strategy_details(strategy, horizon)
-    
-    with tab2:
-        if df_sim is not None and not df_sim.empty:
-            col1, col2 = st.columns(2)
-            with col1:
-                render_simulation_chart(df_sim)
-            with col2:
-                render_cashflow_chart(df_sim)
-        else:
-            st.info("Simuler la stratégie pour voir les projections.")
-    
-    with tab3:
-        render_strategy_radar(strategy)
-        
-    with tab4:
-        render_sensitivity_analysis(strategy, horizon)
 
 
 def render_comparison_panel(strategies: List[Dict[str, Any]], horizon: int = 25) -> None:
