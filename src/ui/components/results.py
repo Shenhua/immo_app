@@ -5,6 +5,15 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 import streamlit as st
 
+def get_cf_color(value: float, target: float) -> str:
+    """Calculate color based on deviation from target."""
+    diff = value - target
+    if abs(diff) < 5: return "#ffffff"
+    if diff > 0: return "#28a745"
+    dist = abs(diff)
+    if dist < 50: return "#ffc107"
+    elif dist < 150: return "#fd7e14"
+    else: return "#dc3545"
 
 def format_euro(value: float, decimals: int = 0) -> str:
     """Format a number as Euro currency."""
@@ -80,32 +89,7 @@ def render_strategy_card(
              st.markdown(f"<div style='font-size: 2.5em; font-weight: bold;'>{score:.0f}/100</div>", unsafe_allow_html=True)
 
 
-def get_cf_color(value: float, target: float) -> str:
-    """Calculate color based on deviation from target."""
-    # Logic:
-    # Value > Target => Green (Better)
-    # Value approx Target => White (Neutral)
-    # Value < Target => Red (Worse)
-    
-    diff = value - target
-    
-    # Tolerance window for "Neutral" (e.g., +/- 5 EUR)
-    if abs(diff) < 5:
-        return "#ffffff"  # White (Neutral)
-    
-    if diff > 0:
-        return "#28a745"  # Green
-        
-    # Negative deviation (Worse)
-    # "Bigger negative number is more red"
-    # Gradient thresholds based on distance from target
-    dist = abs(diff)
-    if dist < 50:
-        return "#ffc107" # Yellow/Amber (Slightly worse)
-    elif dist < 150:
-        return "#fd7e14" # Orange 
-    else:
-        return "#dc3545" # Red (Deeply worse)
+
 
 # ... inside render_strategy_card ...
 
