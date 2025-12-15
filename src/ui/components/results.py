@@ -79,11 +79,46 @@ def render_strategy_card(
              st.markdown(f"<div style='font-size: 0.9em; color: gray;'>Score</div>", unsafe_allow_html=True)
              st.markdown(f"<div style='font-size: 2.5em; font-weight: bold;'>{score:.0f}/100</div>", unsafe_allow_html=True)
 
+
+def get_cf_color(value: float, target: float) -> str:
+    """Calculate color based on deviation from target."""
+    # Logic:
+    # Value > Target => Green (Better)
+    # Value approx Target => White (Neutral)
+    # Value < Target => Red (Worse)
+    
+    diff = value - target
+    
+    # Tolerance window for "Neutral" (e.g., +/- 5 EUR)
+    if abs(diff) < 5:
+        return "#ffffff"  # White (Neutral)
+    
+    if diff > 0:
+        return "#28a745"  # Green
+        
+    # Negative deviation (Worse)
+    # "Bigger negative number is more red"
+    # Gradient thresholds based on distance from target
+    dist = abs(diff)
+    if dist < 50:
+        return "#ffc107" # Yellow/Amber (Slightly worse)
+    elif dist < 150:
+        return "#fd7e14" # Orange 
+    else:
+        return "#dc3545" # Red (Deeply worse)
+
+# ... inside render_strategy_card ...
+
         with c2:
             cf = strategy.get("cash_flow_final", 0)
-            color_cf = "green" if cf >= 0 else "red"
+            
+            # Retrieve target from session state (or default to -100 if missing)
+            target = st.session_state.get("cf_cible", -100)
+            color_cf = get_cf_color(cf, target)
+            
             st.markdown(f"<div style='font-size: 0.9em; color: gray;'>Cash-flow</div>", unsafe_allow_html=True)
             st.markdown(f"<div style='font-size: 2.5em; font-weight: bold; color: {color_cf};'>{format_euro(cf)}</div>", unsafe_allow_html=True)
+
         
         with c3:
             tri = strategy.get("tri_annuel", 0)

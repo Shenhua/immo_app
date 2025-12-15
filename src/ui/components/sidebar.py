@@ -68,6 +68,7 @@ def render_objectives_section() -> Tuple[float, float, float, str, float, int]:
             "CF mensuel cible (€)",
             value=-100,
             step=10,
+            key="cf_cible",
             help="Le cash-flow net que vous visez chaque mois.",
         )
         
