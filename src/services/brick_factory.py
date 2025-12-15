@@ -92,8 +92,12 @@ def create_investment_bricks(
         capital_emprunte = credit_base_needed + frais_pret
 
         # 4. Operating costs
-        gest_mth0 = loyer_mth0 * (operating.frais_gestion_pct / 100.0)
-        prov_mth0 = loyer_mth0 * (operating.provision_pct / 100.0)
+        # Allow archetype to override global operating config
+        gestion_pct = float(archetype.get("frais_gestion_pct", operating.frais_gestion_pct))
+        vacance_pct = float(archetype.get("vacance_pct", operating.provision_pct))
+
+        gest_mth0 = loyer_mth0 * (gestion_pct / 100.0)
+        prov_mth0 = loyer_mth0 * (vacance_pct / 100.0)
 
         # Total operating expenses (excluding debt)
         depenses_mth0 = (
@@ -152,8 +156,8 @@ def create_investment_bricks(
                 "loyer_mensuel_initial": loyer_mth0,
                 "charges_const_mth0": charges_mth0,
                 "tf_const_mth0": taxe_fonciere_mth0,
-                "frais_gestion_pct": operating.frais_gestion_pct,
-                "provision_pct": operating.provision_pct,
+                "frais_gestion_pct": gestion_pct,
+                "provision_pct": vacance_pct,
                 "depenses_mensuelles_hors_credit_initial": depenses_mth0,
 
                 # Qualitative score

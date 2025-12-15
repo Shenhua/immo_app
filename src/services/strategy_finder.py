@@ -268,11 +268,17 @@ class StrategyFinder:
         for combo in combos:
             bricks_copy = [dict(b) for b in combo]
 
+            # Determine if we should aggressively deploy capital
+            # Reverted based on user feedback: Leverage is financially superior.
+            # We default to False unless explicitly requested in future.
+            aggressive_deploy = False 
+
             ok, details, cf_final, apport_used = allocator.allocate(
                 bricks_copy,
                 self.apport_disponible,
                 self.cash_flow_cible,
-                self.tolerance
+                self.tolerance,
+                use_full_capital=aggressive_deploy
             )
 
             if ok:
@@ -364,24 +370,31 @@ class StrategyFinder:
     def dedupe_strategies(self, strategies: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Remove near-duplicate strategies.
 
-        Signature = sorted tuples of (nom_bien, durée, apport rounded to 100€).
+        Aggressive deduplication:
+        1. Group by 'Signature' (Set of property names).
+        2. Examples: {Prop A}, {Prop A, Prop B}.
+        3. For each signature, keep ONLY the strategy with the highest balanced_score.
+        
+        This forces the result list to show *different investments* rather than
+        the same investment with slightly different financing parameters.
         """
-        seen = set()
-        out = []
+        best_of_breed = {}
+
         for s in strategies:
             details = s.get("details", [])
-            sig = tuple(sorted(
-                (
-                    d.get("nom_bien"),
-                    int(d.get("duree_pret", 0)),
-                    int(round(float(d.get("apport_final_bien", 0.0)) / 100.0) * 100),
-                )
-                for d in details
-            ))
-            if sig not in seen:
-                seen.add(sig)
-                out.append(s)
-        return out
+            # Signature is just the sorted list of property names
+            # We ignore loan duration or apport amount for the signature
+            sig = tuple(sorted(d.get("nom_bien", "") for d in details))
+            
+            # If we haven't seen this combo, or if this one has a better score, keep it
+            current_best = best_of_breed.get(sig)
+            if current_best is None:
+                best_of_breed[sig] = s
+            else:
+                if s.get("balanced_score", 0) > current_best.get("balanced_score", 0):
+                    best_of_breed[sig] = s
+
+        return list(best_of_breed.values())
 
     def rank_strategies(
         self,

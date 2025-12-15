@@ -25,14 +25,16 @@ class PortfolioAllocator:
         apport_disponible: float,
         target_cf: float,
         tolerance: float = 100.0,
+        use_full_capital: bool = False,
     ) -> tuple[bool, list[dict[str, Any]], float, float]:
-        """Allocate capital to maximize cash flow proximity.
+        """Allocate capital to maximize cash flow proximity or usage.
 
         Args:
             bricks: List of investment bricks (properties)
             apport_disponible: Total capital available
             target_cf: Target monthly cash flow
             tolerance: Tolerance for CF target
+            use_full_capital: If True, try to use all available apport (unless precise target)
 
         Returns:
             Tuple of (success, details_list, final_cf, total_apport_used)
@@ -59,17 +61,22 @@ class PortfolioAllocator:
         apport_total_min = sum(b.get("apport_min", 0.0) for b in bricks)
         apport_suppl_max = max(0.0, apport_disponible - apport_total_min)
 
+        # check precise mode
+        is_precise = self.mode_cf == "target"
+
         # Check if already good
+        # Only return early if we DON'T want to burn full capital OR if we are in strict precise mode
         if self._accept_cf(cf0, target_cf, tolerance):
-            details = [
-                {
-                    **b,
-                    "apport_final_bien": b["apport_min"],
-                    "credit_final": b["capital_restant"]
-                }
-                for b in biens
-            ]
-            return True, details, cf0, apport_total_min
+             if not use_full_capital or is_precise or apport_suppl_max < 1.0:
+                details = [
+                    {
+                        **b,
+                        "apport_final_bien": b["apport_min"],
+                        "credit_final": b["capital_restant"]
+                    }
+                    for b in biens
+                ]
+                return True, details, cf0, apport_total_min
 
         # Iterative greedy allocation
         apport_rest = apport_suppl_max
@@ -84,9 +91,17 @@ class PortfolioAllocator:
         )
 
         manque_cf = self._calc_need(cf0, target_cf, tolerance)
+        
+        # If forcing full capital, behave as if we have an infinite need for CF
+        if use_full_capital and not is_precise:
+            manque_cf = 1e9 
 
         for b in ordre:
-            if apport_rest <= 1e-9 or manque_cf <= 1e-9:
+            if apport_rest <= 1e-9:
+                break
+            
+            # Stop if we hit target (unless forcing capital)
+            if manque_cf <= 1e-9 and not (use_full_capital and not is_precise):
                 break
 
             k = k_factor(b["taux_pret"], b["duree_pret"], b["assurance_ann_pct"])
