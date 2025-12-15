@@ -389,20 +389,41 @@ class StrategyFinder:
         preset_name: str = "Équilibré (défaut)",
         top_n: int = 10,
     ) -> List[Dict[str, Any]]:
-        """Sort strategies by preset priority."""
+        """Sort strategies by preset priority.
+        
+        The ranking respects the user's profile selection:
+        - Primary: Use the weighted finance_score (incorporates user weights)
+        - Secondary: Preset-specific tiebreaker metric
+        - Tertiary: CF proximity (closer to target is better)
+        """
         name = preset_name.lower()
         
         def sort_key(x: Dict[str, Any]) -> tuple:
-            if "dscr" in name:
-                return (x.get("dscr_norm", 0), x.get("finance_score", 0), -abs(x.get("cf_distance", 0)))
-            if "irr" in name or "rendement" in name:
-                return (x.get("tri_norm", 0), x.get("finance_score", 0), -abs(x.get("cf_distance", 0)))
+            # CF proximity as final tiebreaker (higher is better)
+            cf_prox = x.get("cf_proximity", 0)
+            finance = x.get("finance_score", 0)
+            balanced = x.get("balanced_score", 0)
+            
+            # Match French preset names
+            if "sécurité" in name or "dscr" in name:
+                # Safety profile: prioritize DSCR, then finance_score
+                return (x.get("dscr_norm", 0), finance, cf_prox)
+            
+            if "rendement" in name or "irr" in name:
+                # IRR profile: prioritize TRI, then finance_score
+                return (x.get("tri_norm", 0), finance, cf_prox)
+            
             if "cash" in name:
-                return (x.get("cf_proximity", 0), x.get("finance_score", 0), x.get("dscr_norm", 0))
+                # Cash-flow profile: prioritize CF proximity, then DSCR for safety
+                return (cf_prox, x.get("dscr_norm", 0), finance)
+            
             if "patrimoine" in name:
-                return (x.get("balanced_score", 0), x.get("enrich_norm", 0), x.get("tri_norm", 0))
-            # Default: balanced
-            return (x.get("balanced_score", 0), x.get("dscr_norm", 0), x.get("tri_norm", 0))
+                # Wealth-building profile: prioritize enrichment, then IRR
+                return (x.get("enrich_norm", 0), x.get("tri_norm", 0), balanced)
+            
+            # Default "Équilibré": use balanced_score which combines finance + quality
+            return (balanced, finance, cf_prox)
         
         sorted_strategies = sorted(strategies, key=sort_key, reverse=True)
         return sorted_strategies[:top_n]
+

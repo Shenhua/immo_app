@@ -11,6 +11,14 @@ from .scoring import (
     calculate_qualitative_score,
     calculate_balanced_score,
 )
+from .exceptions import (
+    AppImmoError,
+    DataLoadError,
+    SimulationError,
+    StrategyError,
+    NoStrategiesFoundError,
+    InvalidParameterError,
+)
 
 __all__ = [
     "calculate_monthly_payment",
@@ -20,4 +28,11 @@ __all__ = [
     "calculate_dpe_score",
     "calculate_qualitative_score",
     "calculate_balanced_score",
+    # Exceptions
+    "AppImmoError",
+    "DataLoadError",
+    "SimulationError",
+    "StrategyError",
+    "NoStrategiesFoundError",
+    "InvalidParameterError",
 ]

@@ -61,3 +61,5 @@ coverage.xml
 #.env
 history/
 
+# Auto-generated results
+results/

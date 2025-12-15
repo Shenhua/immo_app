@@ -153,3 +153,48 @@ class TestStrategyFinder:
         ]
         ranked = finder.rank_strategies(strategies, "Équilibré")
         assert ranked[0]["balanced_score"] == 0.9
+    
+    def test_rank_strategies_securite_dscr(self):
+        """Should prioritize DSCR for Sécurité preset."""
+        finder = StrategyFinder([], 100000, -100)
+        strategies = [
+            {"balanced_score": 0.9, "dscr_norm": 0.3, "finance_score": 0.8},
+            {"balanced_score": 0.5, "dscr_norm": 0.9, "finance_score": 0.5},
+            {"balanced_score": 0.7, "dscr_norm": 0.6, "finance_score": 0.6},
+        ]
+        ranked = finder.rank_strategies(strategies, "Sécurité (DSCR)")
+        assert ranked[0]["dscr_norm"] == 0.9  # Highest DSCR wins
+    
+    def test_rank_strategies_cashflow(self):
+        """Should prioritize CF proximity for Cash-flow preset."""
+        finder = StrategyFinder([], 100000, -100)
+        strategies = [
+            {"balanced_score": 0.9, "cf_proximity": 0.3, "dscr_norm": 0.5},
+            {"balanced_score": 0.5, "cf_proximity": 0.9, "dscr_norm": 0.5},
+            {"balanced_score": 0.7, "cf_proximity": 0.6, "dscr_norm": 0.5},
+        ]
+        ranked = finder.rank_strategies(strategies, "Cash-flow d'abord")
+        assert ranked[0]["cf_proximity"] == 0.9  # Highest CF proximity wins
+    
+    def test_rank_strategies_rendement(self):
+        """Should prioritize IRR for Rendement preset."""
+        finder = StrategyFinder([], 100000, -100)
+        strategies = [
+            {"balanced_score": 0.9, "tri_norm": 0.3, "finance_score": 0.8},
+            {"balanced_score": 0.5, "tri_norm": 0.9, "finance_score": 0.5},
+            {"balanced_score": 0.7, "tri_norm": 0.6, "finance_score": 0.6},
+        ]
+        ranked = finder.rank_strategies(strategies, "Rendement / IRR")
+        assert ranked[0]["tri_norm"] == 0.9  # Highest TRI wins
+    
+    def test_rank_strategies_patrimoine(self):
+        """Should prioritize enrichment for Patrimoine preset."""
+        finder = StrategyFinder([], 100000, -100)
+        strategies = [
+            {"balanced_score": 0.9, "enrich_norm": 0.3, "tri_norm": 0.8},
+            {"balanced_score": 0.5, "enrich_norm": 0.9, "tri_norm": 0.5},
+            {"balanced_score": 0.7, "enrich_norm": 0.6, "tri_norm": 0.6},
+        ]
+        ranked = finder.rank_strategies(strategies, "Patrimoine LT")
+        assert ranked[0]["enrich_norm"] == 0.9  # Highest enrichment wins
+

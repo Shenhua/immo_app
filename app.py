@@ -1,22 +1,20 @@
 """Main Application Entry Point.
 
-Refactored to use modular layered architecture (Phases 1-5).
-Orchestrates UI components and services.
+Refactored to use modular layered architecture.
+Orchestrates UI components and services via app_controller.
 """
 
-import json
 import os
 import sys
 from typing import Dict, Any, List
 
 import streamlit as st
-import pandas as pd
 
-# Add src to path if not present (for running executing from root)
+# Add src to path if not present (for running from root)
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from src.core.logging import get_logger
-from src.ui.state import SessionManager, BaseParams
+from src.ui.state import SessionManager
 from src.ui.components.sidebar import (
     render_objectives_section,
     render_credit_params_tab,
@@ -25,9 +23,15 @@ from src.ui.components.sidebar import (
 )
 from src.ui.components.filters import render_property_filters, filter_archetypes
 from src.ui.pages.main import render_main_page
-from src.services.brick_factory import create_investment_bricks, FinancingConfig, OperatingConfig
-from src.services.strategy_finder import StrategyFinder
-from src.models.archetype import ArchetypeV2
+from src.ui.app_controller import (
+    load_archetypes,
+    apply_rent_caps,
+    build_financing_config,
+    build_operating_config,
+    run_strategy_search,
+    simulate_selected_strategy,
+    autosave_results,
+)
 
 
 # --- Configuration & Setup ---
@@ -39,63 +43,26 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Load Custom CSS
-def load_css():
+
+def load_css() -> None:
+    """Load custom CSS styles."""
     css_file = os.path.join(os.path.dirname(__file__), "src/ui/assets/style.css")
     if os.path.exists(css_file):
         with open(css_file, "r") as f:
             st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-load_css()
 
+load_css()
 
 log = get_logger(__name__)
 
 
-def load_data() -> List[Dict[str, Any]]:
-    """Charge les données des archétypes."""
-    try:
-        archetypes = SessionManager.get_archetypes()
-        if not archetypes:
-            path = os.path.join(os.path.dirname(__file__), "data/archetypes_recale_2025_v2.json")
-            with open(path, "r", encoding="utf-8") as f:
-                raw_data = json.load(f)
-                archetypes = [ArchetypeV2(**item).model_dump() for item in raw_data]
-            
-            SessionManager.set_archetypes(archetypes)
-            log.info("archetypes_loaded_from_disk", count=len(archetypes))
-        else:
-            log.info("archetypes_loaded_from_session", count=len(archetypes))
-            
-        return archetypes
-    except Exception as e:
-        log.error("data_load_failed", error=str(e))
-        st.error(f"Erreur lors du chargement des données: {e}")
-        return []
-
-
-def apply_compliance(archetypes: list, apply_cap: bool = True) -> list:
-    """Apply regulatory compliance (rent caps) to archetypes."""
-    processed = []
-    for item in archetypes:
-        a = item.copy()
-        if apply_cap and a.get("soumis_encadrement") and a.get("loyer_m2_max") is not None:
-            try:
-                cap = float(a["loyer_m2_max"])
-                current = float(a.get("loyer_m2", 0.0))
-                a["loyer_m2"] = min(current, cap)
-            except (ValueError, TypeError):
-                pass
-        processed.append(a)
-    return processed
-
-
-def main():
-    # 1. Initialization
-    SessionManager.initialize()
-    log.info("app_started")
+def render_sidebar() -> Dict[str, Any]:
+    """Render sidebar and collect all parameters.
     
-    # 2. Sidebar Configuration
+    Returns:
+        Dictionary containing all sidebar parameters
+    """
     with st.sidebar:
         st.title("⚙️ Paramètres")
         
@@ -104,12 +71,11 @@ def main():
         
         # Credit & Costs
         with st.expander("Financement & Frais", expanded=False):
-            # Tabs for Credit vs Costs
             t1, t2 = st.tabs(["Crédit", "Exploitation"])
             with t1:
                 credit_params = render_credit_params_tab()
             with t2:
-                cse_params = st.number_input("CFE (€/an)", 100, 2000, 500, 50)
+                cfe = st.number_input("CFE (€/an)", 100, 2000, 500, 50)
                 gestion = st.slider("Gestion (%)", 0.0, 15.0, 5.0, 0.5)
                 vacance = st.slider("Vacance/Imp. (%)", 0.0, 10.0, 3.0, 0.5)
                 frais_vente = st.slider("Frais Revente (%)", 0.0, 10.0, 6.0, 0.5)
@@ -119,12 +85,11 @@ def main():
             tmi = st.slider("TMI (%)", 0, 45, 30, 1)
             regime = st.selectbox("Régime", ["LMNP", "SCI IS"], index=0).lower().replace(" ", "")
             if "lmnp" in regime:
-                 regime = "lmnp" # Normalize
+                regime = "lmnp"
         
-        # Property Filters (moved to sidebar)
+        # Property Filters
+        raw_archetypes = load_archetypes()
         with st.expander("🏠 Sélection des Biens", expanded=True):
-            # Load data once for filters
-            raw_archetypes = load_data()
             if raw_archetypes:
                 selected_villes, selected_types, apply_cap = render_property_filters(raw_archetypes)
             else:
@@ -135,145 +100,126 @@ def main():
         
         # Scoring Preset
         finance_preset_name, finance_weights = render_scoring_preset()
-            
-    # 3. Main Content - Apply filters outside sidebar context
-    if not raw_archetypes:
+    
+    return {
+        "apport": apport,
+        "cf_cible": cf_cible,
+        "tolerance": tolerance,
+        "mode_cf": mode_cf,
+        "qual_weight": qual_weight,
+        "horizon": horizon,
+        "credit_params": credit_params,
+        "cfe": cfe,
+        "gestion": gestion,
+        "vacance": vacance,
+        "frais_vente": frais_vente,
+        "tmi": tmi,
+        "regime": regime,
+        "raw_archetypes": raw_archetypes,
+        "selected_villes": selected_villes,
+        "selected_types": selected_types,
+        "apply_cap": apply_cap,
+        "market_hypo": market_hypo,
+        "finance_preset_name": finance_preset_name,
+        "finance_weights": finance_weights,
+    }
+
+
+def handle_analysis(params: Dict[str, Any], archetypes: List[Dict[str, Any]]) -> None:
+    """Handle the analysis button click.
+    
+    Args:
+        params: Sidebar parameters
+        archetypes: Filtered and compliant archetypes
+    """
+    with st.spinner("Analyse des stratégies en cours..."):
+        # Build configs
+        fin_config = build_financing_config(params["credit_params"])
+        op_config = build_operating_config(
+            params["gestion"], 
+            params["vacance"], 
+            params["cfe"]
+        )
+        
+        # Build eval params
+        eval_params = {
+            "tmi_pct": params["tmi"],
+            "regime_fiscal": params["regime"],
+            "frais_vente_pct": params["frais_vente"],
+            "apply_ira": params["credit_params"]["apply_ira"],
+            "ira_cap_pct": params["credit_params"]["ira_cap_pct"],
+            "cfe_par_bien_ann": params["cfe"],
+            "hypotheses_marche": params["market_hypo"],
+            "finance_preset_name": params["finance_preset_name"],
+            "finance_weights_override": params["finance_weights"],
+        }
+        
+        # Run search
+        strategies = run_strategy_search(
+            archetypes=archetypes,
+            fin_config=fin_config,
+            op_config=op_config,
+            apport=params["apport"],
+            cf_cible=params["cf_cible"],
+            tolerance=params["tolerance"],
+            qual_weight=params["qual_weight"],
+            mode_cf=params["mode_cf"],
+            eval_params=eval_params,
+            horizon_years=params["horizon"],
+        )
+        
+        # Save results
+        SessionManager.set_strategies(strategies)
+        autosave_results(strategies, {"horizon": params["horizon"], "compliance": params["apply_cap"]})
+        
+        st.rerun()
+
+
+def main() -> None:
+    """Main application entry point."""
+    # 1. Initialize session
+    SessionManager.initialize()
+    log.info("app_started")
+    
+    # 2. Render sidebar and collect parameters
+    params = render_sidebar()
+    
+    # 3. Exit early if no data
+    if not params["raw_archetypes"]:
         return
     
-    # Store filter results for use below
-    use_compliance = apply_cap  # Rename for clarity
-    
-    # Apply filters & compliance
-    filtered_archetypes = filter_archetypes(
-        raw_archetypes, 
-        selected_villes, 
-        selected_types
+    # 4. Apply filters & compliance
+    filtered = filter_archetypes(
+        params["raw_archetypes"],
+        params["selected_villes"],
+        params["selected_types"],
     )
-    compliant_archetypes = apply_compliance(filtered_archetypes, use_compliance)
+    compliant = apply_rent_caps(filtered, params["apply_cap"])
     
-    # 4. Action Button
+    # 5. Analysis button
     if st.sidebar.button("🚀 Lancer l'analyse", type="primary"):
-        with st.spinner("Analyse des stratégies en cours..."):
-            log.info("analysis_started", 
-                     archetypes_count=len(compliant_archetypes),
-                     horizon=horizon)
-            
-            # 1. Création des briques
-            fin_config = FinancingConfig(
-                credit_rates=credit_params["taux_credits"],
-                frais_notaire_pct=credit_params["frais_notaire_pct"],
-                apport_min_pct=10.0, # Defaulting hardcoded for now or use session? Legacy used formula.
-                # Legacy used inputs from sidebar which are in credit_params? 
-                # Sidebar credit_params doesn't assume apport_min_pct selection, usually calculated.
-                # Legacy code: apport_min = frais_notaire + prix * (apport_min_pct_prix / 100)
-                # Where is apport_min_pct provided? Default was usually 0 or user provided? 
-                # Let's verify legacy 'trouver_top_strategies' signature or 'creer_briques'.
-                # creer_briques took 'apport_min_pct_prix'. 
-                # Usually it was hardcoded or env var. Let's use 0.0 (110% loan) or 10.0.
-                assurance_ann_pct=credit_params["assurance_ann_pct"],
-                frais_pret_pct=credit_params["frais_pret_pct"],
-                inclure_travaux=credit_params["inclure_travaux"],
-                inclure_reno_ener=credit_params["inclure_reno_ener"],
-                inclure_mobilier=credit_params["inclure_mobilier"],
-                financer_mobilier=credit_params["financer_mobilier"],
-            )
-            
-            # Using 10% apport min for safety/realism
-            fin_config.apport_min_pct = 0.0 # Legacy often assumed project cost full loan for calculation base
-            
-            op_config = OperatingConfig(
-                frais_gestion_pct=gestion,
-                provision_pct=vacance,
-                cfe_par_bien_ann=cse_params,
-            )
-            
-            bricks = create_investment_bricks(compliant_archetypes, fin_config, op_config)
-            
-            # B. Strategy Search
-            finder = StrategyFinder(
-                bricks=bricks,
-                apport_disponible=apport,
-                cash_flow_cible=cf_cible,
-                tolerance=tolerance,
-                qualite_weight=qual_weight,
-                mode_cf=mode_cf,
-            )
-            
-            eval_params = {
-                "tmi_pct": tmi,
-                "regime_fiscal": regime,
-                "frais_vente_pct": frais_vente,
-                "apply_ira": credit_params["apply_ira"],
-                "ira_cap_pct": credit_params["ira_cap_pct"],
-                "cfe_par_bien_ann": cse_params,
-                # Market hypotheses from sidebar
-                "hypotheses_marche": market_hypo,
-                # Scoring preset from sidebar
-                "finance_preset_name": finance_preset_name,
-                "finance_weights_override": finance_weights,
-            }
-            
-            strategies = finder.find_strategies(
-                eval_params=eval_params,
-                horizon_years=horizon,
-            )
-            
-            # 3. Sauvegarde
-            SessionManager.set_strategies(strategies)
-            
-            # Auto-save to results/
-            try:
-                from src.services.exporter import ResultExporter
-                exporter = ResultExporter()
-                exporter.save_results(
-                    strategies, 
-                    metadata={"horizon": horizon, "compliance": use_compliance}
-                )
-            except Exception as e:
-                log.warning("autosave_failed", error=str(e))
-            
-            log.info("analysis_completed", 
-                     strategies_found=len(strategies))
-            st.rerun()
-
-    # 5. Render Results
+        handle_analysis(params, compliant)
+    
+    # 6. Get current results
     strategies = SessionManager.get_strategies()
     
-    # Selected Strategy Simulation Data (lazy load/sim)
-    idx = SessionManager.get_selected_idx()
+    # 7. Simulate selected strategy for charts
     df_sim = None
+    idx = SessionManager.get_selected_idx()
     if strategies and 0 <= idx < len(strategies):
-        # We need to simulate the detailed yearly data for the selected strategy
-        # StrategyFinder only returned metrics. Run simulation for charts.
-        
-        # Re-instantiate engine locally (lightweight)
-        # Or better: check if strategy dict already has 'df'? No it doesn't.
-        # We need to run simulation again for the specialized charts.
-        # For efficiency, we can do it here.
-        from src.core.simulation import SimulationEngine, MarketHypotheses, TaxParams, IRACalculator
-        from src.core.financial import generate_amortization_schedule
-        
-        sel_strat = strategies[idx]
-        
-        # Re-construct params (should be saved in session? ideally yes)
-        # For now, using defaults or simple re-sim
-        mk = MarketHypotheses(appreciation_bien_pct=2.5, revalo_loyer_pct=1.5, inflation_charges_pct=2.0)
-        tx = TaxParams(tmi_pct=tmi, regime_fiscal=regime)
-        ir = IRACalculator(apply_ira=credit_params["apply_ira"], ira_cap_pct=credit_params["ira_cap_pct"])
-        eng = SimulationEngine(market=mk, tax=tx, ira=ir, cfe_par_bien_ann=cse_params, frais_vente_pct=frais_vente)
-        
-        schedules = [
-             generate_amortization_schedule(
-                float(p["credit_final"]), 
-                float(p["taux_pret"]), 
-                int(p["duree_pret"]) * 12,  # Convert years to months
-                float(p["assurance_ann_pct"])
-            ) for p in sel_strat["details"]
-        ]
-        
-        df_sim, _ = eng.simulate(sel_strat, horizon, schedules)
-        
-    render_main_page(compliant_archetypes, strategies, df_sim)
+        df_sim = simulate_selected_strategy(
+            strategy=strategies[idx],
+            horizon=params["horizon"],
+            credit_params=params["credit_params"],
+            tmi=params["tmi"],
+            regime=params["regime"],
+            cfe=params["cfe"],
+            frais_vente=params["frais_vente"],
+            market_hypo=params["market_hypo"],
+        )
+    
+    # 8. Render main page
+    render_main_page(compliant, strategies, df_sim)
 
 
 if __name__ == "__main__":

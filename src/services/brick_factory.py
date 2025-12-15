@@ -9,6 +9,8 @@ from typing import Any, Dict, List, Optional
 from dataclasses import dataclass
 
 from src.core.financial import calculate_total_monthly_payment
+from src.core.scoring import calculate_property_qualitative_score
+
 
 
 @dataclass
@@ -102,7 +104,16 @@ def create_investment_bricks(
             (operating.cfe_par_bien_ann / 12.0)
         )
         
-        # 5. Create variants for each loan duration
+        # 5. Calculate qualitative score for this property
+        qual_score, _ = calculate_property_qualitative_score(
+            archetype,
+            loyer_m2=archetype.get("loyer_m2"),
+            loyer_m2_max=archetype.get("loyer_m2_max"),
+            prix_achat=prix_achat,
+            travaux=travaux,
+        )
+        
+        # 6. Create variants for each loan duration
         base_data = archetype.copy()
         # Rename 'nom' to 'nom_bien' for internal consistency
         base_data['nom_bien'] = base_data.pop('nom', 'Bien inconnu')
@@ -144,8 +155,12 @@ def create_investment_bricks(
                 "frais_gestion_pct": operating.frais_gestion_pct,
                 "provision_pct": operating.provision_pct,
                 "depenses_mensuelles_hors_credit_initial": depenses_mth0,
+                
+                # Qualitative score
+                "qual_score_bien": qual_score,
             }
             
             bricks.append(brick)
             
     return bricks
+
