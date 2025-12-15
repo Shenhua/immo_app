@@ -88,6 +88,17 @@ def render_objectives_section() -> tuple[float, float, float, str, float, int]:
         )
         mode_cf = "target" if is_precise else "min"
 
+        # Initialize horizon_ans if not set
+        if "horizon_ans" not in st.session_state:
+            st.session_state.horizon_ans = 25
+
+        horizon = st.slider(
+            "Horizon d'investissement (ans)",
+            10, 30,
+            key="horizon_ans",
+        )
+        st.caption(f"Horizon de simulation : **{horizon} ans**")
+
         st.markdown("---")
         st.markdown(
             "#### **Priorité de recherche**",
@@ -105,16 +116,7 @@ def render_objectives_section() -> tuple[float, float, float, str, float, int]:
         col3.markdown('<div style="font-size: 1.5em; text-align: center;">🛡️</div>', unsafe_allow_html=True)
         qualite_weight = priorite_pct / 100.0
 
-        # Initialize horizon_ans if not set
-        if "horizon_ans" not in st.session_state:
-            st.session_state.horizon_ans = 25
 
-        horizon = st.slider(
-            "Horizon d'investissement (ans)",
-            10, 30,
-            key="horizon_ans",
-        )
-        st.caption(f"Horizon de simulation : **{horizon} ans**")
 
     return apport, cf_cible, tolerance, mode_cf, qualite_weight, horizon
 

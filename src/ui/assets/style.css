@@ -35,7 +35,7 @@ body,
 /* --- Custom Tables (Contender List) --- */
 
 /* Reduce vertical gap in main container for list items */
-[data-testid="stVerticalBlock"] > [style*="flex-direction: column;"] > [data-testid="stVerticalBlock"] {
+[data-testid="stVerticalBlock"]>[style*="flex-direction: column;"]>[data-testid="stVerticalBlock"] {
     gap: 0.5rem;
 }
 
@@ -49,16 +49,29 @@ body,
 
 /* Compact Metrics */
 div[data-testid="stMetricValue"] {
-    font-size: 1.2rem !important; /* Smaller big numbers */
+    font-size: 1.2rem !important;
+    /* Smaller big numbers */
 }
 
 /* Alternating Backgrounds Helper */
 /* Since we can't easily target rows, we rely on Python to inject specific styles 
    or accept that exact alternating colors in Streamlit basic containers is hard without unsafe_allow_html wrappers.
    Instead, we create a 'row-card' class logic. */
-   
+
 .row-hover:hover {
     background-color: rgba(128, 128, 128, 0.05);
     border-color: rgba(128, 128, 128, 0.5);
     transition: all 0.2s ease;
+}
+
+/* --- Specific Input Emphasis (User Approved Workaround) --- */
+
+/* Target the container of the "Apport" number input */
+/* This relies on aria-label selectors, which are stable as long as the label text doesn't change */
+div[data-testid="stNumberInput"] input[aria-label="Apport total disponible (€)"] {
+    font-size: 1.3rem !important;
+    font-weight: 600 !important;
+    background-color: rgba(255, 215, 0, 0.1) !important;
+    /* Subtle yellow background */
+    border: 1px solid rgba(255, 215, 0, 0.5) !important;
 }
