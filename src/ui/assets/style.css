@@ -31,3 +31,34 @@ body,
 }
 
 /* Hide default decoration if needed, but keep it clean */
+
+/* --- Custom Tables (Contender List) --- */
+
+/* Reduce vertical gap in main container for list items */
+[data-testid="stVerticalBlock"] > [style*="flex-direction: column;"] > [data-testid="stVerticalBlock"] {
+    gap: 0.5rem;
+}
+
+/* Hover effect on containers that are likely rows */
+/* We will target specific containers via Python logic if possible, 
+   but globally enabling hover on bordered containers in main area works well */
+.element-container:has(iframe) {
+    /* Safe fallback */
+}
+
+
+/* Compact Metrics */
+div[data-testid="stMetricValue"] {
+    font-size: 1.2rem !important; /* Smaller big numbers */
+}
+
+/* Alternating Backgrounds Helper */
+/* Since we can't easily target rows, we rely on Python to inject specific styles 
+   or accept that exact alternating colors in Streamlit basic containers is hard without unsafe_allow_html wrappers.
+   Instead, we create a 'row-card' class logic. */
+   
+.row-hover:hover {
+    background-color: rgba(128, 128, 128, 0.05);
+    border-color: rgba(128, 128, 128, 0.5);
+    transition: all 0.2s ease;
+}

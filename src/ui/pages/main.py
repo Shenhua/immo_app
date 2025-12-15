@@ -68,108 +68,108 @@ def render_strategy_list(
     selected_idx = get_state("selected_strategy_idx", 0)
     show_details = get_state("show_details", False)
     
-    # --- HELPER: Details Renderer ---
-    def render_details_content():
-        """Render details for the selected strategy."""
-        if 0 <= selected_idx < len(strategies):
-             selected_strat = strategies[selected_idx]
-             render_kpi_summary(selected_strat, horizon)
-             tab1, tab2, tab3, tab4 = st.tabs(["🏠 Biens", "📈 Projections", "🎯 Radar", "⚡ Stress Test"])
-             with tab1: render_strategy_details(selected_strat, horizon)
-             with tab2:
-                if df_sim is not None and not df_sim.empty:
-                    col1, col2 = st.columns(2)
-                    with col1: render_simulation_chart(df_sim, key=f"strat_chart_{selected_idx}")
-                    with col2: render_cashflow_chart(df_sim, key=f"strat_cf_{selected_idx}")
-                else: st.info("Projections disponibles après sélection.")
-             with tab3: render_strategy_radar(selected_strat, key=f"strat_radar_{selected_idx}")
-             with tab4: render_sensitivity_analysis(selected_strat, horizon, key=f"strat_sens_{selected_idx}")
+    # --- MASTER-DETAIL LAYOUT ---
+    
+    # 1. TOP SECTION: The Stage (Selected Strategy)
+    if strategies and 0 <= selected_idx < len(strategies):
+        current_strat = strategies[selected_idx]
+        is_hero = (selected_idx == 0)
+        
+        # Dynamic Header
+        if is_hero:
+            st.markdown("### 🏆 Meilleure Stratégie")
+        else:
+            st.markdown(f"### 📊 Stratégie #{selected_idx + 1}")
+            
+        # Helper for details content
+        def render_details_content():
+            """Render details for the selected strategy."""
+            render_kpi_summary(current_strat, horizon)
+            tab1, tab2, tab3, tab4 = st.tabs(["🏠 Biens", "📈 Projections", "🎯 Radar", "⚡ Stress Test"])
+            with tab1: render_strategy_details(current_strat, horizon)
+            with tab2:
+               if df_sim is not None and not df_sim.empty:
+                   col1, col2 = st.columns(2)
+                   with col1: render_simulation_chart(df_sim, key=f"strat_chart_{selected_idx}")
+                   with col2: render_cashflow_chart(df_sim, key=f"strat_cf_{selected_idx}")
+               else: st.info("Projections disponibles après sélection.")
+            with tab3: render_strategy_radar(current_strat, key=f"strat_radar_{selected_idx}")
+            with tab4: render_sensitivity_analysis(current_strat, horizon, key=f"strat_sens_{selected_idx}")
 
-    # --- HERO SECTION (Strategy #1) ---
-    if strategies:
-        hero = strategies[0]
-        st.markdown("### 🏆 Meilleure Stratégie")
+        # Render the Card for the Selected Strategy
+        # We force 'show_details' to be True if it was triggered by a table click?
+        # User said "load itself in the Hero section". Usually implies expanded view.
+        # But we respect the 'show_details' toggle state to allow collapsing.
         
-        # Determine selection state
-        is_hero_selected = (selected_idx == 0)
+        # If selection changed recently, we might want to auto-expand.
+        # But 'show_details' state is our truth.
         
-        # Use lambda for deferred rendering
-        content_fn = render_details_content if (is_hero_selected and show_details) else None
+        expanded_fn = render_details_content if show_details else None
         
         if render_strategy_card(
-            hero, 
-            index=1, 
+            current_strat, 
+            index=selected_idx + 1, 
             horizon=horizon, 
-            is_selected=is_hero_selected,
-            show_details=is_hero_selected and show_details,
-            expanded_content=content_fn
+            is_selected=True, # Always selected in the Stage
+            show_details=show_details,
+            expanded_content=expanded_fn
         ):
-            # Toggle logic
-            if is_hero_selected and show_details:
-                set_state("show_details", False) # Close if already open
-            else:
-                set_state("selected_strategy_idx", 0)
-                set_state("show_details", True)  # Open if closed or different
+            # Toggle logic for the Stage Card button
+            set_state("show_details", not show_details)
             st.rerun()
-            
-    # --- CONTENDERS (All Strategies including #1) ---
+
+    # 2. BOTTOM SECTION: The Playlist (Table)
     if len(strategies) > 0:
         st.markdown("---")
         st.subheader(f"📋 Comparatif ({len(strategies)})")
         
-        # Legend
-        c1, c2, c3, c4, c5 = st.columns([3, 2, 2, 2, 2])
-        c1.markdown("**Stratégie**")
-        c2.markdown("**Cash Flow**")
-        c3.markdown("**TRI**")
-        c4.markdown("**Score**")
-        c5.markdown("**Action**")
-        st.markdown("---")
+        import pandas as pd
         
-        for i, strategy in enumerate(strategies, 0): # Start at 0 to include Hero
-            real_idx = i
-            is_selected = (selected_idx == real_idx)
-            is_hero = (real_idx == 0)
+        data = []
+        for i, s in enumerate(strategies):
+            taxonomy = s.get("taxonomy", "Mix")
+            icon = {"Optimisé": "🚀", "Patrimonial": "🏛️", "Mix": "⚖️"}.get(taxonomy, "🔀")
+            is_hero = (i == 0)
+            hero_mark = "🏆 " if is_hero else ""
             
-            with st.container():
-                c1, c2, c3, c4, c5 = st.columns([3, 2, 2, 2, 2])
-                
-                # Visuals
-                hero_badge = "🏆 " if is_hero else ""
-                prefix = "👉 **" if is_selected else ""
-                suffix = "**" if is_selected else ""
-                
-                taxonomy = strategy.get("taxonomy", "Mix")
-                icon = {"Optimisé": "🚀", "Patrimonial": "🏛️", "Mix": "⚖️"}.get(taxonomy, "🔀")
-                
-                c1.markdown(f"{prefix}{hero_badge}{icon} Stratégie #{real_idx+1}{suffix}")
-                
-                cf = strategy.get("cash_flow_final", 0)
-                cf_color = "green" if cf >= 0 else "red"
-                c2.markdown(f":{cf_color}[{cf:+.0f} €]")
-                c3.markdown(f"{strategy.get('tri_annuel', 0):.1f} %")
-                c4.markdown(f"{strategy.get('balanced_score', 0)*100:.0f}/100")
-                
-                # Dynamic Action Button
-                btn_label = "🔍 Voir"
-                if is_selected and show_details:
-                     btn_label = "🔼 Masquer"
-                     
-                if c5.button(btn_label, key=f"btn_inspect_{real_idx}", use_container_width=True):
-                     if is_selected and show_details:
-                         set_state("show_details", False) # Toggle OFF
-                     else:
-                         set_state("selected_strategy_idx", real_idx)
-                         set_state("show_details", True)  # Toggle ON
-                     st.rerun()
-                
-                # Render content INSIDE row container if selected
-                if is_selected and show_details:
-                     st.markdown("---")
-                     render_details_content()
-                
-                st.markdown("<div style='margin-bottom: 5px;'></div>", unsafe_allow_html=True)
-    
+            data.append({
+                "Stratégie": f"{hero_mark}{icon} Stratégie #{i+1}",
+                "Cash-Flow": s.get("cash_flow_final", 0),
+                "TRI (%)": s.get("tri_annuel", 0),
+                "Enrich. (k€)": int(s.get("liquidation_nette", 0) / 1000),
+                "Score": int(s.get("balanced_score", 0) * 100)
+            })
+            
+        df_display = pd.DataFrame(data)
+        
+        column_config = {
+            "Stratégie": st.column_config.TextColumn("Stratégie", width="medium"),
+            "Cash-Flow": st.column_config.NumberColumn("Cash-Flow", format="%.0f €"),
+            "TRI (%)": st.column_config.NumberColumn("TRI", format="%.1f %%"),
+            "Enrich. (k€)": st.column_config.NumberColumn("Enrich.", format="%d k€"),
+            "Score": st.column_config.ProgressColumn("Score", format="%d", min_value=0, max_value=100),
+        }
+        
+        # Interactive Table
+        selection = st.dataframe(
+            df_display,
+            use_container_width=True,
+            hide_index=True,
+            column_config=column_config,
+            on_select="rerun",
+            selection_mode="single-row",
+            key="strategy_table"
+        )
+        
+        # Handle Selection
+        if selection.selection.rows:
+            new_idx = selection.selection.rows[0]
+            if new_idx != selected_idx:
+                set_state("selected_strategy_idx", new_idx)
+                # State persistence: We DO NOT force show_details=True here.
+                # We keep the user's current fold/unfold state.
+                st.rerun()
+
     return selected_idx
 
 

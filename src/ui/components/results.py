@@ -68,33 +68,32 @@ def render_strategy_card(
                  st.markdown(f"#### {icon} {taxonomy}")
             st.caption(f"Stratégie #{index}")
             
-        with col_badge:
-            # Score as a progress-like metric
-            score = strategy.get("balanced_score", 0) * 100
-            st.metric("Score Global", f"{score:.0f}/100")
-
-        st.markdown("---")
+        # Separator removed as requested
         
-        # Key metrics row
-        cols = st.columns(3)
-        with cols[0]:
+        # Key metrics row - Horizontal Layout (Score, CF, TRI, Enrich)
+        # Using 4 cols to fit all on same horizontal line
+        c1, c2, c3, c4 = st.columns(4)
+        
+        with c1:
+             score = strategy.get("balanced_score", 0) * 100
+             st.markdown(f"<div style='font-size: 0.9em; color: gray;'>Score</div>", unsafe_allow_html=True)
+             st.markdown(f"<div style='font-size: 1.5em; font-weight: bold;'>{score:.0f}/100</div>", unsafe_allow_html=True)
+
+        with c2:
             cf = strategy.get("cash_flow_final", 0)
             color_cf = "green" if cf >= 0 else "red"
             st.markdown(f"<div style='font-size: 0.9em; color: gray;'>Cash-flow</div>", unsafe_allow_html=True)
-            st.markdown(f"<div style='font-size: 1.4em; font_weight: bold; color: {color_cf};'>{format_euro(cf)}</div>", unsafe_allow_html=True)
-            st.caption("/mois")
+            st.markdown(f"<div style='font-size: 1.5em; font-weight: bold; color: {color_cf};'>{format_euro(cf)}</div>", unsafe_allow_html=True)
         
-        with cols[1]:
+        with c3:
             tri = strategy.get("tri_annuel", 0)
             st.markdown(f"<div style='font-size: 0.9em; color: gray;'>Rentabilité (TRI)</div>", unsafe_allow_html=True)
-            st.markdown(f"<div style='font-size: 1.4em;'>{format_pct(tri)}</div>", unsafe_allow_html=True)
-            st.caption(f"sur {horizon} ans")
+            st.markdown(f"<div style='font-size: 1.5em;'>{format_pct(tri)}</div>", unsafe_allow_html=True)
         
-        with cols[2]:
+        with c4:
             enrich = strategy.get("liquidation_nette", 0)
             st.markdown(f"<div style='font-size: 0.9em; color: gray;'>Enrichissement</div>", unsafe_allow_html=True)
-            st.markdown(f"<div style='font-size: 1.2em;'>{format_euro(enrich)}</div>", unsafe_allow_html=True)
-            st.caption("Net de tout")
+            st.markdown(f"<div style='font-size: 1.5em;'>{format_euro(enrich)}</div>", unsafe_allow_html=True)
 
         # Footer Actions
         st.markdown("") # Spacer

@@ -69,19 +69,19 @@ def render_sidebar() -> Dict[str, Any]:
         # Objectives
         apport, cf_cible, tolerance, mode_cf, qual_weight, horizon = render_objectives_section()
         
-        # Credit & Costs
-        with st.expander("Financement & Frais", expanded=False):
-            t1, t2 = st.tabs(["Crédit", "Exploitation"])
-            with t1:
-                credit_params = render_credit_params_tab()
-            with t2:
-                cfe = st.number_input("CFE (€/an)", 100, 2000, 500, 50)
-                gestion = st.slider("Gestion (%)", 0.0, 15.0, 5.0, 0.5)
-                vacance = st.slider("Vacance/Imp. (%)", 0.0, 10.0, 3.0, 0.5)
-                frais_vente = st.slider("Frais Revente (%)", 0.0, 10.0, 6.0, 0.5)
+        # Credit
+        with st.expander("🏦 Financement", expanded=False):
+            credit_params = render_credit_params_tab()
+            
+        # Operating Costs (Exploitation)
+        with st.expander("📉 Frais & Charges", expanded=False):
+            cfe = st.number_input("CFE (€/an)", 100, 2000, 500, 50)
+            gestion = st.slider("Gestion (%)", 0.0, 15.0, 5.0, 0.5)
+            vacance = st.slider("Vacance/Imp. (%)", 0.0, 10.0, 3.0, 0.5)
+            frais_vente = st.slider("Frais Revente (%)", 0.0, 10.0, 6.0, 0.5)
                 
         # Tax
-        with st.expander("Fiscalité", expanded=False):
+        with st.expander("⚖️ Fiscalité", expanded=False):
             tmi = st.slider("TMI (%)", 0, 45, 30, 1)
             regime = st.selectbox("Régime", ["LMNP", "SCI IS"], index=0).lower().replace(" ", "")
             if "lmnp" in regime:
@@ -89,7 +89,8 @@ def render_sidebar() -> Dict[str, Any]:
         
         # Property Filters
         raw_archetypes = load_archetypes()
-        with st.expander("🏠 Sélection des Biens", expanded=True):
+        # User requested folded (expanded=False)
+        with st.expander("🏠 Sélection des Biens", expanded=False):
             if raw_archetypes:
                 selected_villes, selected_types, apply_cap = render_property_filters(raw_archetypes)
             else:
