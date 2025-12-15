@@ -230,15 +230,15 @@ def render_kpi_summary(strategy: dict[str, Any], horizon: int = 25) -> None:
     cols = st.columns(6)
 
     metrics = [
-        ("CF Mensuel", strategy.get("cash_flow_final", 0), format_euro),
-        (f"TRI ({horizon}a)", strategy.get("tri_annuel", 0), format_pct),
-        ("Enrichissement", strategy.get("liquidation_nette", 0), format_euro),
-        ("DSCR Y1", strategy.get("dscr_y1", 0), lambda x: f"{x:.2f}" if x else "—"),
-        ("Score Qualité", strategy.get("qual_score", 50), lambda x: f"{get_star_rating(x)}"), 
-        ("Score Global", strategy.get("balanced_score", 0) * 100, lambda x: f"{get_star_rating(x)}"), # Star Rating for Global too
+        ("CF Mensuel", strategy.get("cash_flow_final", 0), format_euro, "Cash-flow net d'impôt moyen mensuel."),
+        (f"TRI ({horizon}a)", strategy.get("tri_annuel", 0), format_pct, "Taux de Rentabilité Interne annualisé (inclut la revente)."),
+        ("Enrichissement", strategy.get("liquidation_nette", 0), format_euro, f"Capital net disponible à la revente au bout de {horizon} ans (après impôts et remboursement dette)."),
+        ("DSCR Y1", strategy.get("dscr_y1", 0), lambda x: f"{x:.2f}" if x else "—", "Ratio de couverture de la dette (Revenus / Charges crédit). >1.0 signifie autofinancement."),
+        ("Score Qualité", strategy.get("qual_score", 50), lambda x: f"{get_star_rating(x)}", "Qualité intrinsèque des biens (Emplacement, Tension, Liquidité)."), 
+        ("Score Global", strategy.get("balanced_score", 0) * 100, lambda x: f"{get_star_rating(x)}", "Note pondérée combinant performance financière et qualité."), 
     ]
 
-    for col, (label, value, formatter) in zip(cols, metrics):
+    for col, (label, value, formatter, help_text) in zip(cols, metrics):
         with col:
             # Special handling for Scores to show numeric value as secondary (delta)
             if label in ["Score Qualité", "Score Global"]:
@@ -246,7 +246,8 @@ def render_kpi_summary(strategy: dict[str, Any], horizon: int = 25) -> None:
                      label, 
                      formatter(value),
                      delta=f"{value:.0f}/100",
-                     delta_color="off"
+                     delta_color="off",
+                     help=help_text
                  )
             else:
-                 st.metric(label, formatter(value))
+                 st.metric(label, formatter(value), help=help_text)

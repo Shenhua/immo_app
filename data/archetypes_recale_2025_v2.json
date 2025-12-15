@@ -14,24 +14,17 @@
     "valeur_mobilier": 4500,
     "budget_travaux": 8000,
     "dpe_initial": "D",
-    "dpe_objectif": "D",
     "renovation_energetique_cout": 0,
     "facteurs_qualitatifs": {
       "tension_locative": "Très Élevée",
       "potentiel_valorisation": "Élevé",
       "qualite_emplacement": "Excellent"
     },
-    "tension_locative_score_abs": 12.97,
     "tension_locative_score_norm": 1.0,
     "transport_score": 1.0,
     "transport_modes": ["metro", "tram", "bus"],
     "delai_vente_j_median": 66,
     "liquidite_score": 0.72,
-    "data_sources": {
-      "tension": "LocService 2025 (classement 40 villes) si dispo; sinon Tensiomètre Locatif (qualitatif)",
-      "transport": "Wikipedia TCL/Tramway Grenoble; Ville de Chambéry - Synchro Mobilités",
-      "delai_vente": "Le Figaro Immobilier (fiches ville); Lyon étude locale (66j)"
-    },
     "mode_loyer_label": "Meuble Etudiant"
   },
   {
@@ -49,24 +42,17 @@
     "valeur_mobilier": 7000,
     "budget_travaux": 15000,
     "dpe_initial": "E",
-    "dpe_objectif": "D",
     "renovation_energetique_cout": 12000,
     "facteurs_qualitatifs": {
       "tension_locative": "Élevée",
       "potentiel_valorisation": "Excellent",
       "qualite_emplacement": "Premium"
     },
-    "tension_locative_score_abs": 12.97,
     "tension_locative_score_norm": 1.0,
     "transport_score": 1.0,
     "transport_modes": ["metro", "tram", "bus"],
     "delai_vente_j_median": 66,
     "liquidite_score": 0.72,
-    "data_sources": {
-      "tension": "LocService 2025 (classement 40 villes) si dispo; sinon Tensiomètre Locatif (qualitatif)",
-      "transport": "Wikipedia TCL/Tramway Grenoble; Ville de Chambéry - Synchro Mobilités",
-      "delai_vente": "Le Figaro Immobilier (fiches ville); Lyon étude locale (66j)"
-    },
     "mode_loyer_label": "Meuble Classique"
   },
   {
@@ -84,24 +70,17 @@
     "valeur_mobilier": 0,
     "budget_travaux": 20000,
     "dpe_initial": "D",
-    "dpe_objectif": "D",
     "renovation_energetique_cout": 0,
     "facteurs_qualitatifs": {
       "tension_locative": "Élevée",
       "potentiel_valorisation": "Élevé",
       "qualite_emplacement": "Très Bon"
     },
-    "tension_locative_score_abs": 12.97,
     "tension_locative_score_norm": 1.0,
     "transport_score": 1.0,
     "transport_modes": ["metro", "tram", "bus"],
     "delai_vente_j_median": 66,
     "liquidite_score": 0.72,
-    "data_sources": {
-      "tension": "LocService 2025 (classement 40 villes) si dispo; sinon Tensiomètre Locatif (qualitatif)",
-      "transport": "Wikipedia TCL/Tramway Grenoble; Ville de Chambéry - Synchro Mobilités",
-      "delai_vente": "Le Figaro Immobilier (fiches ville); Lyon étude locale (66j)"
-    },
     "mode_loyer_label": "Nu Classique"
   },
   {
@@ -119,24 +98,17 @@
     "valeur_mobilier": 12000,
     "budget_travaux": 25000,
     "dpe_initial": "D",
-    "dpe_objectif": "D",
     "renovation_energetique_cout": 0,
     "facteurs_qualitatifs": {
       "tension_locative": "Très Élevée",
       "potentiel_valorisation": "Bon",
       "qualite_emplacement": "Bon (proche métro)"
     },
-    "tension_locative_score_abs": 12.97,
     "tension_locative_score_norm": 1.0,
     "transport_score": 1.0,
     "transport_modes": ["metro", "tram", "bus"],
     "delai_vente_j_median": 66,
     "liquidite_score": 0.72,
-    "data_sources": {
-      "tension": "LocService 2025 (classement 40 villes) si dispo; sinon Tensiomètre Locatif (qualitatif)",
-      "transport": "Wikipedia TCL/Tramway Grenoble; Ville de Chambéry - Synchro Mobilités",
-      "delai_vente": "Le Figaro Immobilier (fiches ville); Lyon étude locale (66j)"
-    },
     "mode_loyer_label": "Colocation Meublee"
   },
   {
@@ -154,24 +126,17 @@
     "valeur_mobilier": 4800,
     "budget_travaux": 7000,
     "dpe_initial": "D",
-    "dpe_objectif": "D",
     "renovation_energetique_cout": 0,
     "facteurs_qualitatifs": {
       "tension_locative": "Élevée",
       "potentiel_valorisation": "Moyen",
       "qualite_emplacement": "Très bon"
     },
-    "tension_locative_score_abs": 21.5,
     "tension_locative_score_norm": 1.0,
     "transport_score": 1.0,
     "transport_modes": ["tram", "bus"],
     "delai_vente_j_median": 85,
     "liquidite_score": 0.79,
-    "data_sources": {
-      "tension": "LocService / observatoires locaux (approx); à préciser par adresse",
-      "transport": "SMTC/M TAG (tram/bus), SNCF TER; vérif locale recommandée",
-      "delai_vente": "Baromètres locaux & portails; ordre de grandeur"
-    },
     "mode_loyer_label": "Meuble Etudiant"
   },
   {
@@ -189,24 +154,17 @@
     "valeur_mobilier": 7000,
     "budget_travaux": 14000,
     "dpe_initial": "C",
-    "dpe_objectif": "C",
     "renovation_energetique_cout": 0,
     "facteurs_qualitatifs": {
       "tension_locative": "Élevée",
       "potentiel_valorisation": "Élevé",
       "qualite_emplacement": "Excellent"
     },
-    "tension_locative_score_abs": 19.5,
     "tension_locative_score_norm": 0.97,
     "transport_score": 1.0,
     "transport_modes": ["tram", "bus"],
     "delai_vente_j_median": 80,
     "liquidite_score": 0.82,
-    "data_sources": {
-      "tension": "LocService / observatoires locaux (approx); à préciser par adresse",
-      "transport": "SMTC/M TAG (tram/bus), SNCF TER; vérif locale recommandée",
-      "delai_vente": "Baromètres locaux & portails; ordre de grandeur"
-    },
     "mode_loyer_label": "Meuble Classique"
   },
   {
@@ -224,24 +182,17 @@
     "valeur_mobilier": 13500,
     "budget_travaux": 32000,
     "dpe_initial": "D",
-    "dpe_objectif": "D",
     "renovation_energetique_cout": 0,
     "facteurs_qualitatifs": {
       "tension_locative": "Élevée",
       "potentiel_valorisation": "Moyen",
       "qualite_emplacement": "Bon"
     },
-    "tension_locative_score_abs": 20.0,
     "tension_locative_score_norm": 1.0,
     "transport_score": 1.0,
     "transport_modes": ["tram", "bus"],
     "delai_vente_j_median": 95,
     "liquidite_score": 0.73,
-    "data_sources": {
-      "tension": "LocService / observatoires locaux (approx); à préciser par adresse",
-      "transport": "SMTC/M TAG (tram/bus), SNCF TER; vérif locale recommandée",
-      "delai_vente": "Baromètres locaux & portails; ordre de grandeur"
-    },
     "mode_loyer_label": "Colocation Meublee"
   },
   {
@@ -259,24 +210,17 @@
     "valeur_mobilier": 0,
     "budget_travaux": 18000,
     "dpe_initial": "E",
-    "dpe_objectif": "D",
     "renovation_energetique_cout": 8000,
     "facteurs_qualitatifs": {
       "tension_locative": "Moyenne",
       "potentiel_valorisation": "Moyen",
       "qualite_emplacement": "Correct"
     },
-    "tension_locative_score_abs": 14.8,
     "tension_locative_score_norm": 0.74,
     "transport_score": 0.6,
     "transport_modes": ["bus"],
     "delai_vente_j_median": 105,
     "liquidite_score": 0.67,
-    "data_sources": {
-      "tension": "LocService / observatoires locaux (approx); à préciser par adresse",
-      "transport": "SMTC/M TAG (tram/bus), SNCF TER; vérif locale recommandée",
-      "delai_vente": "Baromètres locaux & portails; ordre de grandeur"
-    },
     "mode_loyer_label": "Nu Classique"
   },
   {
@@ -294,24 +238,17 @@
     "valeur_mobilier": 4000,
     "budget_travaux": 6000,
     "dpe_initial": "D",
-    "dpe_objectif": "D",
     "renovation_energetique_cout": 0,
     "facteurs_qualitatifs": {
       "tension_locative": "Élevée",
       "potentiel_valorisation": "Moyen",
       "qualite_emplacement": "Excellent"
     },
-    "tension_locative_score_abs": 23.5,
     "tension_locative_score_norm": 1.0,
     "transport_score": 1.0,
     "transport_modes": ["tram", "bus"],
     "delai_vente_j_median": 90,
     "liquidite_score": 0.76,
-    "data_sources": {
-      "tension": "LocService / observatoires locaux (approx); à préciser par adresse",
-      "transport": "SMTC/M TAG (tram/bus), SNCF TER; vérif locale recommandée",
-      "delai_vente": "Baromètres locaux & portails; ordre de grandeur"
-    },
     "mode_loyer_label": "Meuble Etudiant"
   },
   {
@@ -329,24 +266,17 @@
     "valeur_mobilier": 0,
     "budget_travaux": 20000,
     "dpe_initial": "E",
-    "dpe_objectif": "D",
     "renovation_energetique_cout": 9000,
     "facteurs_qualitatifs": {
       "tension_locative": "Moyenne",
       "potentiel_valorisation": "Moyen",
       "qualite_emplacement": "Bon"
     },
-    "tension_locative_score_abs": 15.0,
     "tension_locative_score_norm": 0.75,
     "transport_score": 1.0,
     "transport_modes": ["tram", "bus"],
     "delai_vente_j_median": 100,
     "liquidite_score": 0.7,
-    "data_sources": {
-      "tension": "LocService / observatoires locaux (approx); à préciser par adresse",
-      "transport": "SMTC/M TAG (tram/bus), SNCF TER; vérif locale recommandée",
-      "delai_vente": "Baromètres locaux & portails; ordre de grandeur"
-    },
     "mode_loyer_label": "Nu Classique"
   },
   {
@@ -364,24 +294,17 @@
     "valeur_mobilier": 6000,
     "budget_travaux": 12000,
     "dpe_initial": "D",
-    "dpe_objectif": "D",
     "renovation_energetique_cout": 0,
     "facteurs_qualitatifs": {
       "tension_locative": "Moyenne",
       "potentiel_valorisation": "Moyen",
       "qualite_emplacement": "Correct"
     },
-    "tension_locative_score_abs": 16.5,
     "tension_locative_score_norm": 0.82,
     "transport_score": 1.0,
     "transport_modes": ["tram", "bus"],
     "delai_vente_j_median": 110,
     "liquidite_score": 0.64,
-    "data_sources": {
-      "tension": "LocService / observatoires locaux (approx); à préciser par adresse",
-      "transport": "SMTC/M TAG (tram/bus), SNCF TER; vérif locale recommandée",
-      "delai_vente": "Baromètres locaux & portails; ordre de grandeur"
-    },
     "mode_loyer_label": "Meuble Classique"
   },
   {
@@ -399,24 +322,17 @@
     "valeur_mobilier": 11000,
     "budget_travaux": 26000,
     "dpe_initial": "D",
-    "dpe_objectif": "D",
     "renovation_energetique_cout": 0,
     "facteurs_qualitatifs": {
       "tension_locative": "Moyenne",
       "potentiel_valorisation": "Moyen",
       "qualite_emplacement": "Bon"
     },
-    "tension_locative_score_abs": 18.0,
     "tension_locative_score_norm": 0.9,
     "transport_score": 1.0,
     "transport_modes": ["tram", "bus"],
     "delai_vente_j_median": 100,
     "liquidite_score": 0.7,
-    "data_sources": {
-      "tension": "LocService / observatoires locaux (approx); à préciser par adresse",
-      "transport": "SMTC/M TAG (tram/bus), SNCF TER; vérif locale recommandée",
-      "delai_vente": "Baromètres locaux & portails; ordre de grandeur"
-    },
     "mode_loyer_label": "Colocation Meublee"
   },
   {
@@ -434,24 +350,17 @@
     "valeur_mobilier": 6000,
     "budget_travaux": 12000,
     "dpe_initial": "D",
-    "dpe_objectif": "D",
     "renovation_energetique_cout": 0,
     "facteurs_qualitatifs": {
       "tension_locative": "Moyenne",
       "potentiel_valorisation": "Moyen",
       "qualite_emplacement": "Bon"
     },
-    "tension_locative_score_abs": 17.0,
     "tension_locative_score_norm": 0.85,
     "transport_score": 1.0,
     "transport_modes": ["tram", "bus"],
     "delai_vente_j_median": 100,
     "liquidite_score": 0.7,
-    "data_sources": {
-      "tension": "LocService / observatoires locaux (approx); à préciser par adresse",
-      "transport": "SMTC/M TAG (tram/bus), SNCF TER; vérif locale recommandée",
-      "delai_vente": "Baromètres locaux & portails; ordre de grandeur"
-    },
     "mode_loyer_label": "Meuble Classique"
   },
   {
@@ -469,24 +378,17 @@
     "valeur_mobilier": 11500,
     "budget_travaux": 26000,
     "dpe_initial": "D",
-    "dpe_objectif": "D",
     "renovation_energetique_cout": 0,
     "facteurs_qualitatifs": {
       "tension_locative": "Moyenne",
       "potentiel_valorisation": "Moyen",
       "qualite_emplacement": "Correct"
     },
-    "tension_locative_score_abs": 18.5,
     "tension_locative_score_norm": 0.93,
     "transport_score": 1.0,
     "transport_modes": ["tram", "bus"],
     "delai_vente_j_median": 105,
     "liquidite_score": 0.67,
-    "data_sources": {
-      "tension": "LocService / observatoires locaux (approx); à préciser par adresse",
-      "transport": "SMTC/M TAG (tram/bus), SNCF TER; vérif locale recommandée",
-      "delai_vente": "Baromètres locaux & portails; ordre de grandeur"
-    },
     "mode_loyer_label": "Colocation Meublee"
   },
   {
@@ -504,24 +406,17 @@
     "valeur_mobilier": 7000,
     "budget_travaux": 14000,
     "dpe_initial": "C",
-    "dpe_objectif": "C",
     "renovation_energetique_cout": 0,
     "facteurs_qualitatifs": {
       "tension_locative": "Moyenne",
       "potentiel_valorisation": "Élevé",
       "qualite_emplacement": "Bon"
     },
-    "tension_locative_score_abs": 18.5,
     "tension_locative_score_norm": 0.93,
     "transport_score": 0.6,
     "transport_modes": ["bus"],
     "delai_vente_j_median": 95,
     "liquidite_score": 0.73,
-    "data_sources": {
-      "tension": "LocService / observatoires locaux (approx); à préciser par adresse",
-      "transport": "SMTC/M TAG (tram/bus), SNCF TER; vérif locale recommandée",
-      "delai_vente": "Baromètres locaux & portails; ordre de grandeur"
-    },
     "mode_loyer_label": "Meuble Classique"
   },
   {
@@ -539,24 +434,17 @@
     "valeur_mobilier": 0,
     "budget_travaux": 22000,
     "dpe_initial": "D",
-    "dpe_objectif": "C",
     "renovation_energetique_cout": 10000,
     "facteurs_qualitatifs": {
       "tension_locative": "Moyenne",
       "potentiel_valorisation": "Élevé",
       "qualite_emplacement": "Correct"
     },
-    "tension_locative_score_abs": 15.2,
     "tension_locative_score_norm": 0.76,
     "transport_score": 0.6,
     "transport_modes": ["bus"],
     "delai_vente_j_median": 100,
     "liquidite_score": 0.7,
-    "data_sources": {
-      "tension": "LocService / observatoires locaux (approx); à préciser par adresse",
-      "transport": "SMTC/M TAG (tram/bus), SNCF TER; vérif locale recommandée",
-      "delai_vente": "Baromètres locaux & portails; ordre de grandeur"
-    },
     "mode_loyer_label": "Nu Classique"
   },
   {
@@ -574,24 +462,17 @@
     "valeur_mobilier": 4800,
     "budget_travaux": 8000,
     "dpe_initial": "D",
-    "dpe_objectif": "D",
     "renovation_energetique_cout": 0,
     "facteurs_qualitatifs": {
       "tension_locative": "Élevée",
       "potentiel_valorisation": "Moyen",
       "qualite_emplacement": "Excellent"
     },
-    "tension_locative_score_abs": 21.0,
     "tension_locative_score_norm": 1.0,
     "transport_score": 1.0,
     "transport_modes": ["tram", "bus"],
     "delai_vente_j_median": 85,
     "liquidite_score": 0.79,
-    "data_sources": {
-      "tension": "LocService / observatoires locaux (approx); à préciser par adresse",
-      "transport": "SMTC/M TAG (tram/bus), SNCF TER; vérif locale recommandée",
-      "delai_vente": "Baromètres locaux & portails; ordre de grandeur"
-    },
     "mode_loyer_label": "Meuble Classique"
   },
   {
@@ -609,24 +490,17 @@
     "valeur_mobilier": 0,
     "budget_travaux": 20000,
     "dpe_initial": "D",
-    "dpe_objectif": "C",
     "renovation_energetique_cout": 9000,
     "facteurs_qualitatifs": {
       "tension_locative": "Moyenne",
       "potentiel_valorisation": "Élevé",
       "qualite_emplacement": "Bon"
     },
-    "tension_locative_score_abs": 15.0,
     "tension_locative_score_norm": 0.75,
     "transport_score": 0.6,
     "transport_modes": ["bus"],
     "delai_vente_j_median": 95,
     "liquidite_score": 0.73,
-    "data_sources": {
-      "tension": "LocService / observatoires locaux (approx); à préciser par adresse",
-      "transport": "SMTC/M TAG (tram/bus), SNCF TER; vérif locale recommandée",
-      "delai_vente": "Baromètres locaux & portails; ordre de grandeur"
-    },
     "mode_loyer_label": "Nu Classique"
   },
   {
@@ -644,24 +518,17 @@
     "valeur_mobilier": 6000,
     "budget_travaux": 12000,
     "dpe_initial": "D",
-    "dpe_objectif": "D",
     "renovation_energetique_cout": 0,
     "facteurs_qualitatifs": {
       "tension_locative": "Élevée",
       "potentiel_valorisation": "Moyen",
       "qualite_emplacement": "Bon"
     },
-    "tension_locative_score_abs": 17.8,
     "tension_locative_score_norm": 0.89,
     "transport_score": 1.0,
     "transport_modes": ["tram", "train", "bus"],
     "delai_vente_j_median": 95,
     "liquidite_score": 0.73,
-    "data_sources": {
-      "tension": "LocService / observatoires locaux (approx); à préciser par adresse",
-      "transport": "SMTC/M TAG (tram/bus), SNCF TER; vérif locale recommandée",
-      "delai_vente": "Baromètres locaux & portails; ordre de grandeur"
-    },
     "mode_loyer_label": "Meuble Classique"
   },
   {
@@ -679,24 +546,17 @@
     "valeur_mobilier": 6500,
     "budget_travaux": 16000,
     "dpe_initial": "D",
-    "dpe_objectif": "D",
     "renovation_energetique_cout": 0,
     "facteurs_qualitatifs": {
       "tension_locative": "Moyenne",
       "potentiel_valorisation": "Moyen",
       "qualite_emplacement": "Bon"
     },
-    "tension_locative_score_abs": 15.5,
     "tension_locative_score_norm": 0.78,
     "transport_score": 1.0,
     "transport_modes": ["tram", "bus"],
     "delai_vente_j_median": 100,
     "liquidite_score": 0.7,
-    "data_sources": {
-      "tension": "LocService / observatoires locaux (approx); à préciser par adresse",
-      "transport": "SMTC/M TAG (tram/bus), SNCF TER; vérif locale recommandée",
-      "delai_vente": "Baromètres locaux & portails; ordre de grandeur"
-    },
     "mode_loyer_label": "Meuble Classique"
   },
   {
@@ -714,24 +574,17 @@
     "valeur_mobilier": 6500,
     "budget_travaux": 12000,
     "dpe_initial": "D",
-    "dpe_objectif": "D",
     "renovation_energetique_cout": 0,
     "facteurs_qualitatifs": {
       "tension_locative": "Moyenne",
       "potentiel_valorisation": "Moyen",
       "qualite_emplacement": "Correct"
     },
-    "tension_locative_score_abs": 17.0,
     "tension_locative_score_norm": 0.85,
     "transport_score": 0.6,
     "transport_modes": ["bus"],
     "delai_vente_j_median": 105,
     "liquidite_score": 0.67,
-    "data_sources": {
-      "tension": "LocService / observatoires locaux (approx); à préciser par adresse",
-      "transport": "SMTC/M TAG (tram/bus), SNCF TER; vérif locale recommandée",
-      "delai_vente": "Baromètres locaux & portails; ordre de grandeur"
-    },
     "mode_loyer_label": "Meuble Classique"
   },
   {
@@ -749,24 +602,17 @@
     "valeur_mobilier": 11000,
     "budget_travaux": 26000,
     "dpe_initial": "D",
-    "dpe_objectif": "D",
     "renovation_energetique_cout": 0,
     "facteurs_qualitatifs": {
       "tension_locative": "Moyenne",
       "potentiel_valorisation": "Moyen",
       "qualite_emplacement": "Bon"
     },
-    "tension_locative_score_abs": 18.0,
     "tension_locative_score_norm": 0.9,
     "transport_score": 1.0,
     "transport_modes": ["tram", "bus"],
     "delai_vente_j_median": 100,
     "liquidite_score": 0.7,
-    "data_sources": {
-      "tension": "LocService / observatoires locaux (approx); à préciser par adresse",
-      "transport": "SMTC/M TAG (tram/bus), SNCF TER; vérif locale recommandée",
-      "delai_vente": "Baromètres locaux & portails; ordre de grandeur"
-    },
     "mode_loyer_label": "Colocation Meublee"
   },
   {
@@ -784,24 +630,17 @@
     "valeur_mobilier": 0,
     "budget_travaux": 20000,
     "dpe_initial": "D",
-    "dpe_objectif": "C",
     "renovation_energetique_cout": 9000,
     "facteurs_qualitatifs": {
       "tension_locative": "Faible à Moyenne",
       "potentiel_valorisation": "Moyen",
       "qualite_emplacement": "Correct"
     },
-    "tension_locative_score_abs": 15.2,
     "tension_locative_score_norm": 0.76,
     "transport_score": 0.6,
     "transport_modes": ["bus"],
     "delai_vente_j_median": 110,
     "liquidite_score": 0.64,
-    "data_sources": {
-      "tension": "LocService / observatoires locaux (approx); à préciser par adresse",
-      "transport": "SMTC/M TAG (tram/bus), SNCF TER; vérif locale recommandée",
-      "delai_vente": "Baromètres locaux & portails; ordre de grandeur"
-    },
     "mode_loyer_label": "Nu Classique"
   },
   {
@@ -819,24 +658,17 @@
     "valeur_mobilier": 6000,
     "budget_travaux": 12000,
     "dpe_initial": "D",
-    "dpe_objectif": "D",
     "renovation_energetique_cout": 0,
     "facteurs_qualitatifs": {
       "tension_locative": "Moyenne",
       "potentiel_valorisation": "Moyen",
       "qualite_emplacement": "Bon"
     },
-    "tension_locative_score_abs": 16.0,
     "tension_locative_score_norm": 0.8,
     "transport_score": 0.6,
     "transport_modes": ["train", "bus"],
     "delai_vente_j_median": 120,
     "liquidite_score": 0.58,
-    "data_sources": {
-      "tension": "LocService / observatoires locaux (approx); à préciser par adresse",
-      "transport": "SMTC/M TAG (tram/bus), SNCF TER; vérif locale recommandée",
-      "delai_vente": "Baromètres locaux & portails; ordre de grandeur"
-    },
     "mode_loyer_label": "Meuble Classique"
   },
   {
@@ -854,24 +686,17 @@
     "valeur_mobilier": 4000,
     "budget_travaux": 6000,
     "dpe_initial": "D",
-    "dpe_objectif": "D",
     "renovation_energetique_cout": 0,
     "facteurs_qualitatifs": {
       "tension_locative": "Très Élevée",
       "potentiel_valorisation": "Moyen",
       "qualite_emplacement": "Bon"
     },
-    "tension_locative_score_abs": 1.64,
     "tension_locative_score_norm": 0.126,
     "transport_score": 0.8,
     "transport_modes": ["tram", "bus"],
     "delai_vente_j_median": 93,
     "liquidite_score": 0.36,
-    "data_sources": {
-      "tension": "LocService 2025 (classement 40 villes) si dispo; sinon Tensiomètre Locatif (qualitatif)",
-      "transport": "Wikipedia TCL/Tramway Grenoble; Ville de Chambéry - Synchro Mobilités",
-      "delai_vente": "Le Figaro Immobilier (fiches ville); Lyon étude locale (66j)"
-    },
     "mode_loyer_label": "Meuble Etudiant"
   },
   {
@@ -889,24 +714,17 @@
     "valeur_mobilier": 6500,
     "budget_travaux": 12000,
     "dpe_initial": "D",
-    "dpe_objectif": "D",
     "renovation_energetique_cout": 0,
     "facteurs_qualitatifs": {
       "tension_locative": "Élevée",
       "potentiel_valorisation": "Bon",
       "qualite_emplacement": "Excellent"
     },
-    "tension_locative_score_abs": 1.64,
     "tension_locative_score_norm": 0.126,
     "transport_score": 0.8,
     "transport_modes": ["tram", "bus"],
     "delai_vente_j_median": 93,
     "liquidite_score": 0.36,
-    "data_sources": {
-      "tension": "LocService 2025 (classement 40 villes) si dispo; sinon Tensiomètre Locatif (qualitatif)",
-      "transport": "Wikipedia TCL/Tramway Grenoble; Ville de Chambéry - Synchro Mobilités",
-      "delai_vente": "Le Figaro Immobilier (fiches ville); Lyon étude locale (66j)"
-    },
     "mode_loyer_label": "Meuble Classique"
   },
   {
@@ -924,24 +742,17 @@
     "valeur_mobilier": 0,
     "budget_travaux": 22000,
     "dpe_initial": "E",
-    "dpe_objectif": "D",
     "renovation_energetique_cout": 14000,
     "facteurs_qualitatifs": {
       "tension_locative": "Moyenne",
       "potentiel_valorisation": "Moyen",
       "qualite_emplacement": "Correct"
     },
-    "tension_locative_score_abs": 1.64,
     "tension_locative_score_norm": 0.126,
     "transport_score": 0.8,
     "transport_modes": ["tram", "bus"],
     "delai_vente_j_median": 93,
     "liquidite_score": 0.36,
-    "data_sources": {
-      "tension": "LocService 2025 (classement 40 villes) si dispo; sinon Tensiomètre Locatif (qualitatif)",
-      "transport": "Wikipedia TCL/Tramway Grenoble; Ville de Chambéry - Synchro Mobilités",
-      "delai_vente": "Le Figaro Immobilier (fiches ville); Lyon étude locale (66j)"
-    },
     "mode_loyer_label": "Nu Classique"
   },
   {
@@ -959,24 +770,17 @@
     "valeur_mobilier": 11000,
     "budget_travaux": 28000,
     "dpe_initial": "D",
-    "dpe_objectif": "D",
     "renovation_energetique_cout": 0,
     "facteurs_qualitatifs": {
       "tension_locative": "Élevée",
       "potentiel_valorisation": "Moyen",
       "qualite_emplacement": "Bon (proche tram)"
     },
-    "tension_locative_score_abs": 1.64,
     "tension_locative_score_norm": 0.126,
     "transport_score": 0.8,
     "transport_modes": ["tram", "bus"],
     "delai_vente_j_median": 93,
     "liquidite_score": 0.36,
-    "data_sources": {
-      "tension": "LocService 2025 (classement 40 villes) si dispo; sinon Tensiomètre Locatif (qualitatif)",
-      "transport": "Wikipedia TCL/Tramway Grenoble; Ville de Chambéry - Synchro Mobilités",
-      "delai_vente": "Le Figaro Immobilier (fiches ville); Lyon étude locale (66j)"
-    },
     "mode_loyer_label": "Colocation Meublee"
   },
   {
@@ -994,25 +798,18 @@
     "valeur_mobilier": 4000,
     "budget_travaux": 7000,
     "dpe_initial": "D",
-    "dpe_objectif": "D",
     "renovation_energetique_cout": 0,
     "facteurs_qualitatifs": {
       "tension_locative": "Élevée",
       "potentiel_valorisation": "Moyen",
       "qualite_emplacement": "Bon"
     },
-    "tension_locative_score_abs": null,
     "tension_locative_score_norm": 0.55,
     "tension_locative_category": "Équilibré à plutôt tendu (selon type)",
     "transport_score": 0.6,
     "transport_modes": ["bus"],
     "delai_vente_j_median": 59,
     "liquidite_score": 0.813,
-    "data_sources": {
-      "tension": "LocService 2025 (classement 40 villes) si dispo; sinon Tensiomètre Locatif (qualitatif)",
-      "transport": "Wikipedia TCL/Tramway Grenoble; Ville de Chambéry - Synchro Mobilités",
-      "delai_vente": "Le Figaro Immobilier (fiches ville); Lyon étude locale (66j)"
-    },
     "mode_loyer_label": "Meuble Etudiant"
   },
   {
@@ -1030,25 +827,18 @@
     "valeur_mobilier": 6000,
     "budget_travaux": 18000,
     "dpe_initial": "E",
-    "dpe_objectif": "D",
     "renovation_energetique_cout": 10000,
     "facteurs_qualitatifs": {
       "tension_locative": "Moyenne",
       "potentiel_valorisation": "Bon",
       "qualite_emplacement": "Très Bon"
     },
-    "tension_locative_score_abs": null,
     "tension_locative_score_norm": 0.55,
     "tension_locative_category": "Équilibré à plutôt tendu (selon type)",
     "transport_score": 0.6,
     "transport_modes": ["bus"],
     "delai_vente_j_median": 59,
     "liquidite_score": 0.813,
-    "data_sources": {
-      "tension": "LocService 2025 (classement 40 villes) si dispo; sinon Tensiomètre Locatif (qualitatif)",
-      "transport": "Wikipedia TCL/Tramway Grenoble; Ville de Chambéry - Synchro Mobilités",
-      "delai_vente": "Le Figaro Immobilier (fiches ville); Lyon étude locale (66j)"
-    },
     "mode_loyer_label": "Meuble Classique"
   },
   {
@@ -1066,25 +856,18 @@
     "valeur_mobilier": 0,
     "budget_travaux": 25000,
     "dpe_initial": "D",
-    "dpe_objectif": "D",
     "renovation_energetique_cout": 0,
     "facteurs_qualitatifs": {
       "tension_locative": "Moyenne",
       "potentiel_valorisation": "Moyen",
       "qualite_emplacement": "Correct"
     },
-    "tension_locative_score_abs": null,
     "tension_locative_score_norm": 0.55,
     "tension_locative_category": "Équilibré à plutôt tendu (selon type)",
     "transport_score": 0.6,
     "transport_modes": ["bus"],
     "delai_vente_j_median": 59,
     "liquidite_score": 0.813,
-    "data_sources": {
-      "tension": "LocService 2025 (classement 40 villes) si dispo; sinon Tensiomètre Locatif (qualitatif)",
-      "transport": "Wikipedia TCL/Tramway Grenoble; Ville de Chambéry - Synchro Mobilités",
-      "delai_vente": "Le Figaro Immobilier (fiches ville); Lyon étude locale (66j)"
-    },
     "mode_loyer_label": "Nu Classique"
   },
   {
@@ -1102,25 +885,18 @@
     "valeur_mobilier": 10000,
     "budget_travaux": 25000,
     "dpe_initial": "D",
-    "dpe_objectif": "D",
     "renovation_energetique_cout": 0,
     "facteurs_qualitatifs": {
       "tension_locative": "Élevée",
       "potentiel_valorisation": "Moyen",
       "qualite_emplacement": "Bon"
     },
-    "tension_locative_score_abs": null,
     "tension_locative_score_norm": 0.55,
     "tension_locative_category": "Équilibré à plutôt tendu (selon type)",
     "transport_score": 0.6,
     "transport_modes": ["bus"],
     "delai_vente_j_median": 59,
     "liquidite_score": 0.813,
-    "data_sources": {
-      "tension": "LocService 2025 (classement 40 villes) si dispo; sinon Tensiomètre Locatif (qualitatif)",
-      "transport": "Wikipedia TCL/Tramway Grenoble; Ville de Chambéry - Synchro Mobilités",
-      "delai_vente": "Le Figaro Immobilier (fiches ville); Lyon étude locale (66j)"
-    },
     "mode_loyer_label": "Colocation Meublee"
   }
 ]

@@ -70,7 +70,8 @@ def create_investment_bricks(
         # Energy renovation check
         dpe = archetype.get("dpe_initial", "D").upper()
         reno_cout = float(archetype.get("renovation_energetique_cout", 0.0))
-        reno = reno_cout if finance.inclure_reno_ener and dpe == "E" else 0.0
+        # Apply renovation cost for energy-inefficient properties (E, F, G)
+        reno = reno_cout if finance.inclure_reno_ener and dpe in ["E", "F", "G"] else 0.0
 
         mobilier = archetype.get("valeur_mobilier", 0.0) if finance.inclure_mobilier else 0.0
 
