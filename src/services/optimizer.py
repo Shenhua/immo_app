@@ -116,9 +116,30 @@ class GeneticOptimizer:
 
         # 2. Simulation
         # Construct strategy dict for simulator
-        strat_data = {"details": details}
+        strat_data = {
+            "details": details,
+            "apport_total": apport_used
+        }
+        
+        # Generate schedules on the fly
+        from src.core.financial import generate_amortization_schedule
+        schedules = []
+        for p in details:
+            # Calculate loan amount based on allocation
+            cout_total = p.get("cout_total", p.get("prix_achat_bien", 0))
+            apport_bien = p.get("apport_final_bien", 0)
+            principal = max(0, cout_total - apport_bien)
+            
+            sch = generate_amortization_schedule(
+                principal=principal,
+                annual_rate_pct=p.get("taux_pret", 0.0),
+                duration_months=int(p.get("duree_pret", 20)) * 12,
+                annual_insurance_pct=p.get("assurance_pret_pct", 0.0)
+            )
+            schedules.append(sch)
+
         try:
-            df_sim, bilan = self.simulator.simulate(strat_data, horizon, [])
+            df_sim, bilan = self.simulator.simulate(strat_data, horizon, schedules)
             ind.stats["bilan"] = bilan
             ind.stats["simulation"] = df_sim # Warning: Memory usage
             

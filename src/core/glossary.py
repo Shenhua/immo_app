@@ -33,13 +33,13 @@ def calculate_cashflow_metrics(
         }
 
     # Year 1 Monthly (Primary)
-    cf_y1_annual = df_sim.iloc[0]["Cash Flow"]
+    cf_y1_annual = df_sim.iloc[0]["Cash-Flow Net d'Impôt"]
     cf_y1_monthly = cf_y1_annual / 12.0
 
     # 5-Year Average Monthly (Secondary)
     # limit to available data if < 5 years
     horizon = min(5, len(df_sim))
-    cf_5y_annual_avg = df_sim.iloc[:horizon]["Cash Flow"].mean()
+    cf_5y_annual_avg = df_sim.iloc[:horizon]["Cash-Flow Net d'Impôt"].mean()
     cf_5y_monthly = cf_5y_annual_avg / 12.0
 
     # Acceptance Logic

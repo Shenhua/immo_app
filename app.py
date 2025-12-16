@@ -224,6 +224,10 @@ def main() -> None:
     # 8. Render main page
     render_main_page(compliant, strategies, df_sim)
 
+    # 9. Render Debug Tools (at bottom of sidebar)
+    from src.ui.components.sidebar import render_debug_section
+    render_debug_section(params)
+
 
 if __name__ == "__main__":
     main()

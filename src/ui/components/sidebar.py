@@ -371,3 +371,38 @@ def render_scoring_preset() -> tuple[str, dict[str, float]]:
 
     return st.session_state.finance_preset, weights
 
+
+def render_debug_section(params: dict[str, Any]) -> None:
+    """Render debug tools section."""
+    st.markdown("---")
+    with st.expander("🛠️ Debug AI Agent", expanded=False):
+        st.write("Générer un contexte complet pour le débogage par IA.")
+        
+        if st.button("📸 Capturer le Contexte"):
+            from src.utils.debug import collect_debug_context, save_debug_context
+            from src.ui.state import SessionManager
+            import json
+            
+            # Gather state
+            strategies = SessionManager.get_strategies()
+            # Note: We don't have direct access to last simulation df here unless passed or stored in session
+            # For now, we'll rely on what we can gather.
+            
+            ctx = collect_debug_context(
+                session_state=dict(st.session_state),
+                params=params,
+                strategies=strategies,
+                last_simulation=None # Optional for now
+            )
+            
+            # Serialize for download
+            json_str = json.dumps(ctx, default=str, indent=2, ensure_ascii=False)
+            
+            st.download_button(
+                label="📥 Télécharger context.json",
+                data=json_str,
+                file_name="ai_debug_context.json",
+                mime="application/json",
+            )
+            st.success("Contexte capturé !")
+
