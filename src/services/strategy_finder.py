@@ -357,12 +357,19 @@ class StrategyFinder:
                  pop_size=optimizer.pop_size, 
                  generations=optimizer.generations)
                  
+        # Phase 17 Review: Deep Diversity
+        # To avoid "Dedupe removing everything", we request a much larger pool from the optimizer
+        # and then dedupe/filter down to top_n ourselves.
+        # This ensures we have enough raw material to find N distinct strategies.
+        pool_size = max(500, top_n * 5)
+        
         strategies = optimizer.evolve(
-            self.bricks,
-            self.apport_disponible,
-            self.cash_flow_cible,
-            self.tolerance,
-            horizon=horizon_years
+            all_bricks=self.bricks,
+            budget=self.apport_disponible,
+            target_cf=self.cash_flow_cible,
+            tolerance=self.tolerance,
+            horizon=horizon_years,
+            top_n=pool_size 
         )
         log.info("ga_optimization_finished", count=len(strategies))
 
@@ -370,11 +377,36 @@ class StrategyFinder:
         # We re-run relative scoring on the "Elite" set to populate UI-friendly normalized fields (A-score, etc.)
         self.scorer.score_strategies(strategies, self.cash_flow_cible)
 
-        # Filter out failed allocations
-        strategies = [s for s in strategies if s.get("allocation_ok", False)]
+        # Tiered ranking instead of hard-filter
+        # Tier 1: Feasible (allocation_ok=True)
+        # Tier 2: Near-feasible (within 2x tolerance)
+        # Tier 3: Infeasible (show a few for transparency)
+        for s in strategies:
+            if s.get("allocation_ok", False):
+                s["tier"] = 1
+                s["tier_label"] = "Réalisable"
+            else:
+                cf_gap = abs(s.get("cash_flow_final", -9999) - self.cash_flow_cible)
+                if cf_gap <= self.tolerance * 3:
+                    s["tier"] = 2
+                    s["tier_label"] = "Proche"
+                    s["fitness"] = s.get("fitness", 0) * 0.7  # 30% penalty
+                else:
+                    s["tier"] = 3
+                    s["tier_label"] = "Difficile"
+                    s["fitness"] = s.get("fitness", 0) * 0.3  # 70% penalty
+
+        # Sort by tier then fitness (best first within each tier)
+        strategies.sort(key=lambda x: (x.get("tier", 3), -x.get("fitness", 0)))
         
-        # Dedupe
-        strategies = self.dedupe_strategies(strategies)
+        # Log tier distribution
+        tier_counts = {1: 0, 2: 0, 3: 0}
+        for s in strategies:
+            tier_counts[s.get("tier", 3)] = tier_counts.get(s.get("tier", 3), 0) + 1
+        log.info("strategy_tiers", tier_1=tier_counts[1], tier_2=tier_counts[2], tier_3=tier_counts[3])
+        
+        # Dedupe (preserving tier order)
+        strategies = self.dedupe_strategies(strategies, top_n=top_n)
 
         top_strategies = self.rank_strategies(strategies, ep.finance_preset_name, top_n)
         log.info("strategy_search_completed",
@@ -402,14 +434,13 @@ class StrategyFinder:
         return score_sum / total_price
 
 
-    def dedupe_strategies(self, strategies: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def dedupe_strategies(self, strategies: list[dict[str, Any]], top_n: int = 10) -> list[dict[str, Any]]:
         """Remove near-duplicate strategies.
-        Aggressive deduplication with fallback:
-        1. Group by 'Signature' (Set of property names).
-        2. Keep the best strategies per signature.
-        3. If meaningful variety is low, allow multiple variations per signature.
+        
+        Groups by property signature and keeps best per group.
+        Labels variations explicitly for UI clarity.
         """
-        # Group by signature
+        # Group by signature (property names + count)
         grouped = {}
         for s in strategies:
             details = s.get("details", [])
@@ -418,22 +449,26 @@ class StrategyFinder:
                 grouped[sig] = []
             grouped[sig].append(s)
 
-        # Sort each group by score descending
+        # Sort each group by tier first, then score descending
         for sig in grouped:
-            grouped[sig].sort(key=lambda x: x.get("balanced_score", -float("inf")), reverse=True)
+            grouped[sig].sort(key=lambda x: (
+                x.get("tier", 3),  # Tier 1 first
+                -x.get("balanced_score", -float("inf"))
+            ))
 
-        # Selection logic
+        # Selection logic: Strictly keep only the best variation per signature
+        # This forces the result list to be composed of DISTINCT strategies.
+        # If we want 50 results, we must find 50 distinct property combinations.
         final_list = []
         
-        # If we have very few distinct property sets (e.g. < 3), show more variations per set
-        variations_per_sig = 1
-        if len(grouped) < 3:
-            variations_per_sig = 3
-
         for sig, items in grouped.items():
-            # Keep top N items
-            final_list.extend(items[:variations_per_sig])
+            # Keep only the absolute best (index 0)
+            best_item = items[0]
+            final_list.append(best_item)
 
+        # Re-sort final list by tier then score
+        final_list.sort(key=lambda x: (x.get("tier", 3), -x.get("balanced_score", 0)))
+        
         return final_list
 
     def rank_strategies(

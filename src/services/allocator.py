@@ -21,6 +21,7 @@ class PortfolioAllocator:
     def __init__(self, mode_cf: str = "target"):
         self.mode_cf = mode_cf
         self.max_extra_apport_pct = float(os.getenv("MAX_EXTRA_APPORT_PCT", "0.95"))
+        log.info("allocator_initialized", mode=self.mode_cf, max_extra_apport_ratio=self.max_extra_apport_pct)
 
     def allocate(
         self,
@@ -112,8 +113,10 @@ class PortfolioAllocator:
         # Pass 2+ will refine with smaller steps to hit target.
         for pass_idx in range(5):
             # Check success at start of pass
+            # Phase 18.2 Fix: Do NOT break if we want to use full capital (Empire mode)
             if self._accept_cf(cf0, target_cf, tolerance):
-                break
+                if not (use_full_capital and not is_precise):
+                    break
                 
             # Recalculate need
             manque_cf = self._calc_need(cf0, target_cf, tolerance)

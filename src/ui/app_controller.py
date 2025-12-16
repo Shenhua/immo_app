@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime
 from typing import Any
 
 import pandas as pd
@@ -88,6 +89,7 @@ def build_financing_config(credit_params: dict[str, Any]) -> FinancingConfig:
         inclure_mobilier=credit_params["inclure_mobilier"],
         financer_mobilier=credit_params["financer_mobilier"],
     )
+    log.info("financing_config_built", rates=config.credit_rates)
     return config
 
 
@@ -120,6 +122,7 @@ def run_strategy_search(
     mode_cf: str,
     eval_params: dict[str, Any],
     horizon_years: int,
+    top_n: int = 100,
 ) -> list[dict[str, Any]]:
     """Execute the strategy search pipeline.
 
@@ -136,11 +139,12 @@ def run_strategy_search(
         mode_cf: Cash flow mode
         eval_params: Evaluation parameters for simulation
         horizon_years: Simulation horizon
+        top_n: Max number of strategies to return (Phase 17.1)
 
     Returns:
         List of ranked strategies
     """
-    log.info("analysis_started", archetypes_count=len(archetypes), horizon=horizon_years)
+    log.info("analysis_started", archetypes_count=len(archetypes), horizon=horizon_years, top_n=top_n)
     log.debug(
         "run_strategy_search_called",
         apport=apport,
@@ -170,10 +174,38 @@ def run_strategy_search(
     strategies = finder.find_strategies(
         eval_params=eval_params,
         horizon_years=horizon_years,
-        use_full_capital_override=use_full
+        use_full_capital_override=use_full,
+        top_n=top_n
     )
 
     log.info("analysis_completed", strategies_found=len(strategies))
+
+    # Phase 19: Automatic Debug Context
+    try:
+        from src.utils.debug import collect_debug_context, save_debug_context
+        
+        ctx_params = {
+            "apport": apport,
+            "cf_cible": cf_cible,
+            "tolerance": tolerance,
+            "qual_weight": qual_weight,
+            "mode_cf": mode_cf,
+            "horizon_years": horizon_years,
+            "top_n": top_n,
+            "eval_params": eval_params,
+        }
+        
+        ctx = collect_debug_context(
+            params=ctx_params,
+            strategies=strategies,
+            log_file_path="logs/app.log"
+        )
+        # Use timestamped name
+        save_debug_context(ctx, filepath=f"results/debug_context_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+        log.info("debug_context_saved")
+    except Exception as e:
+        log.warning("debug_context_save_failed", error=str(e))
+
     return strategies
 
 

@@ -128,10 +128,9 @@ class GeneticOptimizer:
         from src.core.financial import generate_amortization_schedule
         schedules = []
         for p in details:
-            # Calculate loan amount based on allocation
-            cout_total = p.get("cout_total", p.get("prix_achat_bien", 0))
-            apport_bien = p.get("apport_final_bien", 0)
-            principal = max(0, cout_total - apport_bien)
+            # Use credit_final from allocator (already correctly calculated)
+            # DO NOT recalculate as (cout_total - apport) — that misses loan fees!
+            principal = float(p.get("credit_final", p.get("capital_restant", 0)))
             
             sch = generate_amortization_schedule(
                 principal=principal,
@@ -147,7 +146,9 @@ class GeneticOptimizer:
             # Note: df_sim not stored to save memory; KPIs extracted below
             
             # 3. Check Constraints (Glossary Standard)
-            cf_metrics = calculate_cashflow_metrics(df_sim, target_cf, tolerance)
+            # Use Allocator mode (Min vs Target) to check acceptability
+            mode_cf = self.allocator.mode_cf if self.allocator else "target"
+            cf_metrics = calculate_cashflow_metrics(df_sim, target_cf, tolerance, mode_cf=mode_cf)
             ind.stats.update(cf_metrics)
 
             # Ensure enrichment metrics are present
@@ -165,7 +166,7 @@ class GeneticOptimizer:
 
             # 4. Scoring (Absolute Mode)
             # Use absolute targets to avoid "relative normalization" instability
-            finance_score = self._calculate_absolute_finance_score(bilan, cf_metrics, target_cf)
+            finance_score = self._calculate_absolute_finance_score(bilan, cf_metrics, target_cf, tolerance)
             
             # Qualitative Score
             # Use the official qualitative scorer if available, else simple proxy
@@ -175,51 +176,77 @@ class GeneticOptimizer:
             
             # Balanced Score (50/50 default or use scorer weights if available)
             # Fitness = Balanced Score (0-100)
-            if self.scorer:
-                w_qual = self.scorer.qualite_weight
-                fitness = (1.0 - w_qual) * finance_score + w_qual * (qual_score / 100.0)
-            else:
-                fitness = 0.5 * finance_score + 0.5 * (qual_score / 100.0)
-            
-            ind.fitness = max(0.01, fitness * 100) # Scale to 0-100 like legacy
-            ind.is_valid = True
+            # Fitness = Balanced Score (0-100)
+            if ind.fitness < 0:
+                # 5. Combined Score
+                # Use SCORER's quality weight from parameters (Phase 15.1)
+                q_w = self.scorer.qualite_weight if self.scorer else 0.5
+                
+                # Combine
+                if q_w >= 1.0:
+                    fitness = qual_score / 100.0
+                elif q_w <= 0.0:
+                    fitness = finance_score
+                else:
+                    fitness = (1.0 - q_w) * finance_score + q_w * (qual_score / 100.0)
+                
+                ind.fitness = max(0.01, fitness * 100) # Scale to 0-100 like legacy
+                ind.is_valid = True
             
         except Exception as e:
             log.warning("evaluation_failed", error=str(e))
             ind.fitness = 0.0
             ind.is_valid = False
 
-    def _calculate_absolute_finance_score(self, bilan: dict, cf_metrics: dict, target_cf: float) -> float:
+    def _calculate_absolute_finance_score(self, bilan: dict, cf_metrics: dict, target_cf: float, tolerance: float) -> float:
         """
         Calculate finance score (0.0 to 1.0) using constant absolute scales.
         Implements Expert Report "Absolute Scales" recommendation.
+        Respects user-defined weights from StrategyScorer (Phase 15).
         """
+        w = self.scorer.weights if self.scorer else {
+            "tri": 0.3, "enrich": 0.3, "dscr": 0.2, "cf_proximity": 0.2
+        }
+
         # 1. TRI (Internal Rate of Return)
-        # Target: > 10% is excellent (1.0), < 0% is bad (0.0)
+        # Target: > 20% is excellent (1.0). Old cap (10%) hid unicorn deals (Phase 14.3).
         tri = bilan.get("tri_annuel", 0.0)
-        s_tri = max(0.0, min(1.0, tri / 10.0))  # 10% cap
+        s_tri = max(0.0, min(1.0, tri / 20.0))
         
-        # 2. Enrichment
-        # Target: > 200k over horizon is nice? deeply depends on budget.
-        # Let's use a arbitrary scale for now or better, Yield on Cost
+        # 2. Enrichment (ROE bias for Empire/Growth)
+        # Target: 2.0x (doubling equity) over horizon is good baseline.
         enrich = bilan.get("enrichissement_net", 0.0)
-        s_enrich = max(0.0, min(1.0, enrich / 200000.0))
+        apport_total = cf_metrics.get("apport_total", 1.0)
+        if apport_total < 1.0: apport_total = 1.0
+        
+        roe = enrich / apport_total
+        s_enrich = max(0.0, min(1.0, roe / 2.0))
 
         # 3. DSCR
-        # Target: 1.5 is safe (1.0)
-        dscr = float(bilan.get("dscr_y1", 0.0) or 0.0) # simulation result usually doesn't have dscr_y1 precalc
-        # ... actually simulator doesn't compute DSCR, StrategyFinder did.
-        # We need to compute it or rely on what's in 'bilan' 
-        # (Assuming glossary logic usage earlier or here)
-        s_dscr = max(0.0, min(1.0, dscr / 1.5))
+        # Target: 1.3 is safe (1.0). Old (1.5) was too banking-conservative (Phase 14.2).
+        dscr = float(bilan.get("dscr_y1", 0.0) or 0.0)
+        s_dscr = max(0.0, min(1.0, dscr / 1.3))
         
-        # 4. Cashflow Proximity
-        # Closer to target is better. 0 dist = 1.0. 
+        # 4. Cashflow Proximity (Dynamic Tolerance)
+        # Score = 1.0 at gap=0. Score = 0.5 at gap=tolerance. Score = 0 at gap=2*tolerance.
+        # This respects strict user tolerance settings (Phase 14.1).
         gap = cf_metrics["gap"]
-        s_cf = max(0.0, 1.0 - (gap / 500.0)) # 500 eur tolerance
         
-        # Weighted average (Equal weights for now, pure robustness)
-        return (0.3 * s_tri) + (0.3 * s_enrich) + (0.2 * s_dscr) + (0.2 * s_cf)
+        # Use provided tolerance, default to 100 if missing/zero
+        safe_tol = tolerance if tolerance > 1.0 else 100.0
+        s_cf = max(0.0, 1.0 - (gap / (safe_tol * 2.0)))
+        
+        # Weighted average using User Weights (Phase 15.2)
+        # StrategyScorer keys map: "irr"->s_tri, "enrich_net"->s_enrich
+        # "dscr"->s_dscr, "cf_proximity"->s_cf
+        
+        score = (
+            w.get("irr", 0.25) * s_tri +
+            w.get("enrich_net", 0.30) * s_enrich +
+            w.get("dscr", 0.15) * s_dscr +
+            w.get("cf_proximity", 0.20) * s_cf
+        )
+        return score
 
     def _individual_to_strategy(self, ind: Individual) -> Dict[str, Any]:
         """Convert Individual to Strategy dict format."""
@@ -256,7 +283,8 @@ class GeneticOptimizer:
         budget: float,
         target_cf: float,
         tolerance: float,
-        horizon: int = 20
+        horizon: int = 20,
+        top_n: int = 100
     ) -> List[Dict[str, Any]]:
         """Main evolution loop."""
         
@@ -273,63 +301,87 @@ class GeneticOptimizer:
         population = []
         
         # A. High Yield Bias (30%) - Experts want cashflow/efficiency
-        n_yield = int(self.pop_size * 0.3)
-        for _ in range(n_yield):
-            population.append(self._generate_biased_individual(bricks_yield, budget, top_n_percent=0.25))
+        for _ in range(int(self.pop_size * 0.3)):
+            ind = self._generate_biased_individual(bricks_yield, budget, top_n_percent=0.25)
+            population.append(ind)
             
-        # B. High Quality Bias (30%) - For the "Patrimonial" angle
-        n_qual = int(self.pop_size * 0.3)
-        for _ in range(n_qual):
-            population.append(self._generate_biased_individual(bricks_qual, budget, top_n_percent=0.25))
+        # B. High Quality Bias (20%) - For Patrimonial
+        for _ in range(int(self.pop_size * 0.2)):
+            ind = self._generate_biased_individual(bricks_qual, budget, top_n_percent=0.25)
+            population.append(ind)
             
-        # C. Low Cost Bias (20%) - "Small strategies"
-        n_cost = int(self.pop_size * 0.2)
-        for _ in range(n_cost):
-             population.append(self._generate_biased_individual(bricks_cost, budget, top_n_percent=0.4))
-             
-        # D. Random / Remainder (Exploration)
+        # C. Low Cost Bias (20%) - To fill gaps
+        for _ in range(int(self.pop_size * 0.2)):
+            ind = self._generate_biased_individual(bricks_cost, budget, top_n_percent=0.40)
+            population.append(ind)
+            
+        # D. Pure Random (30%) - Exploration
         while len(population) < self.pop_size:
-            population.append(self._generate_random_individual(all_bricks, budget, target_cf, tolerance))
-    
-        # Evaluator helper
-        def run_eval(pop):
-            for i in pop:
-                if i.fitness < 0: # Check cache/calc
-                    self._evaluate(i, budget, target_cf, tolerance, horizon)
-
-        run_eval(population)
-
+            ind = self._generate_random_individual(all_bricks, budget, target_cf, tolerance)
+            population.append(ind)
+            
+        best_fitness = 0.0
+        
+        # Evolution Loop
         for gen in range(self.generations):
-            # Sort by fitness
+            # 1. Evaluate
+            for ind in population:
+                self._evaluate(ind, budget, target_cf, tolerance, horizon)
+                
+            # 2. Sort
             population.sort(key=lambda x: x.fitness, reverse=True)
             
-            # Elitism
-            next_gen = population[:self.elite_size]
-            
-            # Breeding
-            while len(next_gen) < self.pop_size:
-                parent1 = random.choice(population[:20]) # Pick from top 20
-                parent2 = random.choice(population[:20])
-                
-                child = self._crossover(parent1, parent2)
-                self._mutate(child, all_bricks, budget)
-                next_gen.append(child)
-            
-            population = next_gen
-            run_eval(population)
-            
+            # Log progress
             best = population[0]
-            log.info(
-                "ga_generation_complete", 
-                gen=gen, 
+            if best.fitness > best_fitness:
+                best_fitness = best.fitness
+                log.debug("new_best_fitness", gen=gen, fitness=f"{best_fitness:.2f}")
+                
+            # 3. Selection
+            # Elitism: Keep best
+            next_pop = population[:self.elite_size]
+            
+            # Tournament / Roulette for the rest
+            while len(next_pop) < self.pop_size:
+                p1 = self._select_tournament(population)
+                p2 = self._select_tournament(population)
+                
+                # Crossover
+                if random.random() < self.crossover_rate:
+                    child = self._crossover(p1, p2)
+                else:
+                    child = copy.deepcopy(p1)
+                    
+                # Mutation
+                self._mutate(child, all_bricks, budget)
+                
+                next_pop.append(child)
+                
+            population = next_pop
+            
+        # Final Evaluation
+        for ind in population:
+            self._evaluate(ind, budget, target_cf, tolerance, horizon)
+            
+        population.sort(key=lambda x: x.fitness, reverse=True)
+        
+        # Logging Tier distribution (Phase 11.3)
+        if population:
+            best = population[0]
+            log.info("ga_finished", 
                 best_fitness=f"{best.fitness:.2f}",
                 valid_count=sum(1 for i in population if i.is_valid)
             )
 
         # Return top valid results formatted as strategies
-        # Recalculate full simulation for top results to ensure comprehensive data
+        # Slice by top_n (Phase 17.1)
         valid_results = [ind for ind in population if ind.is_valid]
-        return [self._individual_to_strategy(ind) for ind in valid_results[:20]]
+        return [self._individual_to_strategy(ind) for ind in valid_results[:top_n]]
+
+    def _select_tournament(self, population: List[Individual], k: int = 3) -> Individual:
+        """Select best individual from random tournament."""
+        contestants = random.sample(population, min(len(population), k))
+        return max(contestants, key=lambda ind: ind.fitness)
 
     def _crossover(self, p1: Individual, p2: Individual) -> Individual:
         """Uniform crossover: take properties from both parents."""

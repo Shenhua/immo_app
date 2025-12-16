@@ -89,6 +89,14 @@ def render_sidebar() -> dict[str, Any]:
 
         # Scoring Preset
         finance_preset_name, finance_weights = render_scoring_preset()
+        
+        # Advanced Settings (Phase 17.1)
+        with st.expander("⚙️ Avancé", expanded=False):
+            top_n = st.slider(
+                "Nombre max de résultats",
+                min_value=10, max_value=500, value=50, step=10,
+                help="Limite le nombre de stratégies affichées après optimisation."
+            )
 
     return {
         "apport": objectives["apport"],
@@ -113,6 +121,7 @@ def render_sidebar() -> dict[str, Any]:
         "market_hypo": market_hypo,
         "finance_preset_name": finance_preset_name,
         "finance_weights": finance_weights,
+        "top_n": top_n,
     }
 
 
@@ -159,6 +168,7 @@ def handle_analysis(params: dict[str, Any], archetypes: list[dict[str, Any]]) ->
             mode_cf=params["mode_cf"],
             eval_params=eval_params,
             horizon_years=params["horizon"],
+            top_n=params.get("top_n", 50),
         )
 
         # Save results

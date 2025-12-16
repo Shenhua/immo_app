@@ -15,14 +15,16 @@ class CashflowMetrics(TypedDict):
 def calculate_cashflow_metrics(
     df_sim: pd.DataFrame, 
     target_cf: float, 
-    tolerance: float
+    tolerance: float,
+    mode_cf: str = "target"
 ) -> CashflowMetrics:
     """
     Calculate cashflow metrics according to business rules:
     1. Primary: Year 1 Monthly (Worst case)
     2. Secondary: Average of First 5 Years
     
-    Returns metrics and acceptability boolean.
+    Args:
+        mode_cf: "target" (precise proximity) or "min" (maximize above target)
     """
     if df_sim.empty:
         return {
@@ -42,15 +44,21 @@ def calculate_cashflow_metrics(
     cf_5y_annual_avg = df_sim.iloc[:horizon]["Cash-Flow Net d'Impôt"].mean()
     cf_5y_monthly = cf_5y_annual_avg / 12.0
 
-    # Acceptance Logic
-    # We check if Year 1 is within tolerance OR if the 5Y average redeems it (edge case)
-    # User intent: "Monthly limit we want to reach for the first month... check if still in tolerance"
+    # Acceptance Logic (Phase 16 Check)
+    # Mode "target": Absolute precision (abs diff)
+    # Mode "min": One-sided (only penalize if BELOW target)
     
-    gap_y1 = abs(cf_y1_monthly - target_cf)
-    
-    # Strict check on Y1, but potentially allowed if 5Y avg is very good?
-    # For now, implementing strict adherence to tolerance on Y1 as primary safety.
-    is_acceptable = gap_y1 <= tolerance
+    if mode_cf == "min":
+        # One-sided gap: 0 if we are ABOVE target (good), positive if BELOW (bad)
+        gap_y1 = max(0.0, target_cf - cf_y1_monthly)
+        
+        # Accept if we are above (target - tolerance)
+        # i.e., gap is small enough
+        is_acceptable = gap_y1 <= tolerance
+    else:
+        # Target mode (default): Absolute gap
+        gap_y1 = abs(cf_y1_monthly - target_cf)
+        is_acceptable = gap_y1 <= tolerance
 
     return {
         "cf_year_1_monthly": float(cf_y1_monthly),
