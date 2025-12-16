@@ -15,9 +15,9 @@ class TestGeneticOptimizer(unittest.TestCase):
         self.mock_allocator.allocate.return_value = (True, [], 0.0, 10000.0)
         
         # Setup common simulator return: (df, bilan)
-        df_data = {"Cash Flow": [1000.0] * 20, "Charges Déductibles": [-100]*20, "Loyers Bruts": [1200]*20}
+        df_data = {"Cash-Flow Net d'Impôt": [1000.0] * 20, "Charges Déductibles": [-100]*20, "Loyers Bruts": [1200]*20}
         self.mock_df = pd.DataFrame(df_data)
-        self.mock_bilan = {"tri_global": 5.0, "enrichissement_net": 50000.0, "dscr_y1": 1.2}
+        self.mock_bilan = {"tri_annuel": 5.0, "enrichissement_net": 50000.0, "liquidation_nette": 100000.0, "dscr_y1": 1.2}
         self.mock_simulator.simulate.return_value = (self.mock_df, self.mock_bilan)
         
         self.mock_scorer.qualite_weight = 0.5

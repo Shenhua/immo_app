@@ -11,7 +11,10 @@ import numpy as np
 from src.services.allocator import PortfolioAllocator
 from src.core.simulation import SimulationEngine
 from src.models.strategy import Strategy, StrategyResult
-from src.core.glossary import calculate_cashflow_metrics
+from src.core.glossary import (
+    calculate_cashflow_metrics,
+    calculate_enrichment_metrics
+)
 
 log = structlog.get_logger()
 
@@ -134,18 +137,26 @@ class GeneticOptimizer:
                 principal=principal,
                 annual_rate_pct=p.get("taux_pret", 0.0),
                 duration_months=int(p.get("duree_pret", 20)) * 12,
-                annual_insurance_pct=p.get("assurance_pret_pct", 0.0)
+                annual_insurance_pct=p.get("assurance_ann_pct", 0.0)
             )
             schedules.append(sch)
 
         try:
             df_sim, bilan = self.simulator.simulate(strat_data, horizon, schedules)
             ind.stats["bilan"] = bilan
-            ind.stats["simulation"] = df_sim # Warning: Memory usage
+            # Note: df_sim not stored to save memory; KPIs extracted below
             
             # 3. Check Constraints (Glossary Standard)
             cf_metrics = calculate_cashflow_metrics(df_sim, target_cf, tolerance)
             ind.stats.update(cf_metrics)
+
+            # Ensure enrichment metrics are present
+            enrich_metrics = calculate_enrichment_metrics(
+                bilan, 
+                strat_data.get("apport_total", 0.0), 
+                horizon
+            )
+            ind.stats.update(enrich_metrics)
             
             if not cf_metrics["is_acceptable"]:
                  ind.fitness = 0.2
@@ -185,7 +196,7 @@ class GeneticOptimizer:
         """
         # 1. TRI (Internal Rate of Return)
         # Target: > 10% is excellent (1.0), < 0% is bad (0.0)
-        tri = bilan.get("tri_global", 0.0)
+        tri = bilan.get("tri_annuel", 0.0)
         s_tri = max(0.0, min(1.0, tri / 10.0))  # 10% cap
         
         # 2. Enrichment
@@ -224,10 +235,12 @@ class GeneticOptimizer:
             "fitness": ind.fitness,
             
             # Populate fields expected by UI/Scorer
+            # Note: Simulator returns 'tri_annuel', 'enrichissement_net'
+            # We map them to standard UI keys 'tri_global', 'enrich_net'
             "liquidation_nette": bilan.get("liquidation_nette", 0.0),
-            "enrich_net": bilan.get("enrichissement_net", 0.0),
-            "tri_annuel": bilan.get("tri_global", 0.0),
-            "tri_global": bilan.get("tri_global", 0.0),
+            "enrich_net": bilan.get("enrichissement_net", ind.stats.get("enrichissement_net", 0.0)),
+            "tri_annuel": bilan.get("tri_annuel", 0.0),
+            "tri_global": bilan.get("tri_annuel", 0.0),
         }
         
         # Add CF metrics

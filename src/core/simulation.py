@@ -338,12 +338,25 @@ class SimulationEngine:
 
         try:
             tri = float(npf.irr(flux)) * 100.0
+            tri_warning = None
         except Exception:
             tri = 0.0
+            tri_warning = "IRR calculation failed (unstable cashflow pattern)"
+            
+        # Handle non-finite IRR
+        if not isfinite(tri):
+            tri = 0.0
+            tri_warning = "IRR is non-finite (NaN or Inf)"
+            
+        # Initial investment (flux[0] is negative apport)
+        apport_initial = -flux[0] if flux else 0.0
+        enrichissement_net = liquidation_nette - apport_initial
 
         return {
-            "tri_annuel": tri if isfinite(tri) else 0.0,
+            "tri_annuel": tri,
+            "tri_warning": tri_warning,
             "liquidation_nette": liquidation_nette,
+            "enrichissement_net": enrichissement_net,
             "ira_total": ira_total,
         }
 

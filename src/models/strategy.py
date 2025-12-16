@@ -63,8 +63,8 @@ class StrategyResult(BaseModel):
     @computed_field
     @property
     def enrichissement_net(self) -> float:
-        """Net wealth creation."""
-        return self.bilan.get("liquidation_nette", 0.0)
+        """Net wealth creation (liquidation - initial investment)."""
+        return self.bilan.get("enrichissement_net", 0.0)
 
     @computed_field
     @property

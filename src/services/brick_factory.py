@@ -198,3 +198,71 @@ def apply_rent_caps(archetypes: list[dict[str, Any]], apply_cap: bool = True) ->
         processed.append(a)
     return processed
 
+
+# Required fields for brick validation
+REQUIRED_BRICK_FIELDS = [
+    ("nom_bien", "Property name"),
+    ("prix_achat_bien", "Purchase price"),
+    ("loyer_mensuel_initial", "Monthly rent"),
+    ("taux_pret", "Loan rate"),
+    ("duree_pret", "Loan duration"),
+    ("assurance_ann_pct", "Insurance rate"),
+    ("cout_total", "Total cost"),
+]
+
+
+class BrickValidationError(ValueError):
+    """Raised when a brick is missing required fields."""
+    pass
+
+
+def validate_brick(brick: dict[str, Any], strict: bool = False) -> list[str]:
+    """Validate a brick has all required fields for simulation.
+
+    Args:
+        brick: Investment brick dictionary
+        strict: If True, raise BrickValidationError on first missing field
+
+    Returns:
+        List of warning messages for missing/invalid fields
+
+    Raises:
+        BrickValidationError: If strict=True and validation fails
+    """
+    warnings = []
+    brick_name = brick.get("nom_bien", "Unknown")
+
+    for field, description in REQUIRED_BRICK_FIELDS:
+        value = brick.get(field)
+        if value is None:
+            msg = f"Brick '{brick_name}': Missing {description} ({field})"
+            warnings.append(msg)
+            if strict:
+                raise BrickValidationError(msg)
+        elif isinstance(value, (int, float)) and value <= 0:
+            # Check for zero/negative values on financial fields
+            if field in ("taux_pret", "duree_pret", "prix_achat_bien", "cout_total"):
+                msg = f"Brick '{brick_name}': Invalid {description} ({field}={value})"
+                warnings.append(msg)
+                if strict:
+                    raise BrickValidationError(msg)
+
+    return warnings
+
+
+def validate_bricks(bricks: list[dict[str, Any]], strict: bool = False) -> list[str]:
+    """Validate all bricks in a list.
+
+    Args:
+        bricks: List of investment bricks
+        strict: If True, raise on first validation error
+
+    Returns:
+        Aggregated list of all warnings
+    """
+    all_warnings = []
+    for brick in bricks:
+        all_warnings.extend(validate_brick(brick, strict=strict))
+    return all_warnings
+
+

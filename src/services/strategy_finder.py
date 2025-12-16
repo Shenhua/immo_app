@@ -326,6 +326,13 @@ class StrategyFinder:
 
         allocator = PortfolioAllocator(self.mode_cf)
 
+        # Validate bricks before proceeding (fail-fast)
+        from src.services.brick_factory import validate_bricks
+        validation_warnings = validate_bricks(self.bricks)
+        if validation_warnings:
+            log.warning("brick_validation_warnings", count=len(validation_warnings), 
+                        first_warning=validation_warnings[0] if validation_warnings else None)
+
         log.info("strategy_search_started",
                  brick_count=len(self.bricks),
                  apport=self.apport_disponible)

@@ -86,8 +86,15 @@ def calculate_property_qualitative_score(
     else:
         enc_marge = 0.6  # Neutral if not regulated
 
-    # Vacancy proxy (high tension = low vacancy = good)
-    vac_pos = max(0.0, min(1.0, tension))
+    # Vacancy proxy: Use actual vacancy_pct if available, else derive from tension
+    # High tension = low vacancy = good (invert for positive scoring)
+    vacancy_pct = source.get("vacance_pct", source.get("vacancy_pct"))
+    if vacancy_pct is not None:
+        # Normalize: 0% vacancy = 1.0 score, 10% vacancy = 0.0 score
+        vac_score = max(0.0, min(1.0, 1.0 - float(vacancy_pct) / 10.0))
+    else:
+        # Fall back to tension as proxy (high tension = low vacancy)
+        vac_score = tension
 
     # Renovation ratio (lower is better)
     ratio_trav = min(1.0, float(travaux or 0.0) / max(1e-6, float(prix_achat or 0.0)))
@@ -102,7 +109,7 @@ def calculate_property_qualitative_score(
         "transport": transport,
         "dpe": dpe,
         "encadrement": enc_marge,
-        "vacance": 1.0 - ratio_trav,  # Use as stability proxy (low reno = stable)
+        "vacance": vac_score,  # Based on actual vacancy or tension proxy
         "travaux": trav_pos,
         "liquidite": liq,
     }
@@ -163,7 +170,7 @@ def calculate_balanced_score(
     Combines financial metrics with qualitative score.
 
     Args:
-        tri: IRR as decimal (e.g., 0.08 for 8%)
+        tri: IRR as percent (e.g., 8.0 for 8%)
         enrichissement_net: Net wealth creation in €
         dscr: Debt service coverage ratio
         qual_score: Qualitative score 0-100
@@ -176,7 +183,8 @@ def calculate_balanced_score(
     finance_weight = 1.0 - qualite_weight
 
     # Normalize TRI (0-20% range mapped to 0-100)
-    tri_score = min(100.0, max(0.0, (tri or 0.0) / 0.20 * 100.0))
+    # TRI is already in percent (e.g., 8.0 for 8%)
+    tri_score = min(100.0, max(0.0, (tri or 0.0) / 20.0 * 100.0))
 
     # Normalize enrichissement (0-500k range mapped to 0-100)
     enrich_score = min(100.0, max(0.0, enrichissement_net / 500_000.0 * 100.0))
