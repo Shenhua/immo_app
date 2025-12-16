@@ -166,5 +166,35 @@ def create_investment_bricks(
 
             bricks.append(brick)
 
+
     return bricks
+
+
+def apply_rent_caps(archetypes: list[dict[str, Any]], apply_cap: bool = True) -> list[dict[str, Any]]:
+    """Apply regulatory rent caps to archetypes.
+
+    Args:
+        archetypes: List of archetype data
+        apply_cap: Whether to enforce rent caps
+
+    Returns:
+        Processed archetypes with rent caps applied
+    """
+    if not apply_cap:
+        return archetypes
+
+    processed = []
+    for item in archetypes:
+        a = item.copy()
+        if a.get("soumis_encadrement") and a.get("loyer_m2_max") is not None:
+            try:
+                cap = float(a["loyer_m2_max"])
+                current = float(a.get("loyer_m2", 0.0))
+                # Apply cap if strictly lower
+                if current > cap:
+                    a["loyer_m2"] = cap
+            except (ValueError, TypeError):
+                pass
+        processed.append(a)
+    return processed
 

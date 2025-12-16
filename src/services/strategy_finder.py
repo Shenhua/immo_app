@@ -181,8 +181,14 @@ class CombinationGenerator:
             log.info("no_affordable_bricks", budget=apport_disponible)
             return []
         
-        # Sort by apport_min for more predictable pruning
-        sorted_bricks = sorted(affordable_bricks, key=lambda b: b.get("apport_min", 0.0))
+        # Sort by Gross Yield descending (Performance) rather than Cost (Apport)
+        # This ensures we test high-potential combinations first before hitting MAX_TOTAL limit.
+        def _yield_score(b):
+            rent = b.get("loyer_mensuel_initial", 0.0) * 12
+            cost = b.get("cout_total", 1.0)
+            return rent / max(1.0, cost)
+
+        sorted_bricks = sorted(affordable_bricks, key=_yield_score, reverse=True)
         
         combos = []
         
@@ -324,167 +330,42 @@ class StrategyFinder:
                  brick_count=len(self.bricks),
                  apport=self.apport_disponible)
 
-        # 2. Generate combinations
-        combos = self.combo_generator.generate(self.bricks, self.apport_disponible)
-        log.debug("combinations_generated", count=len(combos))
-
-        strategies = []
-
-        # 3. Process candidates in parallel
-        from concurrent.futures import ThreadPoolExecutor, as_completed
-        import os
-        import threading
+        # 2. Genetic Algorithm Optimization
+        # Replaces legacy Combinatorial Search + ThreadPoolExecutor
+        # Implements Expert Recommendation (Phase 2)
+        from src.services.optimizer import GeneticOptimizer
         
-        max_workers = os.cpu_count() or 4
-        log.debug("parallel_processing_started", combos=len(combos), workers=max_workers)
+        # Use aggressive population settings to ensure we find "Needle in Haystack"
+        optimizer = GeneticOptimizer(
+            population_size=100,
+            generations=30,
+            elite_size=10,
+            allocator=allocator,
+            simulator=engine,
+            scorer=self.scorer
+        )
         
-        # Thread-safe counters
-        lock = threading.Lock()
-        viable_count = [0]  # Mutable container for thread-safe increment
+        log.info("ga_optimization_started", 
+                 bricks=len(self.bricks), 
+                 pop_size=optimizer.pop_size, 
+                 generations=optimizer.generations)
+                 
+        strategies = optimizer.evolve(
+            self.bricks,
+            self.apport_disponible,
+            self.cash_flow_cible,
+            self.tolerance,
+            horizon=horizon_years
+        )
+        log.info("ga_optimization_finished", count=len(strategies))
 
-        def process_combo(combo):
-            """Process a single combo and return strategy or None."""
-            bricks_copy = [dict(b) for b in combo]
-            
-            # SIMPLE BUDGET CHECK ONLY
-            apport_min_total = sum(b.get("apport_min", 0.0) for b in bricks_copy)
-            if apport_min_total > self.apport_disponible:
-                return None  # Can't afford this combo
-            
-            # Determine if we should aggressively deploy capital
-            aggressive_deploy = use_full_capital_override
-
-            ok, details, cf_final, apport_used = allocator.allocate(
-                bricks_copy,
-                self.apport_disponible,
-                self.cash_flow_cible,
-                self.tolerance,
-                use_full_capital=aggressive_deploy
-            )
-
-            # SOFT FAILURE: Keep allocation even if target not met
-            # Apply penalty in scoring instead of discarding
-            strat = {
-                "details": details,
-                "apport_total": apport_used,
-                "patrimoine_acquis": sum(b.get("cout_total", 0.0) for b in details),
-                "cash_flow_final": cf_final,
-                "allocation_ok": ok,  # Track if target was met
-            }
-
-            # Basic Metrics
-            total_rent = sum(b.get("loyer_mensuel_initial", 0.0) for b in strat["details"]) * 12
-            total_cost = sum(b.get("cout_total", 0.0) for b in strat["details"])
-            strat["renta_brute"] = (total_rent / total_cost * 100.0) if total_cost > 0 else 0.0
-
-            # Simulation
-            try:
-                schedules = [
-                    generate_amortization_schedule(
-                        float(p["credit_final"]),
-                        float(p["taux_pret"]),
-                        int(p["duree_pret"]) * 12,
-                        float(p["assurance_ann_pct"])
-                    ) for p in strat["details"]
-                ]
-
-                df_sim, bilan = engine.simulate(strat, horizon_years, schedules)
-
-                # Metrics
-                strat["tri_annuel"] = float(bilan.get("tri_annuel", 0.0))
-                strat["liquidation_nette"] = float(bilan.get("liquidation_nette", 0.0))
-
-                # DSCR Y1: Net Operating Income / Debt Service
-                # NOI = Gross Rent - Operating Expenses (excl. debt service)
-                # Note: Charges Déductibles is negative and INCLUDES interest+insurance
-                # So we need to add interest back to get operating-only NOI
-                if not df_sim.empty:
-                    row = df_sim.iloc[0]
-                    ds = row["Capital Remboursé"] + row["Intérêts & Assurance"]
-                    # Charges are negative, interest is positive
-                    # NOI = loyers - |charges| + interest (to undo the interest deduction)
-                    charges_with_interest = row["Charges Déductibles"]  # negative
-                    interest_assur = row["Intérêts & Assurance"]  # positive
-                    noi = row["Loyers Bruts"] + charges_with_interest + interest_assur
-                    strat["dscr_y1"] = (noi / ds) if ds > 1e-9 else 0.0
-                else:
-                    strat["dscr_y1"] = 0.0
-
-                # Qualitative
-                strat["qual_score"] = self._calculate_qualitative_score(strat)
-                strat["cf_distance"] = abs(strat["cash_flow_final"] - self.cash_flow_cible)
-
-                ap = float(strat.get("apport_total", 1.0)) or 1.0
-                strat["cap_eff"] = (strat["liquidation_nette"] - ap) / ap
-                strat["enrich_net"] = strat["liquidation_nette"] - ap
-
-                return strat
-
-            except Exception as e:
-                log.warning("strategy_simulation_failed", error=str(e))
-                return None
-
-        # Early termination: stop after collecting enough viable strategies
-        MAX_VIABLE = int(os.getenv("STRATEGY_MAX_VIABLE", "100"))
-        MAX_TOTAL = int(os.getenv("STRATEGY_MAX_TOTAL", "500"))
-        BATCH_SIZE = max_workers * 2  # Submit in small batches for responsive cancellation
-        
-        combo_iter = iter(combos)
-        active_futures = []
-        done = False
-        
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            while not done:
-                # Submit a batch
-                batch_count = 0
-                while batch_count < BATCH_SIZE:
-                    try:
-                        combo = next(combo_iter)
-                        active_futures.append(executor.submit(process_combo, combo))
-                        batch_count += 1
-                    except StopIteration:
-                        done = True
-                        break
-                
-                # Process completed futures
-                for future in as_completed(active_futures, timeout=0.1):
-                    try:
-                        result = future.result(timeout=0)
-                        if result is not None:
-                            with lock:
-                                strategies.append(result)
-                                if result.get("allocation_ok", False):
-                                    viable_count[0] += 1
-                    except Exception as e:
-                        log.debug("future_result_error", error=str(e))
-                
-                # Remove completed futures
-                active_futures = [f for f in active_futures if not f.done()]
-                
-                # Check termination conditions
-                with lock:
-                    current_viable = viable_count[0]
-                    current_total = len(strategies)
-                
-                if current_viable >= MAX_VIABLE or current_total >= MAX_TOTAL:
-                    log.info("early_termination", viable=current_viable, total=current_total)
-                    break
-            
-            # Wait for remaining active futures
-            for future in as_completed(active_futures):
-                try:
-                    result = future.result()
-                    if result is not None:
-                        with lock:
-                            strategies.append(result)
-                            if result.get("allocation_ok", False):
-                                viable_count[0] += 1
-                except Exception:
-                    pass
-
-        # 4. Score & Rank
+        # 4. Score & Rank (Post-Optimization)
+        # We re-run relative scoring on the "Elite" set to populate UI-friendly normalized fields (A-score, etc.)
         self.scorer.score_strategies(strategies, self.cash_flow_cible)
 
+        # Filter out failed allocations
+        strategies = [s for s in strategies if s.get("allocation_ok", False)]
+        
         # Dedupe
         strategies = self.dedupe_strategies(strategies)
 

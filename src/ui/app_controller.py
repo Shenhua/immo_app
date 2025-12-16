@@ -17,7 +17,7 @@ from src.core.financial import generate_amortization_schedule
 from src.core.logging import get_logger
 from src.core.simulation import IRACalculator, MarketHypotheses, SimulationEngine, TaxParams
 from src.models.archetype import ArchetypeV2
-from src.services.brick_factory import FinancingConfig, OperatingConfig, create_investment_bricks
+from src.services.brick_factory import FinancingConfig, OperatingConfig, apply_rent_caps, create_investment_bricks
 from src.services.strategy_finder import StrategyFinder
 from src.ui.state import SessionManager
 
@@ -66,31 +66,6 @@ def load_archetypes() -> list[dict[str, Any]]:
         return []
 
 
-def apply_rent_caps(archetypes: list[dict[str, Any]], apply_cap: bool = True) -> list[dict[str, Any]]:
-    """Apply regulatory rent caps to archetypes.
-
-    Args:
-        archetypes: List of archetype data
-        apply_cap: Whether to enforce rent caps
-
-    Returns:
-        Processed archetypes with rent caps applied
-    """
-    if not apply_cap:
-        return archetypes
-
-    processed = []
-    for item in archetypes:
-        a = item.copy()
-        if a.get("soumis_encadrement") and a.get("loyer_m2_max") is not None:
-            try:
-                cap = float(a["loyer_m2_max"])
-                current = float(a.get("loyer_m2", 0.0))
-                a["loyer_m2"] = min(current, cap)
-            except (ValueError, TypeError):
-                pass
-        processed.append(a)
-    return processed
 
 
 def build_financing_config(credit_params: dict[str, Any]) -> FinancingConfig:

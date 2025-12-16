@@ -107,66 +107,118 @@ class PortfolioAllocator:
             reverse=True
         )
 
-        manque_cf = self._calc_need(cf0, target_cf, tolerance)
-        
-        # If forcing full capital, behave as if we have an infinite need for CF
-        if use_full_capital and not is_precise:
-            manque_cf = 1e9 
-
-        for b in ordre:
-            if apport_rest <= 1e-9:
+        # Convergence loop (Multi-pass for Coarse -> Refine strategy)
+        # Pass 1 may use coarse steps and undershoot (due to truncation).
+        # Pass 2+ will refine with smaller steps to hit target.
+        for pass_idx in range(5):
+            # Check success at start of pass
+            if self._accept_cf(cf0, target_cf, tolerance):
                 break
-            
-            # Stop if we hit target (unless forcing capital)
+                
+            # Recalculate need
+            manque_cf = self._calc_need(cf0, target_cf, tolerance)
+             # If forcing full capital, behave as if we have an infinite need for CF
+            if use_full_capital and not is_precise:
+                manque_cf = 1e9
+
+            # Stop if no need (and not forced) 
             if manque_cf <= 1e-9 and not (use_full_capital and not is_precise):
                 break
+            
+            # Allow visiting properties again to fill the gap
+            changes_made = False
+            
+            for b in ordre:
+                if apport_rest <= 1e-9:
+                    break
+                
+                # Re-check local need inside loop (since others might have filled it)
+                manque_cf = self._calc_need(cf0, target_cf, tolerance)
+                if use_full_capital and not is_precise: manque_cf = 1e9
+                
+                if manque_cf <= 1e-9 and not (use_full_capital and not is_precise):
+                    break
 
-            k = k_factor(b["taux_pret"], b["duree_pret"], b["assurance_ann_pct"])
-            if k <= 0:
-                continue
+                k = k_factor(b["taux_pret"], b["duree_pret"], b["assurance_ann_pct"])
+                if k <= 0:
+                    continue
 
-            apport_necessaire = manque_cf / k
-            delta = min(apport_rest, apport_necessaire, b["capital_restant"])
+                apport_necessaire = manque_cf / k
+                delta = min(apport_rest, apport_necessaire, b["capital_restant"])
 
-            # Cap extra apport to avoid 0 loan
-            cap_extra = self.max_extra_apport_pct * float(b.get("capital_emprunte", 0.0))
-            deja = float(b.get("apport_add_bien", 0.0))
-            reste_cap = max(0.0, cap_extra - deja)
+                # Cap extra apport to avoid 0 loan
+                cap_extra = self.max_extra_apport_pct * float(b.get("capital_emprunte", 0.0))
+                deja = float(b.get("apport_add_bien", 0.0))
+                reste_cap = max(0.0, cap_extra - deja)
 
-            if delta > reste_cap:
-                delta = reste_cap
+                if delta > reste_cap:
+                    delta = reste_cap
 
-            # Round delta to 1/1000 of available capital for cleaner numbers
-            step_size = max(apport_disponible / 1000, 1)  # Min 1€ step
-            delta = round(delta / step_size) * step_size
+                # Adaptive step size (Expert Recommendation Part 4)
+                # Avoid jumping over the target window
+                # Approx k ~ 150-250 for typical loans. Using 200 as proxy if not calcable.
+                k_proxy = k if k > 0 else 200.0
+                
+                if is_precise:
+                    # Dynamic Refinement (Coarse -> Fine):
+                    # If gap is huge, stride big. If close, tiptoe.
+                    # This implements "Coarse then Refine" inside the loop efficiently.
+                    current_gap = abs(manque_cf)
+                    fine_step = max(1.0, (0.5 * tolerance) / k_proxy)
+                    
+                    if current_gap > 5 * tolerance:
+                        # Coarse mode: go fast (10x fine step or generic coarse)
+                        step_size = max(fine_step * 10.0, apport_disponible / 1000.0)
+                    else:
+                        # Refine mode: go precise
+                        step_size = fine_step
+                else:
+                    # In min mode (>= target), coarser steps are efficient
+                    # But kept reasonable to not overshoot massive amounts
+                    step_size = max(apport_disponible / 2000, 10.0) 
 
-            if delta < 0.01:
-                continue
+                # Round delta
+                if step_size > 0:
+                    # Use int() to floor/truncate. 
+                    # Rounding up (nearest) risks overshooting the target in an additive-only process.
+                    # It's safer to under-step and let the next iteration finish the job.
+                    delta = int(delta / step_size) * step_size
 
-            # Update state
-            b["capital_restant"] = max(1.0, b["capital_restant"] - delta)
+                # Safety cap against overspending
+                if delta > apport_rest:
+                    delta = apport_rest
 
-            # Recompute payment
-            _, _, p_tot = calculate_total_monthly_payment(
-                b["capital_restant"],
-                b["taux_pret"],
-                b["duree_pret"] * 12,
-                b["assurance_ann_pct"]
-            )
-            b["pmt_total"] = p_tot
-            b["apport_add_bien"] = b.get("apport_add_bien", 0.0) + delta
+                if delta < 0.01:
+                    continue
 
-            apport_rest -= delta
+                # Update state
+                b["capital_restant"] = max(1.0, b["capital_restant"] - delta)
 
-            # Recompute global CF
-            cf0 = sum(
-                x["loyer_mensuel_initial"] -
-                x["depenses_mensuelles_hors_credit_initial"] -
-                x["pmt_total"]
-                for x in biens
-            )
-            manque_cf = self._calc_need(cf0, target_cf, tolerance)
-            # log.debug("step_allocation", delta=delta,  new_cf=cf0, property=b.get("nom_bien"))
+                # Recompute payment
+                _, _, p_tot = calculate_total_monthly_payment(
+                    b["capital_restant"],
+                    b["taux_pret"],
+                    b["duree_pret"] * 12,
+                    b["assurance_ann_pct"]
+                )
+                b["pmt_total"] = p_tot
+                b["apport_add_bien"] = b.get("apport_add_bien", 0.0) + delta
+                changes_made = True
+
+                apport_rest -= delta
+
+                # Recompute global CF
+                cf0 = sum(
+                    x["loyer_mensuel_initial"] -
+                    x["depenses_mensuelles_hors_credit_initial"] -
+                    x["pmt_total"]
+                    for x in biens
+                )
+                # log.debug("step_allocation", delta=delta,  new_cf=cf0, property=b.get("nom_bien"))
+            
+            if not changes_made:
+                # If we iterated all properties and made no changes, we are stuck. Stop.
+                break
 
         success = self._accept_cf(cf0, target_cf, tolerance)
         
@@ -186,8 +238,8 @@ class PortfolioAllocator:
 
     def _accept_cf(self, cf_observe: float, cf_cible: float, tol: float) -> bool:
         if self.mode_cf == "min" or self.mode_cf == "≥":
-             return cf_observe >= (cf_cible - tol)
-        return abs(cf_observe - cf_cible) <= tol
+             return bool(cf_observe >= (cf_cible - tol))
+        return bool(abs(cf_observe - cf_cible) <= tol)
 
     def _calc_need(self, cf_observe: float, cf_cible: float, tol: float) -> float:
         if self.mode_cf == "min" or self.mode_cf == "≥":
