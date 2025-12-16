@@ -98,11 +98,11 @@ def calculate_property_qualitative_score(
 
     # Build feature dict
     features = {
-        "tension": vac_pos,
+        "tension": tension,  # Market tension (0-1, higher = tighter market)
         "transport": transport,
         "dpe": dpe,
         "encadrement": enc_marge,
-        "vacance": vac_pos,
+        "vacance": 1.0 - ratio_trav,  # Use as stability proxy (low reno = stable)
         "travaux": trav_pos,
         "liquidite": liq,
     }
@@ -176,10 +176,10 @@ def calculate_balanced_score(
     finance_weight = 1.0 - qualite_weight
 
     # Normalize TRI (0-20% range mapped to 0-100)
-    tri_score = min(100.0, max(0.0, (tri or 0.0) * 100.0 / 0.20 * 100.0))
+    tri_score = min(100.0, max(0.0, (tri or 0.0) / 0.20 * 100.0))
 
     # Normalize enrichissement (0-500k range mapped to 0-100)
-    enrich_score = min(100.0, max(0.0, enrichissement_net / 5000.0))
+    enrich_score = min(100.0, max(0.0, enrichissement_net / 500_000.0 * 100.0))
 
     # Normalize DSCR (0.8-2.0 range mapped to 0-100)
     dscr_score = min(100.0, max(0.0, (dscr - 0.8) / 1.2 * 100.0))

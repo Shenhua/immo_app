@@ -39,7 +39,7 @@ class EvaluationParams:
     regime_fiscal: str = "lmnp"
     tmi_pct: float = 30.0
     frais_vente_pct: float = 6.0
-    cfe_par_bien_ann: float = 150.0
+    cfe_par_bien_ann: float = 500.0
     apply_ira: bool = True
     ira_cap_pct: float = 3.0
     finance_weights_override: dict[str, float] | None = None
@@ -53,7 +53,7 @@ class EvaluationParams:
             regime_fiscal=d.get("regime_fiscal", "lmnp"),
             tmi_pct=d.get("tmi_pct", 30.0),
             frais_vente_pct=d.get("frais_vente_pct", 6.0),
-            cfe_par_bien_ann=d.get("cfe_par_bien_ann", 150.0),
+            cfe_par_bien_ann=d.get("cfe_par_bien_ann", 500.0),
             apply_ira=d.get("apply_ira", True),
             ira_cap_pct=d.get("ira_cap_pct", 3.0),
             finance_weights_override=d.get("finance_weights_override"),
@@ -126,13 +126,15 @@ class StrategyScorer:
         cap_eff = [s.get("cap_eff", 0.0) for s in strategies]
         dscr = [1.5 if s.get("dscr_y1") is None else max(0.0, float(s.get("dscr_y1", 0.0))) for s in strategies]
         cf_dist = [abs(s.get("cash_flow_final", 0.0) - cash_flow_cible) for s in strategies]
-        cf_prox = [max(0.0, 1.0 - (d / 300.0)) for d in cf_dist]
+        # CF proximity: closer to target = higher score (use 500€ as reasonable max distance)
+        max_cf_dist = 500.0
+        cf_prox = [max(0.0, 1.0 - (d / max_cf_dist)) for d in cf_dist]
 
         # Normalize
         enrich_n = self.minmax_normalize(enrich)
         irr_n = self.minmax_normalize(irr)
-        cap_n = self.minmax_normalize([min(v, 6.0) for v in cap_eff], 0.0, 6.0)
-        dscr_n = self.minmax_normalize([min(v, 1.5) for v in dscr], 0.0, 1.5)
+        cap_n = self.minmax_normalize([min(v, 10.0) for v in cap_eff], 0.0, 10.0)
+        dscr_n = self.minmax_normalize([min(v, 2.5) for v in dscr], 0.0, 2.5)
 
         # Apply to strategies
         for s, en, ir, ca, ds, cf in zip(strategies, enrich_n, irr_n, cap_n, dscr_n, cf_prox):
@@ -161,10 +163,61 @@ class CombinationGenerator:
         Filters:
         - No duplicate properties (same nom_bien)
         - Total apport_min <= apport_disponible
+        
+        Optimizations:
+        - Pre-filter bricks that individually exceed budget
+        - Sort by cost for early rejection
+        - K-level pruning (if cheapest K properties > budget, skip)
         """
+        # P2.1: Pre-filter unaffordable bricks
+        affordable_bricks = [b for b in bricks if b.get("apport_min", 0.0) <= apport_disponible]
+        
+        if len(affordable_bricks) < len(bricks):
+            log.debug("pruning_unaffordable_bricks", 
+                     original=len(bricks), 
+                     remaining=len(affordable_bricks))
+        
+        if not affordable_bricks:
+            log.info("no_affordable_bricks", budget=apport_disponible)
+            return []
+        
+        # Sort by apport_min for more predictable pruning
+        sorted_bricks = sorted(affordable_bricks, key=lambda b: b.get("apport_min", 0.0))
+        
         combos = []
+        
+        # For pruning: Get unique properties by nom_bien, keeping cheapest variant per property
+        unique_props = {}
+        for b in sorted_bricks:
+            nom = b.get("nom_bien", "")
+            cost = b.get("apport_min", 0.0)
+            if nom not in unique_props or cost < unique_props[nom]:
+                unique_props[nom] = cost
+        
+        # Sorted list of min costs per unique property
+        sorted_unique_costs = sorted(unique_props.values())
+        
+        check_count = 0
+        skipped_early = 0
+        
         for k in range(1, self.max_properties + 1):
-            for combo in itertools.combinations(bricks, k):
+            # Optimization: Smart Pruning
+            # If the cheapest K UNIQUE properties cost more than available apport, 
+            # then ANY combination of K properties will fail. Stop searching bigger Ks.
+            if k <= len(sorted_unique_costs):
+                min_cost_k = sum(sorted_unique_costs[:k])
+            else:
+                # Can't even form k unique properties
+                log.info("pruning_not_enough_properties", k=k, available=len(sorted_unique_costs))
+                break
+                
+            if min_cost_k > apport_disponible:
+                log.info("pruning_budget", k=k, min_cost=min_cost_k, budget=apport_disponible)
+                break
+                
+            for combo in itertools.combinations(sorted_bricks, k):
+                check_count += 1
+                
                 # Check unique properties
                 noms = {c.get("nom_bien") for c in combo if c.get("nom_bien")}
                 if len(noms) != len(combo):
@@ -172,10 +225,20 @@ class CombinationGenerator:
 
                 # Check budget
                 apport_min = sum(c.get("apport_min", 0.0) for c in combo)
+                
                 if apport_min > apport_disponible:
+                    skipped_early += 1
                     continue
 
                 combos.append(combo)
+        
+        # Log summary
+        log.info("combos_generated", 
+                count=len(combos), 
+                max_props=self.max_properties, 
+                budget=apport_disponible, 
+                checks=check_count,
+                skipped=skipped_early)
 
         return combos
 
@@ -194,6 +257,7 @@ class StrategyFinder:
         tolerance: float = 100.0,
         qualite_weight: float = 0.25,
         mode_cf: str = "target",
+        max_properties: int = 3,
     ):
         self.bricks = bricks
         self.apport_disponible = apport_disponible
@@ -201,8 +265,9 @@ class StrategyFinder:
         self.tolerance = tolerance
         self.qualite_weight = qualite_weight
         self.mode_cf = mode_cf
+        self.max_properties = max_properties
 
-        self.combo_generator = CombinationGenerator()
+        self.combo_generator = CombinationGenerator(max_properties=max_properties)
         self.scorer = StrategyScorer(qualite_weight=qualite_weight)
 
     def find_strategies(
@@ -210,6 +275,7 @@ class StrategyFinder:
         eval_params: dict[str, Any] | None = None,
         horizon_years: int = 25,
         top_n: int = 10,
+        use_full_capital_override: bool = False,
     ) -> list[dict[str, Any]]:
         """Find top strategies matching criteria.
 
@@ -264,14 +330,29 @@ class StrategyFinder:
 
         strategies = []
 
-        # 3. Process candidates
-        for combo in combos:
-            bricks_copy = [dict(b) for b in combo]
+        # 3. Process candidates in parallel
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        import os
+        import threading
+        
+        max_workers = os.cpu_count() or 4
+        log.debug("parallel_processing_started", combos=len(combos), workers=max_workers)
+        
+        # Thread-safe counters
+        lock = threading.Lock()
+        viable_count = [0]  # Mutable container for thread-safe increment
 
+        def process_combo(combo):
+            """Process a single combo and return strategy or None."""
+            bricks_copy = [dict(b) for b in combo]
+            
+            # SIMPLE BUDGET CHECK ONLY
+            apport_min_total = sum(b.get("apport_min", 0.0) for b in bricks_copy)
+            if apport_min_total > self.apport_disponible:
+                return None  # Can't afford this combo
+            
             # Determine if we should aggressively deploy capital
-            # Reverted based on user feedback: Leverage is financially superior.
-            # We default to False unless explicitly requested in future.
-            aggressive_deploy = False 
+            aggressive_deploy = use_full_capital_override
 
             ok, details, cf_final, apport_used = allocator.allocate(
                 bricks_copy,
@@ -281,60 +362,125 @@ class StrategyFinder:
                 use_full_capital=aggressive_deploy
             )
 
-            if ok:
-                strat = {
-                    "details": details,
-                    "apport_total": apport_used,
-                    "patrimoine_acquis": sum(b.get("cout_total", 0.0) for b in details),
-                    "cash_flow_final": cf_final,
-                }
+            # SOFT FAILURE: Keep allocation even if target not met
+            # Apply penalty in scoring instead of discarding
+            strat = {
+                "details": details,
+                "apport_total": apport_used,
+                "patrimoine_acquis": sum(b.get("cout_total", 0.0) for b in details),
+                "cash_flow_final": cf_final,
+                "allocation_ok": ok,  # Track if target was met
+            }
 
-                # Basic Metrics
-                total_rent = sum(b.get("loyer_mensuel_initial", 0.0) for b in strat["details"]) * 12
-                total_cost = sum(b.get("cout_total", 0.0) for b in strat["details"])
-                strat["renta_brute"] = (total_rent / total_cost * 100.0) if total_cost > 0 else 0.0
+            # Basic Metrics
+            total_rent = sum(b.get("loyer_mensuel_initial", 0.0) for b in strat["details"]) * 12
+            total_cost = sum(b.get("cout_total", 0.0) for b in strat["details"])
+            strat["renta_brute"] = (total_rent / total_cost * 100.0) if total_cost > 0 else 0.0
 
-                # Simulation
+            # Simulation
+            try:
+                schedules = [
+                    generate_amortization_schedule(
+                        float(p["credit_final"]),
+                        float(p["taux_pret"]),
+                        int(p["duree_pret"]) * 12,
+                        float(p["assurance_ann_pct"])
+                    ) for p in strat["details"]
+                ]
+
+                df_sim, bilan = engine.simulate(strat, horizon_years, schedules)
+
+                # Metrics
+                strat["tri_annuel"] = float(bilan.get("tri_annuel", 0.0))
+                strat["liquidation_nette"] = float(bilan.get("liquidation_nette", 0.0))
+
+                # DSCR Y1: Net Operating Income / Debt Service
+                # NOI = Gross Rent - Operating Expenses (excl. debt service)
+                # Note: Charges Déductibles is negative and INCLUDES interest+insurance
+                # So we need to add interest back to get operating-only NOI
+                if not df_sim.empty:
+                    row = df_sim.iloc[0]
+                    ds = row["Capital Remboursé"] + row["Intérêts & Assurance"]
+                    # Charges are negative, interest is positive
+                    # NOI = loyers - |charges| + interest (to undo the interest deduction)
+                    charges_with_interest = row["Charges Déductibles"]  # negative
+                    interest_assur = row["Intérêts & Assurance"]  # positive
+                    noi = row["Loyers Bruts"] + charges_with_interest + interest_assur
+                    strat["dscr_y1"] = (noi / ds) if ds > 1e-9 else 0.0
+                else:
+                    strat["dscr_y1"] = 0.0
+
+                # Qualitative
+                strat["qual_score"] = self._calculate_qualitative_score(strat)
+                strat["cf_distance"] = abs(strat["cash_flow_final"] - self.cash_flow_cible)
+
+                ap = float(strat.get("apport_total", 1.0)) or 1.0
+                strat["cap_eff"] = (strat["liquidation_nette"] - ap) / ap
+                strat["enrich_net"] = strat["liquidation_nette"] - ap
+
+                return strat
+
+            except Exception as e:
+                log.warning("strategy_simulation_failed", error=str(e))
+                return None
+
+        # Early termination: stop after collecting enough viable strategies
+        MAX_VIABLE = int(os.getenv("STRATEGY_MAX_VIABLE", "100"))
+        MAX_TOTAL = int(os.getenv("STRATEGY_MAX_TOTAL", "500"))
+        BATCH_SIZE = max_workers * 2  # Submit in small batches for responsive cancellation
+        
+        combo_iter = iter(combos)
+        active_futures = []
+        done = False
+        
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            while not done:
+                # Submit a batch
+                batch_count = 0
+                while batch_count < BATCH_SIZE:
+                    try:
+                        combo = next(combo_iter)
+                        active_futures.append(executor.submit(process_combo, combo))
+                        batch_count += 1
+                    except StopIteration:
+                        done = True
+                        break
+                
+                # Process completed futures
+                for future in as_completed(active_futures, timeout=0.1):
+                    try:
+                        result = future.result(timeout=0)
+                        if result is not None:
+                            with lock:
+                                strategies.append(result)
+                                if result.get("allocation_ok", False):
+                                    viable_count[0] += 1
+                    except Exception as e:
+                        log.debug("future_result_error", error=str(e))
+                
+                # Remove completed futures
+                active_futures = [f for f in active_futures if not f.done()]
+                
+                # Check termination conditions
+                with lock:
+                    current_viable = viable_count[0]
+                    current_total = len(strategies)
+                
+                if current_viable >= MAX_VIABLE or current_total >= MAX_TOTAL:
+                    log.info("early_termination", viable=current_viable, total=current_total)
+                    break
+            
+            # Wait for remaining active futures
+            for future in as_completed(active_futures):
                 try:
-                    schedules = [
-                        generate_amortization_schedule(
-                            float(p["credit_final"]),
-                            float(p["taux_pret"]),
-                            int(p["duree_pret"]) * 12,
-                            float(p["assurance_ann_pct"])
-                        ) for p in strat["details"]
-                    ]
-
-                    df_sim, bilan = engine.simulate(strat, horizon_years, schedules)
-
-                    # Metrics
-                    strat["tri_annuel"] = float(bilan.get("tri_annuel", 0.0))
-                    strat["liquidation_nette"] = float(bilan.get("liquidation_nette", 0.0))
-
-                    # DSCR Y1
-                    if not df_sim.empty:
-                        row = df_sim.iloc[0]
-                        ds = row["Capital Remboursé"] + row["Intérêts & Assurance"]
-                        # Charges Deductibles (neg) includes Interest. Add back to get OpEx (neg).
-                        opex = row["Charges Déductibles"] + row["Intérêts & Assurance"]
-                        noi = row["Loyers Bruts"] + opex
-                        strat["dscr_y1"] = (noi / ds) if ds > 1e-9 else 0.0
-                    else:
-                        strat["dscr_y1"] = 0.0
-
-                    # Qualitative
-                    strat["qual_score"] = self._calculate_qualitative_score(strat)
-                    strat["cf_distance"] = abs(strat["cash_flow_final"] - self.cash_flow_cible)
-
-                    ap = float(strat.get("apport_total", 1.0)) or 1.0
-                    strat["cap_eff"] = (strat["liquidation_nette"] - ap) / ap
-                    strat["enrich_net"] = strat["liquidation_nette"] - ap
-
-                    strategies.append(strat)
-
-                except Exception as e:
-                    log.warning("strategy_simulation_failed", error=str(e))
-                    continue
+                    result = future.result()
+                    if result is not None:
+                        with lock:
+                            strategies.append(result)
+                            if result.get("allocation_ok", False):
+                                viable_count[0] += 1
+                except Exception:
+                    pass
 
         # 4. Score & Rank
         self.scorer.score_strategies(strategies, self.cash_flow_cible)
@@ -367,34 +513,40 @@ class StrategyFinder:
 
         return score_sum / total_price
 
+
     def dedupe_strategies(self, strategies: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Remove near-duplicate strategies.
-
-        Aggressive deduplication:
+        Aggressive deduplication with fallback:
         1. Group by 'Signature' (Set of property names).
-        2. Examples: {Prop A}, {Prop A, Prop B}.
-        3. For each signature, keep ONLY the strategy with the highest balanced_score.
-        
-        This forces the result list to show *different investments* rather than
-        the same investment with slightly different financing parameters.
+        2. Keep the best strategies per signature.
+        3. If meaningful variety is low, allow multiple variations per signature.
         """
-        best_of_breed = {}
-
+        # Group by signature
+        grouped = {}
         for s in strategies:
             details = s.get("details", [])
-            # Signature is just the sorted list of property names
-            # We ignore loan duration or apport amount for the signature
             sig = tuple(sorted(d.get("nom_bien", "") for d in details))
-            
-            # If we haven't seen this combo, or if this one has a better score, keep it
-            current_best = best_of_breed.get(sig)
-            if current_best is None:
-                best_of_breed[sig] = s
-            else:
-                if s.get("balanced_score", 0) > current_best.get("balanced_score", 0):
-                    best_of_breed[sig] = s
+            if sig not in grouped:
+                grouped[sig] = []
+            grouped[sig].append(s)
 
-        return list(best_of_breed.values())
+        # Sort each group by score descending
+        for sig in grouped:
+            grouped[sig].sort(key=lambda x: x.get("balanced_score", -float("inf")), reverse=True)
+
+        # Selection logic
+        final_list = []
+        
+        # If we have very few distinct property sets (e.g. < 3), show more variations per set
+        variations_per_sig = 1
+        if len(grouped) < 3:
+            variations_per_sig = 3
+
+        for sig, items in grouped.items():
+            # Keep top N items
+            final_list.extend(items[:variations_per_sig])
+
+        return final_list
 
     def rank_strategies(
         self,

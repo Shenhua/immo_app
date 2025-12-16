@@ -166,6 +166,14 @@ def run_strategy_search(
         List of ranked strategies
     """
     log.info("analysis_started", archetypes_count=len(archetypes), horizon=horizon_years)
+    log.debug(
+        "run_strategy_search_called",
+        apport=apport,
+        cf_cible=cf_cible,
+        mode_cf=mode_cf,
+        max_props=eval_params.get("max_properties"),
+        use_full_capital=eval_params.get("use_full_capital"),
+    )
 
     # 1. Create investment bricks
     bricks = create_investment_bricks(archetypes, fin_config, op_config)
@@ -178,11 +186,16 @@ def run_strategy_search(
         tolerance=tolerance,
         qualite_weight=qual_weight,
         mode_cf=mode_cf,
+        max_properties=eval_params.get("max_properties", 3)
     )
 
+    # Allow use_full_capital from params
+    use_full = eval_params.get("use_full_capital", False)
+    
     strategies = finder.find_strategies(
         eval_params=eval_params,
         horizon_years=horizon_years,
+        use_full_capital_override=use_full
     )
 
     log.info("analysis_completed", strategies_found=len(strategies))

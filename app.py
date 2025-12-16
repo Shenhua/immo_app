@@ -34,13 +34,7 @@ from src.ui.pages.main import render_main_page
 from src.ui.state import SessionManager
 
 # --- Configuration & Setup ---
-
-st.set_page_config(
-    page_title="Simulateur Immo v27.6",
-    page_icon="🏢",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+# Note: Streamlit calls moved to main() to prevent blocking on import
 
 
 def load_css() -> None:
@@ -49,11 +43,6 @@ def load_css() -> None:
     if os.path.exists(css_file):
         with open(css_file) as f:
             st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-
-
-load_css()
-
-log = get_logger(__name__)
 
 
 def render_sidebar() -> dict[str, Any]:
@@ -66,8 +55,8 @@ def render_sidebar() -> dict[str, Any]:
         st.title("⚙️ Paramètres")
 
         # Objectives
-        apport, cf_cible, tolerance, mode_cf, qual_weight, horizon = render_objectives_section()
-
+        objectives = render_objectives_section()
+        
         # Credit
         with st.expander("🏦 Financement", expanded=False):
             credit_params = render_credit_params_tab()
@@ -102,12 +91,14 @@ def render_sidebar() -> dict[str, Any]:
         finance_preset_name, finance_weights = render_scoring_preset()
 
     return {
-        "apport": apport,
-        "cf_cible": cf_cible,
-        "tolerance": tolerance,
-        "mode_cf": mode_cf,
-        "qual_weight": qual_weight,
-        "horizon": horizon,
+        "apport": objectives["apport"],
+        "cf_cible": objectives["cf_cible"],
+        "tolerance": objectives["tolerance"],
+        "mode_cf": objectives["mode_cf"],
+        "qual_weight": objectives["qualite_weight"],
+        "horizon": objectives["horizon"],
+        "max_properties": objectives.get("max_properties", 3),
+        "use_full_capital": objectives.get("use_full_capital", False),
         "credit_params": credit_params,
         "cfe": cfe,
         "gestion": gestion,
@@ -152,6 +143,8 @@ def handle_analysis(params: dict[str, Any], archetypes: list[dict[str, Any]]) ->
             "hypotheses_marche": params["market_hypo"],
             "finance_preset_name": params["finance_preset_name"],
             "finance_weights_override": params["finance_weights"],
+            "max_properties": params.get("max_properties", 3),
+            "use_full_capital": params.get("use_full_capital", False),
         }
 
         # Run search
@@ -177,6 +170,16 @@ def handle_analysis(params: dict[str, Any], archetypes: list[dict[str, Any]]) ->
 
 def main() -> None:
     """Main application entry point."""
+    # Streamlit configuration (must be first Streamlit call)
+    st.set_page_config(
+        page_title="Simulateur Immo v27.6",
+        page_icon="🏢",
+        layout="wide",
+        initial_sidebar_state="expanded",
+    )
+    load_css()
+    log = get_logger(__name__)
+    
     # 1. Initialize session
     SessionManager.initialize()
     log.info("app_started")

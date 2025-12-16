@@ -132,7 +132,7 @@ class TestStrategyFinder:
         assert finder.scorer.qualite_weight == 0.25
 
     def test_dedupe_strategies(self):
-        """Should remove duplicates."""
+        """Should dedupe but allow variations when few distinct signatures."""
         finder = StrategyFinder([], 100000, -100)
         strategies = [
             {"details": [{"nom_bien": "A", "duree_pret": 20, "apport_final_bien": 50000}]},
@@ -140,7 +140,9 @@ class TestStrategyFinder:
             {"details": [{"nom_bien": "B", "duree_pret": 20, "apport_final_bien": 50000}]},  # different
         ]
         deduped = finder.dedupe_strategies(strategies)
-        assert len(deduped) == 2
+        # With <3 distinct signatures, allows 3 variations per sig
+        # 2 for "A", 1 for "B" = 3 total
+        assert len(deduped) == 3
 
     def test_rank_strategies_balanced(self):
         """Should sort by balanced_score for default preset."""

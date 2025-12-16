@@ -31,7 +31,7 @@ class OperatingConfig:
     """Configuration for operating costs."""
     frais_gestion_pct: float = 5.0
     provision_pct: float = 5.0
-    cfe_par_bien_ann: float = 150.0
+    cfe_par_bien_ann: float = 500.0
 
 
 def create_investment_bricks(

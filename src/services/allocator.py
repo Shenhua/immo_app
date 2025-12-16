@@ -10,6 +10,9 @@ import os
 from typing import Any
 
 from src.core.financial import calculate_total_monthly_payment, k_factor
+from src.core.logging import get_logger
+
+log = get_logger(__name__)
 
 
 class PortfolioAllocator:
@@ -17,7 +20,7 @@ class PortfolioAllocator:
 
     def __init__(self, mode_cf: str = "target"):
         self.mode_cf = mode_cf
-        self.max_extra_apport_pct = float(os.getenv("MAX_EXTRA_APPORT_PCT", "0.75"))
+        self.max_extra_apport_pct = float(os.getenv("MAX_EXTRA_APPORT_PCT", "0.95"))
 
     def allocate(
         self,
@@ -68,6 +71,12 @@ class PortfolioAllocator:
         # Only return early if we DON'T want to burn full capital OR if we are in strict precise mode
         if self._accept_cf(cf0, target_cf, tolerance):
              if not use_full_capital or is_precise or apport_suppl_max < 1.0:
+                log.debug(
+                    "allocation_early_exit",
+                    cf0=cf0,
+                    target=target_cf,
+                    reason="Target met & no aggressive deployment"
+                )
                 details = [
                     {
                         **b,
@@ -80,6 +89,14 @@ class PortfolioAllocator:
 
         # Iterative greedy allocation
         apport_rest = apport_suppl_max
+        
+        log.debug(
+            "starting_allocation",
+            cf_start=cf0,
+            target=target_cf,
+            apport_rest=apport_rest,
+            use_full_capital=use_full_capital
+        )
 
         # Sort by efficiency (k-factor)
         ordre = sorted(
@@ -119,8 +136,15 @@ class PortfolioAllocator:
             if delta > reste_cap:
                 delta = reste_cap
 
+            # Round delta to 1/1000 of available capital for cleaner numbers
+            step_size = max(apport_disponible / 1000, 1)  # Min 1€ step
+            delta = round(delta / step_size) * step_size
+
+            if delta < 0.01:
+                continue
+
             # Update state
-            b["capital_restant"] = max(1e-2, b["capital_restant"] - delta)
+            b["capital_restant"] = max(1.0, b["capital_restant"] - delta)
 
             # Recompute payment
             _, _, p_tot = calculate_total_monthly_payment(
@@ -142,8 +166,11 @@ class PortfolioAllocator:
                 for x in biens
             )
             manque_cf = self._calc_need(cf0, target_cf, tolerance)
+            # log.debug("step_allocation", delta=delta,  new_cf=cf0, property=b.get("nom_bien"))
 
         success = self._accept_cf(cf0, target_cf, tolerance)
+        
+        log.debug("allocation_finished", final_cf=cf0, success=success, remaining_apport=apport_rest)
 
         details = [
             {

@@ -7,11 +7,21 @@ and colored console output for development.
 from __future__ import annotations
 
 import logging
+import logging.handlers
 import os
 import sys
+from pathlib import Path
 from typing import Any
 
 import structlog
+
+# Log file location
+LOG_DIR = Path(__file__).parent.parent.parent / "logs"
+LOG_FILE = LOG_DIR / "app.log"
+
+# Module-level state for lazy initialization
+_configured: bool = False
+_default_logger: structlog.BoundLogger | None = None
 
 
 def configure_logging(
@@ -27,53 +37,71 @@ def configure_logging(
     Returns:
         Configured logger instance.
     """
+    global _configured, _default_logger
+    
+    # Skip if already configured (idempotent)
+    if _configured:
+        return structlog.get_logger()
+    
     log_level = level or os.environ.get("LOGLEVEL", "INFO").upper()
     numeric_level = getattr(logging, log_level, logging.INFO)
 
-    # Configure standard library logging
+    # 1. Configure Standard Library Logging (Handlers)
+    handlers: list[logging.Handler] = [
+        logging.StreamHandler(sys.stdout),
+    ]
+    
+    # Only add file handler if not in test mode
+    if not os.environ.get("PYTEST_CURRENT_TEST"):
+        try:
+            LOG_DIR.mkdir(exist_ok=True)
+            file_handler = logging.handlers.RotatingFileHandler(
+                str(LOG_FILE), maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8"
+            )
+            handlers.append(file_handler)
+        except (OSError, PermissionError):
+            # Fail silently if we can't create log file
+            pass
+
     logging.basicConfig(
         format="%(message)s",
-        stream=sys.stdout,
         level=numeric_level,
+        handlers=handlers,
+        force=True,  # Overwrite any existing config
     )
 
-    # Choose processors based on output format
-    shared_processors: list[Any] = [
+    # 2. Configure Structlog Processors
+    processors: list[Any] = [
+        structlog.stdlib.filter_by_level,
         structlog.contextvars.merge_contextvars,
         structlog.processors.add_log_level,
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
     ]
 
     if json_output:
-        # Production: JSON output
-        processors = shared_processors + [
-            structlog.processors.format_exc_info,
-            structlog.processors.JSONRenderer(),
-        ]
+        processors.append(structlog.processors.JSONRenderer())
     else:
-        # Development: colored console output
-        processors = shared_processors + [
-            structlog.dev.ConsoleRenderer(colors=True),
-        ]
+        processors.append(structlog.dev.ConsoleRenderer(colors=False))
 
+    # 3. Configure Structlog to wrap Stdlib
     structlog.configure(
         processors=processors,
-        wrapper_class=structlog.make_filtering_bound_logger(numeric_level),
-        context_class=dict,
-        logger_factory=structlog.PrintLoggerFactory(),
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
         cache_logger_on_first_use=True,
     )
 
-    return structlog.get_logger()
-
-
-# Default logger instance
-log = configure_logging()
+    _configured = True
+    _default_logger = structlog.get_logger()
+    return _default_logger
 
 
 def get_logger(name: str | None = None) -> structlog.BoundLogger:
     """Get a logger instance, optionally bound to a specific name.
+
+    This function lazily initializes logging on first call.
 
     Args:
         name: Optional logger name (usually module name).
@@ -81,7 +109,14 @@ def get_logger(name: str | None = None) -> structlog.BoundLogger:
     Returns:
         Bound logger instance.
     """
+    global _configured
+    
+    # Lazy initialization
+    if not _configured:
+        configure_logging()
+    
     logger = structlog.get_logger()
     if name:
         return logger.bind(logger_name=name)
     return logger
+

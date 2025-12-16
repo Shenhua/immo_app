@@ -49,43 +49,111 @@ FINANCIAL_PRESETS = {
 }
 
 
-def render_objectives_section() -> tuple[float, float, float, str, float, int]:
+def render_objectives_section() -> dict[str, Any]:
     """Render the objectives section of the sidebar.
 
     Returns:
         Tuple of (apport, cf_cible, tolerance, mode_cf, qualite_weight, horizon)
     """
-    with st.expander("Mes Objectifs", expanded=True, icon="🎯"):
-        apport = st.number_input(
-            "Apport total disponible (€)",
-            min_value=0,
-            value=100000,
-            step=5000,
-            help="Votre capacité d'apport personnel pour tous les projets.",
+    # --- Investment Strategy ---
+    st.sidebar.markdown("### 🎯 Stratégie d'Investissement")
+    strategy_mode = st.sidebar.radio(
+        "Mode d'allocation",
+        ["Classique (Levier)", "Empire (Max Volume)", "Rentier (Max Cash-Flow)"],
+        index=0,
+        help=(
+            "**Classique (Levier)** : Cherche l'équilibre. Utilise l'apport minimum pour maximiser le retour sur investissement (TRI). Limité à 3 biens.\n\n"
+            "**Empire (Max Volume)** : Cherche à acquérir le plus grand parc immobilier possible (jusqu'à 5 biens) avec votre apport.\n\n"
+            "**Rentier (Max Cash-Flow)** : Objectif de rente. Utilise TOUT votre apport pour réduire les mensualités de crédit et maximiser le cash-flow mensuel net."
         )
+    )
 
+    # --- Financial Profile Auto-Switch Logic ---
+    # To help the user, we switch the scoring profile when the strategy changes.
+    last_strat = st.session_state.get("last_strategy_mode", None)
+    
+    if last_strat != strategy_mode:
+        st.session_state.last_strategy_mode = strategy_mode
+        # Only switch if we are strictly changing (avoid override on first load if user had custom)
+        # But here we want to guide them.
+        
+        target_preset = None
+        if "Rentier" in strategy_mode:
+            target_preset = "Cash-flow d'abord" # or Sécurité
+        elif "Empire" in strategy_mode:
+            target_preset = "Patrimoine LT"
+        elif "Classique" in strategy_mode:
+            target_preset = "Équilibré (défaut)"
+            
+        if target_preset and target_preset in FINANCIAL_PRESETS:
+             st.session_state.finance_preset = target_preset
+             st.session_state.finance_custom = FINANCIAL_PRESETS[target_preset].copy()
+             # Notify user via toast (Streamlit 1.30+) or just let them see the change
+             # st.toast(f"Profil financier ajusté : {target_preset}")
+
+    max_props = 3
+    use_full_capital = False
+    
+    # Logic flags
+    is_rentier = "Rentier" in strategy_mode
+    is_empire = "Empire" in strategy_mode
+
+    if is_empire:
+        max_props = 5
+    elif is_rentier:
+        use_full_capital = True
+
+    # --- Financial Inputs ---
+    with st.sidebar.expander("💰 Configuration Financière", expanded=True):
+        apport = st.number_input(
+            "Apport Total Disponible (€)",
+            min_value=0,
+            value=st.session_state.get("apport", 50000),
+            step=5000,
+            format="%d",
+            help="Capital total que vous êtes prêt à investir (frais de notaire + apport bancaire)."
+        )
+        
+        # In Rentier mode, CF Target is irrelevant because we maximize it.
+        # In other modes, we let user set a minimum target.
         c_target, c_tol = st.columns(2)
         with c_target:
-            cf_cible = st.number_input(
-                "CF mensuel cible (€)",
-                value=-100,
-                step=10,
-                key="cf_cible",
-                help="Le cash-flow net que vous visez chaque mois.",
-            )
-        with c_tol:
-            tolerance = st.number_input(
-                "Tolérance (€/mois)",
-                value=50,
-                step=10,
-                help="Marge d'erreur acceptable autour de votre cible de cash-flow.",
-            )
+             if not is_rentier:
+                cf_cible = st.number_input(
+                    "Cash-Flow Cible (/mois)",
+                    value=st.session_state.get("cf_cible", 0.0),
+                    step=50.0,
+                    help="Le cash-flow net minimum que vous visez."
+                )
+             else:
+                cf_cible = 0.0
+                st.info("Rentier:\nMaximisation Auto")
 
-        is_precise = st.toggle(
-            "Ciblage Précis (±)",
-            value=True,
-            help="Désactivé : le CF sera au MINIMUM la cible.\n\nActivé : le CF visera à être le plus PROCHE possible de la cible.",
-        )
+        with c_tol:
+            # Tolerance is only meaningful if we have a target
+            if not is_rentier:
+                tolerance = st.number_input(
+                    "Tolérance (€)",
+                    value=100,
+                    step=10,
+                    help="Marge d'erreur acceptable autour de votre cible.",
+                )
+            else:
+                tolerance = 100.0 # Default value, unused
+
+        # Precise Targeting:
+        # - Rentier: Forced to False (Min Mode / Maximize)
+        # - Empire/Classique: User choice
+        if is_rentier:
+            is_precise = False
+            # Visual feedback that it's disabled/forced
+            st.caption("🔒 Ciblage Précis désactivé (Mode Rentier)")
+        else:
+            is_precise = st.toggle(
+                "Ciblage Précis (±)",
+                value=False,
+                help="Désactivé : le CF sera au MINIMUM la cible (peut être supérieur).\n\nActivé : le CF visera à être le plus PROCHE possible de la cible.",
+            )
         mode_cf = "target" if is_precise else "min"
 
         # Initialize horizon_ans if not set
@@ -109,7 +177,7 @@ def render_objectives_section() -> tuple[float, float, float, str, float, int]:
         col1.markdown('<div style="font-size: 1.5em; text-align: center;">💰</div>', unsafe_allow_html=True)
         priorite_pct = col2.slider(
             "Priorité",
-            0, 100, 50, 5,
+            0, 100, 30, 5,
             format="%d%%",
             label_visibility="collapsed",
         )
@@ -118,7 +186,16 @@ def render_objectives_section() -> tuple[float, float, float, str, float, int]:
 
 
 
-    return apport, cf_cible, tolerance, mode_cf, qualite_weight, horizon
+    return {
+        "apport": apport,
+        "cf_cible": cf_cible,
+        "tolerance": tolerance,
+        "mode_cf": mode_cf,
+        "qualite_weight": qualite_weight,
+        "horizon": horizon,
+        "max_properties": max_props,
+        "use_full_capital": use_full_capital,
+    }
 
 
 def render_credit_params_tab() -> dict[str, Any]:
@@ -128,13 +205,13 @@ def render_credit_params_tab() -> dict[str, Any]:
         Dictionary of credit parameters.
     """
     c1, c2, c3 = st.columns(3)
-    taux_15 = c1.number_input("15 ans (%)", value=3.2, format="%.2f")
-    taux_20 = c2.number_input("20 ans (%)", value=3.4, format="%.2f")
-    taux_25 = c3.number_input("25 ans (%)", value=3.6, format="%.2f")
+    taux_15 = c1.number_input("15 ans (%)", value=3.5, format="%.2f")
+    taux_20 = c2.number_input("20 ans (%)", value=3.6, format="%.2f")
+    taux_25 = c3.number_input("25 ans (%)", value=3.8, format="%.2f")
 
     st.markdown("---")
 
-    frais_notaire = st.slider("Frais de notaire (%)", 0.0, 12.0, 7.5, 0.1)
+    frais_notaire = st.slider("Frais de notaire (%)", 0.0, 12.0, 8.0, 0.1)
     assurance = st.slider("Assurance emprunteur (% cap.)", 0.00, 1.00, 0.35, 0.01)
     frais_pret = st.slider("Frais de prêt (% cap.)", 0.0, 3.0, 1.0, 0.1)
 
@@ -187,7 +264,7 @@ def render_market_hypotheses() -> dict[str, float]:
 
         # Initialize session state defaults
         if "appreciation_bien_pct" not in st.session_state:
-            st.session_state.appreciation_bien_pct = 2.5
+            st.session_state.appreciation_bien_pct = 2.0
         if "revalo_loyer_pct" not in st.session_state:
             st.session_state.revalo_loyer_pct = 1.5
         if "inflation_charges_pct" not in st.session_state:

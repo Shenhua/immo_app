@@ -16,6 +16,19 @@ repos:
         args: ['--maxkb=500']
       - id: check-merge-conflict
 
+  # MyPy type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
+    hooks:
+      - id: mypy
+        args: [--config-file=pyproject.toml]
+        additional_dependencies:
+          - pandas-stubs
+          - types-all
+          - pydantic
+        pass_filenames: false
+        entry: mypy src/
+
   - repo: local
     hooks:
       - id: pytest-quick

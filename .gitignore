@@ -53,6 +53,7 @@ coverage.xml
 
 # Logs and databases
 *.log
+logs/
 *.sqlite3
 /instance/
 

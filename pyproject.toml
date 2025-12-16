@@ -84,21 +84,29 @@ indent-style = "space"
 # ========== MYPY CONFIGURATION ==========
 [tool.mypy]
 python_version = "3.10"
-warn_return_any = false
+warn_return_any = true
 warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
 ignore_missing_imports = true
 exclude = [
     "env/",
     "tests/",
 ]
 
-# Gradual strictness - start lenient
-disallow_untyped_defs = false
+# Stricter settings (P3.2)
+disallow_untyped_defs = false  # Enable gradually per-module
 check_untyped_defs = true
+strict_optional = true
+no_implicit_optional = true
 
 [[tool.mypy.overrides]]
-module = "src.*"
-disallow_untyped_defs = false
+module = "src.models.*"
+disallow_untyped_defs = true  # Models should be fully typed
+
+[[tool.mypy.overrides]]
+module = "src.core.*"
+disallow_untyped_defs = false  # Enable when ready
 
 # ========== PYTEST CONFIGURATION ==========
 [tool.pytest.ini_options]

@@ -7,6 +7,7 @@ Provides year-by-year projections and final liquidation calculations.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isfinite
 from typing import Any
 
 import numpy_financial as npf
@@ -39,8 +40,9 @@ class TaxParams:
 
     tmi_pct: float = 30.0
     regime_fiscal: str = "lmnp"  # lmnp or microbic
-    micro_bic_abatt_pct: float = 50.0
     amort_mobilier: bool = True
+    micro_bic_abatt_pct: float = 50.0  # Default 50%, can be 71% for classé
+    
 
     def calculate_tax(
         self,
@@ -149,14 +151,18 @@ class SimulationEngine:
         market: MarketHypotheses,
         tax: TaxParams,
         ira: IRACalculator,
-        cfe_par_bien_ann: float = 150.0,
+        cfe_par_bien_ann: float = 500.0,
         frais_vente_pct: float = 6.0,
+        amort_immo_years: int = 30,
+        amort_mobilier_years: int = 10,
     ):
         self.market = market
         self.tax = tax
         self.ira = ira
         self.cfe_par_bien_ann = cfe_par_bien_ann
         self.frais_vente_pct = frais_vente_pct
+        self.amort_immo_years = amort_immo_years
+        self.amort_mobilier_years = amort_mobilier_years
 
     def simulate(
         self,
@@ -261,9 +267,9 @@ class SimulationEngine:
                 interets + assurance + self.cfe_par_bien_ann
             )
 
-            # Amortization
-            amort_immo = (p["prix_achat_bien"] + p["budget_travaux"] + p.get("renovation_energetique", 0.0)) / 30.0
-            amort_mob = p["mobilier"] / 10.0
+            # Amortization (using configurable periods)
+            amort_immo = (p["prix_achat_bien"] + p["budget_travaux"] + p.get("renovation_energetique", 0.0)) / self.amort_immo_years
+            amort_mob = p["mobilier"] / self.amort_mobilier_years
             if self.tax.regime_fiscal == "lmnp":
                 amortissements_pf += amort_immo + (amort_mob if self.tax.amort_mobilier else 0.0)
 
@@ -336,7 +342,7 @@ class SimulationEngine:
             tri = 0.0
 
         return {
-            "tri_annuel": tri if tri == tri else 0.0,  # NaN check
+            "tri_annuel": tri if isfinite(tri) else 0.0,
             "liquidation_nette": liquidation_nette,
             "ira_total": ira_total,
         }
