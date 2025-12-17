@@ -132,17 +132,16 @@ class TestStrategyFinder:
         assert finder.scorer.qualite_weight == 0.25
 
     def test_dedupe_strategies(self):
-        """Should dedupe but allow variations when few distinct signatures."""
+        """Should dedupe to keep only best per signature."""
         finder = StrategyFinder([], 100000, -100)
         strategies = [
-            {"details": [{"nom_bien": "A", "duree_pret": 20, "apport_final_bien": 50000}]},
-            {"details": [{"nom_bien": "A", "duree_pret": 20, "apport_final_bien": 50050}]},  # ~same
-            {"details": [{"nom_bien": "B", "duree_pret": 20, "apport_final_bien": 50000}]},  # different
+            {"details": [{"nom_bien": "A", "duree_pret": 20, "apport_final_bien": 50000}], "balanced_score": 0.8},
+            {"details": [{"nom_bien": "A", "duree_pret": 20, "apport_final_bien": 50050}], "balanced_score": 0.7},  # ~same sig
+            {"details": [{"nom_bien": "B", "duree_pret": 20, "apport_final_bien": 50000}], "balanced_score": 0.9},  # different
         ]
         deduped = finder.dedupe_strategies(strategies)
-        # With <3 distinct signatures, allows 3 variations per sig
-        # 2 for "A", 1 for "B" = 3 total
-        assert len(deduped) == 3
+        # Only 2 distinct signatures: "A" and "B" → keeps best per each
+        assert len(deduped) == 2
 
     def test_rank_strategies_balanced(self):
         """Should sort by balanced_score for default preset."""

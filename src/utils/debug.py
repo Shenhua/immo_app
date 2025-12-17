@@ -42,7 +42,7 @@ def collect_debug_context(
     context = {
         "meta": {
             "timestamp": timestamp,
-            "version": "v27.6 (AI-Debug-Enhanced)",
+            "version": "v27.7 (Hybrid-Traceable)",
             "purpose": "AI Agent Debugging & Logic Verification"
         },
         "user_inputs": {},
@@ -124,6 +124,43 @@ def collect_debug_context(
                 with open(log_file_path, 'r') as f:
                     lines = f.readlines()
                     context["logs_tail"] = [l.strip() for l in lines[-100:]] # Increased to 100
+                    
+                    # 7. AI Traceability Extraction (Phase 22)
+                    # Parse critical events from logs to structurally expose Solver Mode
+                    solver_trace = {}
+                    for line in reversed(context["logs_tail"]):
+                        if "hybrid_solver_selected" in line:
+                            # Extract JSON-like content if structlog or just quick parse
+                            # Assuming line format: ... event=hybrid_solver_selected mode=EXHAUSTIVE combos=123 ...
+                            try:
+                                # Simple partial extraction for robustness
+                                parts = line.split()
+                                for p in parts:
+                                    if "mode=" in p: solver_trace["mode"] = p.split("=")[1].replace('"', '')
+                                    if "combos=" in p: solver_trace["combos"] = str(p.split("=")[1])
+                                    if "threshold=" in p: solver_trace["threshold"] = str(p.split("=")[1])
+                            except:
+                                solver_trace["raw_event"] = line
+                            break
+                            
+                    # Extract Tier Distribution if available
+                    for line in reversed(context["logs_tail"]):
+                         if "strategy_tiers" in line:
+                             try:
+                                 parts = line.split()
+                                 tiers = {}
+                                 for p in parts:
+                                     if "tier_" in p:
+                                         k, v = p.split("=")
+                                         tiers[k] = int(v)
+                                 solver_trace["tier_distribution"] = tiers
+                             except:
+                                 pass
+                             break
+                             
+                    if solver_trace:
+                        context["results"]["solver_trace"] = solver_trace
+
     except Exception as e:
         context["logs_tail"] = [f"Could not read logs: {e}"]
 

@@ -184,6 +184,14 @@ class SimulationEngine:
             return pd.DataFrame(), {}
 
         projets = [p.copy() for p in strategy["details"]]
+        
+        # Validate schedule count matches property count
+        if len(schedules) != len(projets):
+            raise ValueError(
+                f"Schedule count ({len(schedules)}) != property count ({len(projets)}). "
+                "Each property requires a pre-computed amortization schedule."
+            )
+        
         valeur_biens = sum(p["prix_achat_bien"] for p in projets)
         flux = [-float(strategy["apport_total"])]
 
@@ -351,6 +359,14 @@ class SimulationEngine:
         # Initial investment (flux[0] is negative apport)
         apport_initial = -flux[0] if flux else 0.0
         enrichissement_net = liquidation_nette - apport_initial
+        
+        # Calculate DSCR from Year 1 data
+        from src.core.glossary import calculate_dscr_metric
+        if results:
+            df_y1 = pd.DataFrame([results[0].to_dict()])
+            dscr_y1 = calculate_dscr_metric(df_y1)
+        else:
+            dscr_y1 = 0.0
 
         return {
             "tri_annuel": tri,
@@ -358,6 +374,7 @@ class SimulationEngine:
             "liquidation_nette": liquidation_nette,
             "enrichissement_net": enrichissement_net,
             "ira_total": ira_total,
+            "dscr_y1": dscr_y1,
         }
 
     def _calculate_capital_gains_tax(self, years_held: int, plus_value: float) -> float:

@@ -8,10 +8,13 @@ from __future__ import annotations
 
 import itertools
 from dataclasses import dataclass, field
+import math
 from math import isfinite
-from typing import Any
+from typing import Any, Dict
 
 from src.core.logging import get_logger
+from src.services.allocator import PortfolioAllocator
+from src.services.optimizer import GeneticOptimizer, ExhaustiveOptimizer
 
 log = get_logger(__name__)
 
@@ -337,41 +340,100 @@ class StrategyFinder:
                  brick_count=len(self.bricks),
                  apport=self.apport_disponible)
 
-        # 2. Genetic Algorithm Optimization
-        # Replaces legacy Combinatorial Search + ThreadPoolExecutor
-        # Implements Expert Recommendation (Phase 2)
-        from src.services.optimizer import GeneticOptimizer
+        # 2. Hybrid Solver Logic (Phase 21)
+        # Check problem size to decide between Brute Force (Exhaustive) and Genetic Algorithm
+        n_bricks = len(self.bricks)
+        max_k = self.max_properties
         
-        # Use aggressive population settings to ensure we find "Needle in Haystack"
-        optimizer = GeneticOptimizer(
-            population_size=100,
-            generations=30,
-            elite_size=10,
-            allocator=allocator,
-            simulator=engine,
-            scorer=self.scorer
-        )
+        total_combinations = 0
+        for k in range(1, max_k + 1):
+            total_combinations += math.comb(n_bricks, k)
+            
+        # Threshold: 500,000 combinations takes ~25-30 seconds in exhaustive mode
+        # Raised from 200k to handle Empire mode (max_props=5) better
+        THRESHOLD_EXHAUSTIVE = 500000
         
-        log.info("ga_optimization_started", 
-                 bricks=len(self.bricks), 
-                 pop_size=optimizer.pop_size, 
-                 generations=optimizer.generations)
-                 
-        # Phase 17 Review: Deep Diversity
-        # To avoid "Dedupe removing everything", we request a much larger pool from the optimizer
-        # and then dedupe/filter down to top_n ourselves.
-        # This ensures we have enough raw material to find N distinct strategies.
-        pool_size = max(500, top_n * 5)
+        strategies = []
         
-        strategies = optimizer.evolve(
-            all_bricks=self.bricks,
-            budget=self.apport_disponible,
-            target_cf=self.cash_flow_cible,
-            tolerance=self.tolerance,
-            horizon=horizon_years,
-            top_n=pool_size 
-        )
-        log.info("ga_optimization_finished", count=len(strategies))
+        if total_combinations < THRESHOLD_EXHAUSTIVE:
+            # --- EXHAUSTIVE MODE (v1 Fidelity) ---
+            log.info("hybrid_solver_selected", 
+                     mode="EXHAUSTIVE", 
+                     combos=total_combinations, 
+                     threshold=THRESHOLD_EXHAUSTIVE)
+            
+            optimizer = ExhaustiveOptimizer(
+                allocator=allocator,
+                simulator=engine,
+                scorer=self.scorer
+            )
+            
+            strategies = optimizer.solve(
+                all_bricks=self.bricks,
+                budget=self.apport_disponible,
+                target_cf=self.cash_flow_cible,
+                tolerance=self.tolerance,
+                horizon=horizon_years,
+                max_combinations=THRESHOLD_EXHAUSTIVE, # Safety cap
+                max_props=self.max_properties
+            )
+            
+        else:
+            # --- GENETIC MODE (v2 Scalability) ---
+            # Adaptive GA parameters based on search space size
+            # Larger search space = more exploration needed
+            if total_combinations > 5_000_000:
+                pop_size = 200
+                generations = 50
+                elite_size = 20
+            elif total_combinations > 1_000_000:
+                pop_size = 150
+                generations = 40
+                elite_size = 15
+            else:
+                pop_size = 100
+                generations = 30
+                elite_size = 10
+                
+            log.info("hybrid_solver_selected", 
+                     mode="GENETIC", 
+                     combos=total_combinations, 
+                     threshold=THRESHOLD_EXHAUSTIVE,
+                     pop_size=pop_size,
+                     generations=generations)
+                     
+            optimizer = GeneticOptimizer(
+                population_size=pop_size,
+                generations=generations,
+                elite_size=elite_size,
+                max_properties=self.max_properties,
+                allocator=allocator,
+                simulator=engine,
+                scorer=self.scorer
+            )
+            
+            # Phase 17 Review: Deep Diversity
+            # Request larger pool for dedupe
+            pool_size = max(500, top_n * 5)
+            
+            strategies = optimizer.evolve(
+                all_bricks=self.bricks,
+                budget=self.apport_disponible,
+                target_cf=self.cash_flow_cible,
+                tolerance=self.tolerance,
+                horizon=horizon_years,
+                top_n=pool_size 
+            )
+            
+        log.info("optimization_finished", count=len(strategies))
+
+        # Guard against empty results from optimizer
+        if not strategies:
+            log.warning("no_strategies_found", 
+                        reason="optimizer_returned_empty",
+                        brick_count=len(self.bricks),
+                        budget=self.apport_disponible)
+            return []
 
         # 4. Score & Rank (Post-Optimization)
         # We re-run relative scoring on the "Elite" set to populate UI-friendly normalized fields (A-score, etc.)
@@ -405,8 +467,27 @@ class StrategyFinder:
             tier_counts[s.get("tier", 3)] = tier_counts.get(s.get("tier", 3), 0) + 1
         log.info("strategy_tiers", tier_1=tier_counts[1], tier_2=tier_counts[2], tier_3=tier_counts[3])
         
+        # STRICT FILTER: Remove Tier 3 ("Difficile") strategies
+        # User Feedback: "remove results that are totally out of scope"
+        # We only keep Tier 1 (Feasible) and Tier 2 (Near-Feasible, within 3x tolerance)
+        pre_filter_count = len(strategies)
+        strategies = [s for s in strategies if s.get("tier", 3) < 3]
+        
+        # Log when all strategies were filtered
+        if not strategies and pre_filter_count > 0:
+            log.warning("all_strategies_infeasible",
+                        tier_3_count=tier_counts[3],
+                        target_cf=self.cash_flow_cible,
+                        tolerance=self.tolerance,
+                        hint="Consider relaxing tolerance or adjusting cash flow target")
+        
         # Dedupe (preserving tier order)
         strategies = self.dedupe_strategies(strategies, top_n=top_n)
+
+        # Apply Pareto Filter (v1 Logic) to clean up dominated strategies
+        # Only apply if we have enough candidates to afford filtering
+        if len(strategies) > top_n:
+             strategies = self._pareto_filter(strategies)
 
         top_strategies = self.rank_strategies(strategies, ep.finance_preset_name, top_n)
         log.info("strategy_search_completed",
@@ -471,6 +552,48 @@ class StrategyFinder:
         
         return final_list
 
+    def _pareto_filter(self, strategies: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Filter out dominated strategies (Pareto Efficiency).
+        
+        A strategy A dominates B if A is better or equal in all metrics 
+        and strictly better in at least one.
+        Metrics checked: 
+        - Cash Flow (Higher is better, unless target... assuming general 'wealth' for now)
+          Actually for Pareto we care about: Yield vs Risk vs Cost.
+          Simple v1 Pareto: 
+          - Cost (Lower is better)
+          - CashFlow (Higher is better)
+          - Yield (Higher is better)
+        """
+        # Sort by cost ascending to make comparison easier
+        sorted_s = sorted(strategies, key=lambda x: x.get("apport_total", 0))
+        
+        keep = []
+        
+        for cand in sorted_s:
+            dominated = False
+            c_cost = cand.get("apport_total", 0)
+            c_cf = cand.get("cash_flow_final", 0)
+            c_tri = cand.get("tri_annuel", 0)
+            
+            for exist in keep:
+                e_cost = exist.get("apport_total", 0)
+                e_cf = exist.get("cash_flow_final", 0)
+                e_tri = exist.get("tri_annuel", 0)
+                
+                # Check if 'exist' dominates 'cand'
+                # Exist costs less/equal AND has better/equal CF AND better/equal TRI
+                if (e_cost <= c_cost) and (e_cf >= c_cf) and (e_tri >= c_tri):
+                    # Strict check: is it better in at least one?
+                    if (e_cost < c_cost) or (e_cf > c_cf) or (e_tri > c_tri):
+                        dominated = True
+                        break
+            
+            if not dominated:
+                keep.append(cand)
+                
+        return keep
+
     def rank_strategies(
         self,
         strategies: list[dict[str, Any]],
@@ -487,6 +610,12 @@ class StrategyFinder:
         name = preset_name.lower()
 
         def sort_key(x: dict[str, Any]) -> tuple:
+            # CRITICAL FIX: Always prioritize Tier first!
+            # We sort reverse=True (Descending).
+            # Tier 1 (Best) > Tier 3 (Worst).
+            # So we use negative tier: -1 > -3.
+            tier_score = -x.get("tier", 3)
+            
             # CF proximity as final tiebreaker (higher is better)
             cf_prox = x.get("cf_proximity", 0)
             finance = x.get("finance_score", 0)
@@ -495,22 +624,22 @@ class StrategyFinder:
             # Match French preset names
             if "sécurité" in name or "dscr" in name:
                 # Safety profile: prioritize DSCR, then finance_score
-                return (x.get("dscr_norm", 0), finance, cf_prox)
+                return (tier_score, x.get("dscr_norm", 0), finance, cf_prox)
 
             if "rendement" in name or "irr" in name:
                 # IRR profile: prioritize TRI, then finance_score
-                return (x.get("tri_norm", 0), finance, cf_prox)
+                return (tier_score, x.get("tri_norm", 0), finance, cf_prox)
 
             if "cash" in name:
                 # Cash-flow profile: prioritize CF proximity, then DSCR for safety
-                return (cf_prox, x.get("dscr_norm", 0), finance)
+                return (tier_score, cf_prox, x.get("dscr_norm", 0), finance)
 
             if "patrimoine" in name:
                 # Wealth-building profile: prioritize enrichment, then IRR
-                return (x.get("enrich_norm", 0), x.get("tri_norm", 0), balanced)
+                return (tier_score, x.get("enrich_norm", 0), x.get("tri_norm", 0), balanced)
 
             # Default "Équilibré": use balanced_score which combines finance + quality
-            return (balanced, finance, cf_prox)
+            return (tier_score, balanced, finance, cf_prox)
 
         sorted_strategies = sorted(strategies, key=sort_key, reverse=True)
         return sorted_strategies[:top_n]

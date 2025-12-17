@@ -21,6 +21,9 @@ class TestGeneticOptimizer(unittest.TestCase):
         self.mock_simulator.simulate.return_value = (self.mock_df, self.mock_bilan)
         
         self.mock_scorer.qualite_weight = 0.5
+        self.mock_scorer.weights = {
+            "enrich_net": 0.30, "irr": 0.25, "cf_proximity": 0.20, "dscr": 0.15, "cap_eff": 0.10
+        }
         
         self.optimizer = GeneticOptimizer(
             population_size=10,

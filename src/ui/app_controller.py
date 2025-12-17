@@ -41,6 +41,21 @@ def load_archetypes_from_disk(data_path: str) -> list[dict[str, Any]]:
     with open(data_path, encoding="utf-8") as f:
         raw_data = json.load(f)
         archetypes = [ArchetypeV2(**item).model_dump() for item in raw_data]
+    
+    # Validate rent caps at load time
+    cap_violations = 0
+    for a in archetypes:
+        if a.get("soumis_encadrement") and a.get("loyer_m2_max"):
+            if a.get("loyer_m2", 0) > a["loyer_m2_max"]:
+                log.warning("archetype_rent_exceeds_cap",
+                           nom=a.get("nom"),
+                           loyer=a["loyer_m2"],
+                           cap=a["loyer_m2_max"])
+                cap_violations += 1
+    
+    if cap_violations > 0:
+        log.warning("rent_cap_violations_found", count=cap_violations)
+    
     log.info("archetypes_loaded_from_disk", count=len(archetypes))
     return archetypes
 

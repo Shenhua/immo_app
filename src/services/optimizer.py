@@ -7,6 +7,8 @@ from typing import List, Dict, Any, Tuple, Callable
 import random
 import copy
 import structlog
+import itertools
+import math
 import numpy as np
 from src.services.allocator import PortfolioAllocator
 from src.core.simulation import SimulationEngine
@@ -40,6 +42,7 @@ class GeneticOptimizer:
         mutation_rate: float = 0.2,
         crossover_rate: float = 0.7,
         elite_size: int = 5,
+        max_properties: int = 5,
         allocator: PortfolioAllocator = None,
         simulator: SimulationEngine = None,
         scorer: Any = None,
@@ -50,6 +53,7 @@ class GeneticOptimizer:
         self.mutation_rate = mutation_rate
         self.crossover_rate = crossover_rate
         self.elite_size = elite_size
+        self.max_properties = max_properties
         self.seed = seed
         
         self.allocator = allocator
@@ -67,7 +71,7 @@ class GeneticOptimizer:
         target_cf: float,
         tolerance: float
     ) -> Individual:
-        """Create a random valid-ish individual respecting budget."""
+        """Create a random valid-ish individual respecting budget and max_properties."""
         # Simple greedy approach to fill budget randomly
         available = list(all_bricks)
         random.shuffle(available)
@@ -75,6 +79,8 @@ class GeneticOptimizer:
         current_cost = 0.0
         
         for b in available:
+            if len(selected) >= self.max_properties:
+                break
             cost = b.get("apport_min", 0.0)
             if current_cost + cost <= budget:
                 selected.append(b)
@@ -176,22 +182,20 @@ class GeneticOptimizer:
             
             # Balanced Score (50/50 default or use scorer weights if available)
             # Fitness = Balanced Score (0-100)
-            # Fitness = Balanced Score (0-100)
-            if ind.fitness < 0:
-                # 5. Combined Score
-                # Use SCORER's quality weight from parameters (Phase 15.1)
-                q_w = self.scorer.qualite_weight if self.scorer else 0.5
-                
-                # Combine
-                if q_w >= 1.0:
-                    fitness = qual_score / 100.0
-                elif q_w <= 0.0:
-                    fitness = finance_score
-                else:
-                    fitness = (1.0 - q_w) * finance_score + q_w * (qual_score / 100.0)
-                
-                ind.fitness = max(0.01, fitness * 100) # Scale to 0-100 like legacy
-                ind.is_valid = True
+            # 5. Combined Score
+            # Use SCORER's quality weight from parameters (Phase 15.1)
+            q_w = self.scorer.qualite_weight if self.scorer else 0.5
+            
+            # Combine
+            if q_w >= 1.0:
+                fitness = qual_score / 100.0
+            elif q_w <= 0.0:
+                fitness = finance_score
+            else:
+                fitness = (1.0 - q_w) * finance_score + q_w * (qual_score / 100.0)
+            
+            ind.fitness = max(0.01, fitness * 100) # Scale to 0-100 like legacy
+            ind.is_valid = True
             
         except Exception as e:
             log.warning("evaluation_failed", error=str(e))
@@ -205,7 +209,7 @@ class GeneticOptimizer:
         Respects user-defined weights from StrategyScorer (Phase 15).
         """
         w = self.scorer.weights if self.scorer else {
-            "tri": 0.3, "enrich": 0.3, "dscr": 0.2, "cf_proximity": 0.2
+            "enrich_net": 0.30, "irr": 0.25, "cf_proximity": 0.20, "dscr": 0.15, "cap_eff": 0.10
         }
 
         # 1. TRI (Internal Rate of Return)
@@ -321,6 +325,7 @@ class GeneticOptimizer:
             population.append(ind)
             
         best_fitness = 0.0
+        stagnation_counter = 0
         
         # Evolution Loop
         for gen in range(self.generations):
@@ -332,10 +337,19 @@ class GeneticOptimizer:
             population.sort(key=lambda x: x.fitness, reverse=True)
             
             # Log progress
+            # Log progress
             best = population[0]
             if best.fitness > best_fitness:
                 best_fitness = best.fitness
+                stagnation_counter = 0
                 log.debug("new_best_fitness", gen=gen, fitness=f"{best_fitness:.2f}")
+            else:
+                stagnation_counter += 1
+                
+            # Stagnation Stop (Early Exit)
+            if stagnation_counter >= 5 and gen > 10:
+                log.info("ga_stagnation_stop", gen=gen, best_fitness=best_fitness)
+                break
                 
             # 3. Selection
             # Elitism: Keep best
@@ -383,21 +397,26 @@ class GeneticOptimizer:
         contestants = random.sample(population, min(len(population), k))
         return max(contestants, key=lambda ind: ind.fitness)
 
+    def _brick_key(self, b: Dict[str, Any]) -> str:
+        """Generate unique key for a brick (property + loan duration)."""
+        return f"{b['nom_bien']}_{b.get('duree_pret', 20)}"
+
     def _crossover(self, p1: Individual, p2: Individual) -> Individual:
         """Uniform crossover: take properties from both parents."""
-        # Merge unique bricks
-        pool = {b["nom_bien"]: b for b in p1.bricks + p2.bricks}
+        # Merge unique bricks using proper key
+        pool = {self._brick_key(b): b for b in p1.bricks + p2.bricks}
         all_unique = list(pool.values())
         
         # Randomly select a subset to form a child
-        # Try to maintain average length
+        # Try to maintain average length, capped by max_properties
         if not p1.bricks and not p2.bricks:
             avg_len = 0
         else:
             avg_len = int((len(p1.bricks) + len(p2.bricks)) / 2)
             if avg_len == 0: avg_len = 1
-            
-        child_bricks = random.sample(all_unique, k=min(len(all_unique), avg_len))
+        
+        target_len = min(avg_len, self.max_properties)
+        child_bricks = random.sample(all_unique, k=min(len(all_unique), target_len))
         
         return Individual(child_bricks)
 
@@ -411,18 +430,20 @@ class GeneticOptimizer:
         if action == "remove" and len(ind.bricks) > 1:
             ind.bricks.pop(random.randrange(len(ind.bricks)))
             
-        elif action == "add":
+        elif action == "add" and len(ind.bricks) < self.max_properties:
             # Add a random brick if budget allows (roughly)
             # Precise budget check happens in eval, here we just try
             candidate = random.choice(all_bricks)
-            # Avoid dupes
-            if candidate["nom_bien"] not in [b["nom_bien"] for b in ind.bricks]:
+            # Avoid dupes using proper key
+            cand_key = self._brick_key(candidate)
+            if cand_key not in [self._brick_key(b) for b in ind.bricks]:
                 ind.bricks.append(candidate)
                 
         elif action == "swap" and len(ind.bricks) > 0:
             ind.bricks.pop(random.randrange(len(ind.bricks)))
             candidate = random.choice(all_bricks)
-            if candidate["nom_bien"] not in [b["nom_bien"] for b in ind.bricks]:
+            cand_key = self._brick_key(candidate)
+            if cand_key not in [self._brick_key(b) for b in ind.bricks]:
                 ind.bricks.append(candidate)
         
         ind.fitness = -1.0 # Invalidate fitness
@@ -446,6 +467,8 @@ class GeneticOptimizer:
         current_cost = 0.0
         
         for b in candidates:
+            if len(selected) >= self.max_properties:
+                break
             cost = b.get("apport_min", 0.0)
             if current_cost + cost <= budget:
                 selected.append(b)
@@ -456,3 +479,149 @@ class GeneticOptimizer:
                 break
                 
         return Individual(selected)
+
+class ExhaustiveOptimizer:
+    """
+    Deterministic Brute Force Optimizer for small search spaces.
+    Ported from v1 'itertools.combinations' logic.
+    """
+    def __init__(
+        self,
+        allocator: PortfolioAllocator,
+        simulator: SimulationEngine,
+        scorer: Any,
+    ):
+        self.allocator = allocator
+        self.simulator = simulator
+        self.scorer = scorer
+    
+    def solve(
+        self,
+        all_bricks: List[Dict[str, Any]],
+        budget: float,
+        target_cf: float,
+        tolerance: float,
+        horizon: int = 20,
+        max_combinations: int = 500000,
+        max_props: int = 3
+    ) -> List[Dict[str, Any]]:
+        """Run exhaustive search."""
+        
+        # Calculate search space
+        N = len(all_bricks)
+        log.info("exhaustive_search_started", bricks=N, max_props=max_props)
+        
+        candidates = []
+        
+        for k in range(1, max_props + 1):
+            # Check size before iterating
+            num_combos = math.comb(N, k)
+            if num_combos > max_combinations:
+                log.warning("exhaustive_limit_exceeded", k=k, count=num_combos, limit=max_combinations)
+                break
+                
+            for combo in itertools.combinations(all_bricks, k):
+                # Valid combos only (unique names)
+                names = {b["nom_bien"] for b in combo}
+                if len(names) != len(combo):
+                    continue
+                    
+                # Budget check (fast pre-filter)
+                min_cost = sum(b.get("apport_min", 0) for b in combo)
+                if min_cost > budget:
+                    continue
+                    
+                # Create Individual-like wrapper or just process directly
+                # We need to reuse the _evaluate logic or duplicate it.
+                # Duplicating minimal logic here to avoid overhead of Individual class
+                
+                # 1. Allocation
+                ok, details, cf_final, apport_used = self.allocator.allocate(
+                    list(combo), budget, target_cf, tolerance
+                )
+                
+                # Filter strictly allocated (or very close)
+                # In v1 we filtered by 'ok'. But for 'tiering' we might want to keep some losers.
+                # For exhaustive, let's keep things that are at least somewhat close.
+                if not ok:
+                    # Optional: Skip if completely failed
+                    pass
+                
+                # 2. Simulation (Lazy - only if allocation plausible or we want to score it)
+                # To be fast, maybe only simulate if allocation OK?
+                # v1 simulated everything valid.
+                
+                # Construct strategy dict
+                s = {
+                    "details": details,
+                    "apport_total": apport_used,
+                    "cash_flow_final": cf_final,
+                    "allocation_ok": ok
+                }
+                
+                # Simulation
+                from src.core.financial import generate_amortization_schedule
+                schedules = []
+                for p in details:
+                    sch = generate_amortization_schedule(
+                        float(p.get("credit_final", 0)),
+                        float(p.get("taux_pret", 0)),
+                        int(p.get("duree_pret", 20)) * 12,
+                        float(p.get("assurance_ann_pct", 0))
+                    )
+                    schedules.append(sch)
+                
+                try:
+                    df_sim, bilan = self.simulator.simulate(s, horizon, schedules)
+                    s["liquidation_nette"] = bilan.get("liquidation_nette", 0.0)
+                    s["enrich_net"] = bilan.get("enrichissement_net", 0.0)
+                    s["tri_annuel"] = bilan.get("tri_annuel", 0.0)
+                    s["tri_global"] = bilan.get("tri_annuel", 0.0)
+                    
+                    # CF metrics
+                    mode_cf = self.allocator.mode_cf
+                    cf_metrics = calculate_cashflow_metrics(df_sim, target_cf, tolerance, mode_cf=mode_cf)
+                    s["cf_monthly_y1"] = cf_metrics.get("cf_year_1_monthly", 0)
+                    s["cf_monthly_avg"] = cf_metrics.get("cf_avg_5y_monthly", 0)
+                    s["is_acceptable"] = cf_metrics["is_acceptable"]
+                    
+                    # Scoring (reuse helper from GeneticOptimizer if possible, or duplicate)
+                    # Duplicating absolute scorer logic for independence/speed
+                    w = self.scorer.weights if self.scorer else {}
+                    
+                    s_tri = max(0.0, min(1.0, s["tri_annuel"] / 20.0))
+                    roe = s["enrich_net"] / max(1.0, s["apport_total"])
+                    s_enrich = max(0.0, min(1.0, roe / 2.0))
+                    s_dscr = max(0.0, min(1.0, float(bilan.get("dscr_y1", 0))/1.3))
+                    
+                    safe_tol = tolerance if tolerance > 1.0 else 100.0
+                    gap = cf_metrics["gap"]
+                    s_cf = max(0.0, 1.0 - (gap / (safe_tol * 2.0)))
+                    
+                    finance_score = (
+                        w.get("irr", 0.25) * s_tri +
+                        w.get("enrich_net", 0.30) * s_enrich +
+                        w.get("dscr", 0.15) * s_dscr +
+                        w.get("cf_proximity", 0.20) * s_cf +
+                        w.get("cap_eff", 0.10) * s_enrich  # cap_eff uses enrichment as proxy
+                    )
+                    
+                    # Quality
+                    from src.core.scoring import calculate_qualitative_score
+                    qual_score = calculate_qualitative_score({"details": details})
+                    
+                    # Balanced
+                    q_w = self.scorer.qualite_weight if self.scorer else 0.5
+                    if q_w >= 1.0: fit = qual_score / 100.0
+                    elif q_w <= 0.0: fit = finance_score
+                    else: fit = (1.0 - q_w) * finance_score + q_w * (qual_score / 100.0)
+                    
+                    s["fitness"] = max(0.01, fit * 100)
+                    candidates.append(s)
+                    
+                except Exception as e:
+                    # Skip invalid simulations
+                    continue
+
+        log.info("exhaustive_search_finished", found=len(candidates))
+        return candidates
