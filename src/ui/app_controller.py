@@ -138,6 +138,7 @@ def run_strategy_search(
     eval_params: dict[str, Any],
     horizon_years: int,
     top_n: int = 100,
+    progress_callback: Any = None,
 ) -> list[dict[str, Any]]:
     """Execute the strategy search pipeline.
 
@@ -155,6 +156,7 @@ def run_strategy_search(
         eval_params: Evaluation parameters for simulation
         horizon_years: Simulation horizon
         top_n: Max number of strategies to return (Phase 17.1)
+        progress_callback: Optional callback for progress updates
 
     Returns:
         List of ranked strategies
@@ -190,7 +192,8 @@ def run_strategy_search(
         eval_params=eval_params,
         horizon_years=horizon_years,
         use_full_capital_override=use_full,
-        top_n=top_n
+        top_n=top_n,
+        progress_callback=progress_callback
     )
 
     log.info("analysis_completed", strategies_found=len(strategies))

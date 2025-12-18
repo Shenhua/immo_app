@@ -126,56 +126,114 @@ def render_sidebar() -> dict[str, Any]:
 
 
 def handle_analysis(params: dict[str, Any], archetypes: list[dict[str, Any]]) -> None:
-    """Handle the analysis button click.
+    """Handle the analysis button click with progress display.
 
     Args:
         params: Sidebar parameters
         archetypes: Filtered and compliant archetypes
     """
-    with st.spinner("Analyse des stratégies en cours..."):
-        # Build configs
-        fin_config = build_financing_config(params["credit_params"])
-        op_config = build_operating_config(
-            params["gestion"],
-            params["vacance"],
-            params["cfe"]
-        )
+    import time
+    from src.ui.components.progress_display import render_progress_display
+    from src.ui.progress import SearchProgress, SearchStats
+    from src.ui.state import set_state
+    
+    # Track timing
+    start_time = time.time()
+    
+    # Track stats during search
+    search_stats_tracker = {
+        "bricks_count": 0,
+        "combos_evaluated": 0,
+        "valid_strategies": 0,
+    }
+    
+    # Create a placeholder for progress updates
+    progress_placeholder = st.empty()
+    
+    def on_progress(progress: SearchProgress):
+        """Callback to update progress display and track stats."""
+        with progress_placeholder.container():
+            render_progress_display(progress)
+        
+        # Track stats
+        if progress.items_total > 0:
+            search_stats_tracker["combos_evaluated"] = progress.items_total
+        if progress.valid_count > 0:
+            search_stats_tracker["valid_strategies"] = progress.valid_count
+    
+    # Build configs
+    fin_config = build_financing_config(params["credit_params"])
+    op_config = build_operating_config(
+        params["gestion"],
+        params["vacance"],
+        params["cfe"]
+    )
 
-        # Build eval params
-        eval_params = {
-            "tmi_pct": params["tmi"],
-            "regime_fiscal": params["regime"],
-            "frais_vente_pct": params["frais_vente"],
-            "apply_ira": params["credit_params"]["apply_ira"],
-            "ira_cap_pct": params["credit_params"]["ira_cap_pct"],
-            "cfe_par_bien_ann": params["cfe"],
-            "hypotheses_marche": params["market_hypo"],
-            "finance_preset_name": params["finance_preset_name"],
-            "finance_weights_override": params["finance_weights"],
-            "max_properties": params.get("max_properties", 3),
-            "use_full_capital": params.get("use_full_capital", False),
-        }
+    # Build eval params
+    eval_params = {
+        "tmi_pct": params["tmi"],
+        "regime_fiscal": params["regime"],
+        "frais_vente_pct": params["frais_vente"],
+        "apply_ira": params["credit_params"]["apply_ira"],
+        "ira_cap_pct": params["credit_params"]["ira_cap_pct"],
+        "cfe_par_bien_ann": params["cfe"],
+        "hypotheses_marche": params["market_hypo"],
+        "finance_preset_name": params["finance_preset_name"],
+        "finance_weights_override": params["finance_weights"],
+        "max_properties": params.get("max_properties", 3),
+        "use_full_capital": params.get("use_full_capital", False),
+    }
 
-        # Run search
-        strategies = run_strategy_search(
-            archetypes=archetypes,
-            fin_config=fin_config,
-            op_config=op_config,
-            apport=params["apport"],
-            cf_cible=params["cf_cible"],
-            tolerance=params["tolerance"],
-            qual_weight=params["qual_weight"],
-            mode_cf=params["mode_cf"],
-            eval_params=eval_params,
-            horizon_years=params["horizon"],
-            top_n=params.get("top_n", 50),
-        )
+    # Run search with progress callback
+    strategies = run_strategy_search(
+        archetypes=archetypes,
+        fin_config=fin_config,
+        op_config=op_config,
+        apport=params["apport"],
+        cf_cible=params["cf_cible"],
+        tolerance=params["tolerance"],
+        qual_weight=params["qual_weight"],
+        mode_cf=params["mode_cf"],
+        eval_params=eval_params,
+        horizon_years=params["horizon"],
+        top_n=params.get("top_n", 50),
+        progress_callback=on_progress,
+    )
+    
+    # Calculate duration
+    duration = time.time() - start_time
+    
+    # Store search stats for persistent display
+    search_stats = SearchStats(
+        duration_seconds=duration,
+        bricks_count=len(archetypes) * 3,  # Approx bricks per archetype
+        combos_evaluated=search_stats_tracker["combos_evaluated"],
+        valid_strategies=search_stats_tracker["valid_strategies"],
+        strategies_after_dedupe=len(strategies),
+        mode="EXHAUSTIVE",
+        max_properties=params.get("max_properties", 3),
+    )
+    # Store as dict for session state serialization
+    set_state("search_stats", {
+        "timestamp": search_stats.timestamp,
+        "duration_seconds": search_stats.duration_seconds,
+        "bricks_count": search_stats.bricks_count,
+        "combos_generated": search_stats.combos_generated,
+        "combos_evaluated": search_stats.combos_evaluated,
+        "valid_strategies": search_stats.valid_strategies,
+        "strategies_after_dedupe": search_stats.strategies_after_dedupe,
+        "mode": search_stats.mode,
+        "max_properties": search_stats.max_properties,
+    })
+    
+    # Clear progress display
+    progress_placeholder.empty()
 
-        # Save results
-        SessionManager.set_strategies(strategies)
-        autosave_results(strategies, {"horizon": params["horizon"], "compliance": params["apply_cap"]})
+    # Save results
+    SessionManager.set_strategies(strategies)
+    autosave_results(strategies, {"horizon": params["horizon"], "compliance": params["apply_cap"]})
 
-        st.rerun()
+    st.rerun()
 
 
 def main() -> None:

@@ -283,6 +283,16 @@ def render_main_page(
         df_sim: Simulation data
     """
     render_header()
+    
+    # Render persistent search info zone (Phase 22)
+    from src.ui.components.progress_display import render_search_info_zone
+    from src.ui.progress import SearchStats
+    search_stats = get_state("search_stats", None)
+    if search_stats is not None:
+        # Convert dict back to SearchStats if needed
+        if isinstance(search_stats, dict):
+            search_stats = SearchStats(**search_stats)
+        render_search_info_zone(search_stats, expanded=False)
 
     # Get current state
     horizon = SessionManager.get_horizon()

@@ -519,9 +519,14 @@ class ExhaustiveOptimizer:
         tolerance: float,
         horizon: int = 20,
         max_combinations: int = 500000,
-        max_props: int = 3
+        max_props: int = 3,
+        progress_callback: Any = None
     ) -> List[Dict[str, Any]]:
-        """Run exhaustive search using smart bounded enumeration with parallel processing."""
+        """Run exhaustive search using smart bounded enumeration with parallel processing.
+        
+        Args:
+            progress_callback: Optional callback function(SearchProgress) for UI updates
+        """
         
         # Use CombinationGenerator with budget-aware pruning
         from src.services.strategy_finder import CombinationGenerator
@@ -540,9 +545,9 @@ class ExhaustiveOptimizer:
         use_parallel = n_combos > self.PARALLEL_THRESHOLD
         
         if use_parallel:
-            candidates = self._solve_parallel(combos, budget, target_cf, tolerance, horizon)
+            candidates = self._solve_parallel(combos, budget, target_cf, tolerance, horizon, progress_callback)
         else:
-            candidates = self._solve_sequential(combos, budget, target_cf, tolerance, horizon)
+            candidates = self._solve_sequential(combos, budget, target_cf, tolerance, horizon, progress_callback)
         
         log.info("exhaustive_search_finished", found=len(candidates))
         return candidates
@@ -553,15 +558,40 @@ class ExhaustiveOptimizer:
         budget: float,
         target_cf: float,
         tolerance: float,
-        horizon: int
+        horizon: int,
+        progress_callback: Any = None
     ) -> List[Dict[str, Any]]:
         """Sequential evaluation for small search spaces."""
-        candidates = []
+        from src.ui.progress import SearchProgress, SearchPhase
         
-        for combo in combos:
+        candidates = []
+        n_combos = len(combos)
+        report_interval = max(1, n_combos // 100)  # Report every 1%
+        
+        for i, combo in enumerate(combos):
+            # Report progress periodically
+            if progress_callback and i % report_interval == 0:
+                progress_callback(SearchProgress(
+                    phase=SearchPhase.EVALUATION,
+                    phase_index=3,
+                    items_processed=i,
+                    items_total=n_combos,
+                    valid_count=len(candidates),
+                ))
+            
             result = self._evaluate_combo(combo, budget, target_cf, tolerance, horizon)
             if result is not None:
                 candidates.append(result)
+        
+        # Final progress update
+        if progress_callback:
+            progress_callback(SearchProgress(
+                phase=SearchPhase.EVALUATION,
+                phase_index=3,
+                items_processed=n_combos,
+                items_total=n_combos,
+                valid_count=len(candidates),
+            ))
         
         return candidates
     
@@ -571,7 +601,8 @@ class ExhaustiveOptimizer:
         budget: float,
         target_cf: float,
         tolerance: float,
-        horizon: int
+        horizon: int,
+        progress_callback: Any = None
     ) -> List[Dict[str, Any]]:
         """Parallel evaluation for large search spaces using ThreadPoolExecutor.
         
@@ -580,15 +611,24 @@ class ExhaustiveOptimizer:
         """
         import concurrent.futures
         import os
+        from src.ui.progress import SearchProgress, SearchPhase
         
         n_workers = self.n_workers or min(8, (os.cpu_count() or 4))
+        n_combos = len(combos)
         
         log.info("parallel_processing_started", 
                  workers=n_workers, 
-                 combos=len(combos),
+                 combos=n_combos,
                  mode="threaded")
         
         candidates = []
+        processed_count = 0
+        report_interval = max(1, n_combos // 100)  # Report every 1%
+        
+        # Time-based throttling for UI updates
+        import time
+        last_report_time = time.time()
+        min_report_interval_sec = 0.5  # Update UI at most every 0.5 seconds
         
         try:
             with concurrent.futures.ThreadPoolExecutor(max_workers=n_workers) as executor:
@@ -609,7 +649,31 @@ class ExhaustiveOptimizer:
                             candidates.append(result)
                     except Exception as e:
                         log.warning("combo_evaluation_failed", error=str(e))
-                        continue
+                    
+                    # Report progress with time-based throttling
+                    processed_count += 1
+                    current_time = time.time()
+                    if (progress_callback and 
+                        processed_count % report_interval == 0 and
+                        current_time - last_report_time >= min_report_interval_sec):
+                        progress_callback(SearchProgress(
+                            phase=SearchPhase.EVALUATION,
+                            phase_index=3,
+                            items_processed=processed_count,
+                            items_total=n_combos,
+                            valid_count=len(candidates),
+                        ))
+                        last_report_time = current_time
+            
+            # Final progress update
+            if progress_callback:
+                progress_callback(SearchProgress(
+                    phase=SearchPhase.EVALUATION,
+                    phase_index=3,
+                    items_processed=n_combos,
+                    items_total=n_combos,
+                    valid_count=len(candidates),
+                ))
             
             log.info("parallel_processing_finished", found=len(candidates))
             
@@ -617,6 +681,7 @@ class ExhaustiveOptimizer:
             log.warning("parallel_processing_error", error=str(e))
             # Fallback to sequential
             log.info("falling_back_to_sequential")
-            return self._solve_sequential(combos, budget, target_cf, tolerance, horizon)
+            return self._solve_sequential(combos, budget, target_cf, tolerance, horizon, progress_callback)
         
         return candidates
+

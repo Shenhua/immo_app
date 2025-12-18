@@ -276,6 +276,7 @@ class StrategyFinder:
         horizon_years: int = 25,
         top_n: int = 10,
         use_full_capital_override: bool = False,
+        progress_callback: Any = None,
     ) -> list[dict[str, Any]]:
         """Find top strategies matching criteria.
 
@@ -284,6 +285,9 @@ class StrategyFinder:
         2. Allocate capital
         3. Simulate financial performance
         4. Score and rank
+        
+        Args:
+            progress_callback: Optional callback function(SearchProgress) for UI updates
         """
         # Dependencies
         from src.core.financial import generate_amortization_schedule
@@ -330,6 +334,17 @@ class StrategyFinder:
         log.info("strategy_search_started",
                  brick_count=len(self.bricks),
                  apport=self.apport_disponible)
+        
+        # Report Phase 1: Brick generation (already done in __init__)
+        from src.ui.progress import SearchProgress, SearchPhase
+        if progress_callback:
+            progress_callback(SearchProgress(
+                phase=SearchPhase.BRICK_GENERATION,
+                phase_index=1,
+                items_processed=len(self.bricks),
+                items_total=len(self.bricks),
+                message=f"{len(self.bricks)} briques créées"
+            ))
 
         # 2. Hybrid Solver Logic (Phase 21)
         # Check problem size to decide between Brute Force (Exhaustive) and Genetic Algorithm
@@ -355,6 +370,14 @@ class StrategyFinder:
                      combos=total_combinations, 
                      threshold=THRESHOLD_EXHAUSTIVE)
             
+            # Report Phase 2: Combination generation
+            if progress_callback:
+                progress_callback(SearchProgress(
+                    phase=SearchPhase.COMBO_GENERATION,
+                    phase_index=2,
+                    message="Génération des combinaisons..."
+                ))
+            
             optimizer = ExhaustiveOptimizer(
                 allocator=allocator,
                 simulator=engine,
@@ -367,8 +390,9 @@ class StrategyFinder:
                 target_cf=self.cash_flow_cible,
                 tolerance=self.tolerance,
                 horizon=horizon_years,
-                max_combinations=THRESHOLD_EXHAUSTIVE, # Safety cap
-                max_props=self.max_properties
+                max_combinations=THRESHOLD_EXHAUSTIVE,
+                max_props=self.max_properties,
+                progress_callback=progress_callback
             )
             
         else:
@@ -429,6 +453,15 @@ class StrategyFinder:
             return []
 
         # 4. Score & Rank (Post-Optimization)
+        # Report Phase 4: Scoring
+        if progress_callback:
+            progress_callback(SearchProgress(
+                phase=SearchPhase.SCORING,
+                phase_index=4,
+                items_total=len(strategies),
+                message="Scoring et classement..."
+            ))
+        
         # We re-run relative scoring on the "Elite" set to populate UI-friendly normalized fields (A-score, etc.)
         self.scorer.score_strategies(strategies, self.cash_flow_cible)
 
@@ -475,6 +508,15 @@ class StrategyFinder:
                         hint="Consider relaxing tolerance or adjusting cash flow target")
         
         # Dedupe (preserving tier order)
+        # Report Phase 5: Deduplication
+        if progress_callback:
+            progress_callback(SearchProgress(
+                phase=SearchPhase.DEDUPLICATION,
+                phase_index=5,
+                items_total=len(strategies),
+                message="Déduplication et filtrage..."
+            ))
+        
         strategies = self.dedupe_strategies(strategies, top_n=top_n)
 
         # Apply Pareto Filter (v1 Logic) to clean up dominated strategies
