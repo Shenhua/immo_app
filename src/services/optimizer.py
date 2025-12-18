@@ -17,6 +17,7 @@ from src.core.glossary import (
     calculate_cashflow_metrics,
     calculate_enrichment_metrics
 )
+from src.services.evaluator import StrategyEvaluator
 
 log = structlog.get_logger()
 
@@ -60,6 +61,12 @@ class GeneticOptimizer:
         self.simulator = simulator
         self.scorer = scorer
         
+        # Create evaluator for shared evaluation logic
+        if simulator:
+            self.evaluator = StrategyEvaluator(simulator, allocator, scorer)
+        else:
+            self.evaluator = None
+        
         if self.seed is not None:
             random.seed(self.seed)
             np.random.seed(self.seed)
@@ -100,108 +107,61 @@ class GeneticOptimizer:
         tolerance: float,
         horizon: int
     ) -> None:
-        """Calculate fitness for an individual."""
+        """Calculate fitness for an individual using StrategyEvaluator."""
         if not ind.bricks:
             ind.fitness = 0.0
             ind.is_valid = False
             return
 
-        # 1. Allocation
+        # 1. Allocation (GA-specific step)
         ok, details, cf_final, apport_used = self.allocator.allocate(
             ind.bricks, budget, target_cf, tolerance
         )
         
-        # Store allocated details for later
+        # Store allocated details
         ind.stats["allocated_details"] = details
         ind.stats["cash_flow_final"] = cf_final
         ind.stats["apport_total"] = apport_used
         ind.stats["allocation_ok"] = ok
         
         if not ok:
-            # Penalize but allow survival if close
             ind.fitness = 0.1
             ind.is_valid = False
             return
 
-        # 2. Simulation
-        # Construct strategy dict for simulator
-        strat_data = {
+        # 2. Use StrategyEvaluator for simulation and scoring
+        strategy = {
             "details": details,
             "apport_total": apport_used
         }
         
-        # Generate schedules on the fly
-        from src.core.financial import generate_amortization_schedule
-        schedules = []
-        for p in details:
-            # Use credit_final from allocator (already correctly calculated)
-            # DO NOT recalculate as (cout_total - apport) — that misses loan fees!
-            principal = float(p.get("credit_final", p.get("capital_restant", 0)))
-            
-            sch = generate_amortization_schedule(
-                principal=principal,
-                annual_rate_pct=p.get("taux_pret", 0.0),
-                duration_months=int(p.get("duree_pret", 20)) * 12,
-                annual_insurance_pct=p.get("assurance_ann_pct", 0.0)
-            )
-            schedules.append(sch)
-
-        try:
-            df_sim, bilan = self.simulator.simulate(strat_data, horizon, schedules)
-            ind.stats["bilan"] = bilan
-            # Note: df_sim not stored to save memory; KPIs extracted below
-            
-            # 3. Check Constraints (Glossary Standard)
-            # Use Allocator mode (Min vs Target) to check acceptability
-            mode_cf = self.allocator.mode_cf if self.allocator else "target"
-            cf_metrics = calculate_cashflow_metrics(df_sim, target_cf, tolerance, mode_cf=mode_cf)
-            ind.stats.update(cf_metrics)
-
-            # Ensure enrichment metrics are present
-            enrich_metrics = calculate_enrichment_metrics(
-                bilan, 
-                strat_data.get("apport_total", 0.0), 
-                horizon
-            )
-            ind.stats.update(enrich_metrics)
-            
-            if not cf_metrics["is_acceptable"]:
-                 ind.fitness = 0.2
-                 ind.is_valid = False
-                 return
-
-            # 4. Scoring (Absolute Mode)
-            # Use absolute targets to avoid "relative normalization" instability
-            finance_score = self._calculate_absolute_finance_score(bilan, cf_metrics, target_cf, tolerance)
-            
-            # Qualitative Score
-            # Use the official qualitative scorer if available, else simple proxy
-            qual_score = 50.0
-            from src.core.scoring import calculate_qualitative_score
-            qual_score = calculate_qualitative_score({"details": details})
-            
-            # Balanced Score (50/50 default or use scorer weights if available)
-            # Fitness = Balanced Score (0-100)
-            # 5. Combined Score
-            # Use SCORER's quality weight from parameters (Phase 15.1)
-            q_w = self.scorer.qualite_weight if self.scorer else 0.5
-            
-            # Combine
-            if q_w >= 1.0:
-                fitness = qual_score / 100.0
-            elif q_w <= 0.0:
-                fitness = finance_score
-            else:
-                fitness = (1.0 - q_w) * finance_score + q_w * (qual_score / 100.0)
-            
-            ind.fitness = max(0.01, fitness * 100) # Scale to 0-100 like legacy
-            ind.is_valid = True
-            ind.stats["qual_score"] = qual_score  # Store for strategy output
-            
-        except Exception as e:
-            log.warning("evaluation_failed", error=str(e))
+        is_valid, metrics = self.evaluator.evaluate(strategy, target_cf, tolerance, horizon)
+        
+        if "error" in metrics:
             ind.fitness = 0.0
             ind.is_valid = False
+            return
+        
+        # Store metrics
+        ind.stats["bilan"] = {
+            "liquidation_nette": metrics.get("liquidation_nette", 0.0),
+            "enrichissement_net": metrics.get("enrich_net", 0.0),
+            "tri_annuel": metrics.get("tri_annuel", 0.0),
+            "dscr_y1": metrics.get("dscr_y1", 0.0),
+        }
+        ind.stats.update({
+            k: v for k, v in metrics.items() 
+            if k not in ["error", "liquidation_nette", "enrich_net"]
+        })
+        
+        if not metrics.get("is_acceptable", False):
+            ind.fitness = 0.2
+            ind.is_valid = False
+            return
+        
+        ind.fitness = metrics.get("fitness", 0.01)
+        ind.is_valid = True
+        ind.stats["qual_score"] = metrics.get("qual_score", 50.0)
 
     def _calculate_absolute_finance_score(self, bilan: dict, cf_metrics: dict, target_cf: float, tolerance: float) -> float:
         """
@@ -497,6 +457,9 @@ class ExhaustiveOptimizer:
         self.allocator = allocator
         self.simulator = simulator
         self.scorer = scorer
+        
+        # Create evaluator for shared evaluation logic
+        self.evaluator = StrategyEvaluator(simulator, allocator, scorer)
     
     def solve(
         self,
@@ -524,7 +487,7 @@ class ExhaustiveOptimizer:
         candidates = []
         
         for combo in combos:
-            # 1. Allocation
+            # 1. Allocation (Exhaustive-specific step)
             ok, details, cf_final, apport_used = self.allocator.allocate(
                 list(combo), budget, target_cf, tolerance
             )
@@ -533,82 +496,32 @@ class ExhaustiveOptimizer:
             if not ok:
                 continue
             
-            # 2. Construct strategy dict
-            s = {
+            # 2. Use StrategyEvaluator for simulation and scoring
+            strategy = {
                 "details": details,
                 "apport_total": apport_used,
                 "cash_flow_final": cf_final,
                 "allocation_ok": ok
             }
             
-            # 3. Simulation
-            from src.core.financial import generate_amortization_schedule
-            schedules = []
-            for p in details:
-                sch = generate_amortization_schedule(
-                    float(p.get("credit_final", 0)),
-                    float(p.get("taux_pret", 0)),
-                    int(p.get("duree_pret", 20)) * 12,
-                    float(p.get("assurance_ann_pct", 0))
-                )
-                schedules.append(sch)
+            is_valid, metrics = self.evaluator.evaluate(strategy, target_cf, tolerance, horizon)
             
-            try:
-                df_sim, bilan = self.simulator.simulate(s, horizon, schedules)
-                s["liquidation_nette"] = bilan.get("liquidation_nette", 0.0)
-                s["enrich_net"] = bilan.get("enrichissement_net", 0.0)
-                s["tri_annuel"] = bilan.get("tri_annuel", 0.0)
-                s["tri_global"] = bilan.get("tri_annuel", 0.0)
-                s["dscr_y1"] = bilan.get("dscr_y1", 0.0)
-                
-                # CF metrics
-                mode_cf = self.allocator.mode_cf
-                cf_metrics = calculate_cashflow_metrics(df_sim, target_cf, tolerance, mode_cf=mode_cf)
-                s["cf_monthly_y1"] = cf_metrics.get("cf_year_1_monthly", 0)
-                s["cf_monthly_avg"] = cf_metrics.get("cf_avg_5y_monthly", 0)
-                s["is_acceptable"] = cf_metrics["is_acceptable"]
-                
-                # 4. Scoring
-                w = self.scorer.weights if self.scorer else {}
-                
-                s_tri = max(0.0, min(1.0, s["tri_annuel"] / 20.0))
-                roe = s["enrich_net"] / max(1.0, s["apport_total"])
-                s_enrich = max(0.0, min(1.0, roe / 2.0))
-                s_dscr = max(0.0, min(1.0, float(bilan.get("dscr_y1", 0))/1.3))
-                
-                safe_tol = tolerance if tolerance > 1.0 else 100.0
-                gap = cf_metrics["gap"]
-                s_cf = max(0.0, 1.0 - (gap / (safe_tol * 2.0)))
-                
-                finance_score = (
-                    w.get("irr", 0.25) * s_tri +
-                    w.get("enrich_net", 0.30) * s_enrich +
-                    w.get("dscr", 0.15) * s_dscr +
-                    w.get("cf_proximity", 0.20) * s_cf +
-                    w.get("cap_eff", 0.10) * s_enrich
-                )
-                
-                # Quality
-                from src.core.scoring import calculate_qualitative_score
-                qual_score = calculate_qualitative_score({"details": details})
-                
-                # Balanced
-                q_w = self.scorer.qualite_weight if self.scorer else 0.5
-                if q_w >= 1.0: 
-                    fit = qual_score / 100.0
-                elif q_w <= 0.0: 
-                    fit = finance_score
-                else: 
-                    fit = (1.0 - q_w) * finance_score + q_w * (qual_score / 100.0)
-                
-                s["fitness"] = max(0.01, fit * 100)
-                s["qual_score"] = qual_score
-                candidates.append(s)
-                
-            except Exception as e:
-                # Skip invalid simulations
+            if "error" in metrics:
                 continue
-
+            
+            # Merge metrics into strategy dict
+            strategy["liquidation_nette"] = metrics.get("liquidation_nette", 0.0)
+            strategy["enrich_net"] = metrics.get("enrich_net", 0.0)
+            strategy["tri_annuel"] = metrics.get("tri_annuel", 0.0)
+            strategy["tri_global"] = metrics.get("tri_annuel", 0.0)
+            strategy["dscr_y1"] = metrics.get("dscr_y1", 0.0)
+            strategy["cf_monthly_y1"] = metrics.get("cf_monthly_y1", 0.0)
+            strategy["cf_monthly_avg"] = metrics.get("cf_monthly_avg", 0.0)
+            strategy["is_acceptable"] = metrics.get("is_acceptable", False)
+            strategy["fitness"] = metrics.get("fitness", 0.01)
+            strategy["qual_score"] = metrics.get("qual_score", 50.0)
+            
+            candidates.append(strategy)
 
         log.info("exhaustive_search_finished", found=len(candidates))
         return candidates

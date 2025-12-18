@@ -314,11 +314,11 @@ class TestRegressionGuards:
     """Regression tests to prevent reintroduction of fixed bugs."""
 
     def test_insurance_key_is_correct(self):
-        """Ensure optimizer uses assurance_ann_pct, not assurance_pret_pct."""
-        from src.services.optimizer import GeneticOptimizer
+        """Ensure evaluator uses assurance_ann_pct, not assurance_pret_pct."""
+        from src.services.evaluator import StrategyEvaluator
         import inspect
 
-        source = inspect.getsource(GeneticOptimizer._evaluate)
+        source = inspect.getsource(StrategyEvaluator.generate_schedules)
         assert "assurance_ann_pct" in source
         assert "assurance_pret_pct" not in source
 

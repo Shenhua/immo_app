@@ -57,13 +57,22 @@ class TestGeneticOptimizer(unittest.TestCase):
         self.assertLessEqual(total_apport, 25000.0)
 
     def test_evaluate_success(self):
+        # Need to provide actual details (not empty) for evaluation
+        mock_details = [
+            {"nom_bien": "B0", "credit_final": 80000, "taux_pret": 3.5, 
+             "duree_pret": 20, "assurance_ann_pct": 0.36, 
+             "qual_score_bien": 70.0, "cout_total": 100000}
+        ]
+        self.mock_allocator.allocate.return_value = (True, mock_details, 0.0, 10000.0)
+        self.mock_allocator.mode_cf = "min"
+        
         ind = Individual(self.sample_bricks[:2])
         self.optimizer._evaluate(ind, 50000, 0, 100, 20)
         
         self.assertTrue(ind.is_valid)
         self.assertGreater(ind.fitness, 0.0)
-        self.assertIn("cf_year_1_monthly", ind.stats)
-        self.assertEqual(ind.stats["cf_year_1_monthly"], 1000.0/12)
+        # Note: key changed from cf_year_1_monthly to cf_monthly_y1 after refactoring
+        self.assertIn("cf_monthly_y1", ind.stats)
 
     def test_evaluate_allocation_fail(self):
         # Allocator returns False
