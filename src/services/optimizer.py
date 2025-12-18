@@ -31,6 +31,26 @@ class Individual:
         return "|".join(names)
 
 class GeneticOptimizer:
+    """Genetic Algorithm optimizer for finding optimal property portfolios.
+
+    Uses evolutionary strategies to search large combination spaces efficiently:
+    - Tournament selection for parent selection
+    - Crossover to combine successful strategies
+    - Mutation to explore new combinations
+    - Elitism to preserve best solutions
+
+    Best for large search spaces (>100K combinations) where exhaustive search
+    is infeasible. Falls back from ExhaustiveOptimizer when threshold is exceeded.
+
+    Attributes:
+        pop_size: Population size per generation
+        generations: Number of evolution cycles
+        mutation_rate: Probability of mutation per individual
+        crossover_rate: Probability of crossover vs direct copy
+        elite_size: Number of top individuals preserved each generation
+        max_properties: Maximum properties allowed per portfolio
+    """
+
     def __init__(
         self,
         population_size: int = 50,
@@ -44,6 +64,20 @@ class GeneticOptimizer:
         scorer: Any = None,
         seed: int = 42
     ):
+        """Initialize the Genetic Optimizer.
+
+        Args:
+            population_size: Number of individuals per generation (default: 50)
+            generations: Number of evolution cycles (default: 20)
+            mutation_rate: Probability of mutation (0.0-1.0, default: 0.2)
+            crossover_rate: Probability of crossover (0.0-1.0, default: 0.7)
+            elite_size: Top N individuals to preserve (default: 5)
+            max_properties: Max properties per portfolio (default: 5)
+            allocator: PortfolioAllocator for capital allocation
+            simulator: SimulationEngine for financial projections
+            scorer: StrategyScorer for fitness calculation
+            seed: Random seed for reproducibility (default: 42)
+        """
         self.pop_size = population_size
         self.generations = generations
         self.mutation_rate = mutation_rate
@@ -456,6 +490,14 @@ class ExhaustiveOptimizer:
         scorer: Any,
         n_workers: int = None,  # None = auto-detect CPU count
     ):
+        """Initialize ExhaustiveOptimizer.
+
+        Args:
+            allocator: PortfolioAllocator for capital distribution
+            simulator: SimulationEngine for financial projections
+            scorer: StrategyScorer for ranking results
+            n_workers: Number of parallel workers (None = auto-detect)
+        """
         self.allocator = allocator
         self.simulator = simulator
         self.scorer = scorer
@@ -515,7 +557,7 @@ class ExhaustiveOptimizer:
         target_cf: float,
         tolerance: float,
         horizon: int = 20,
-        max_combinations: int = 500000,
+        max_combinations: int = 500000,  # Reserved for Genetic mode fallback
         max_props: int = 3,
         progress_callback: Any = None
     ) -> list[dict[str, Any]]:

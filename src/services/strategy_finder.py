@@ -274,7 +274,7 @@ class StrategyFinder:
         eval_params: dict[str, Any] | None = None,
         horizon_years: int = 25,
         top_n: int = 10,
-        use_full_capital_override: bool = False,
+        use_full_capital_override: bool = False,  # Reserved for future use
         progress_callback: Any = None,
     ) -> list[dict[str, Any]]:
         """Find top strategies matching criteria.
