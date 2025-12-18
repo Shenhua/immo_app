@@ -196,6 +196,7 @@ class GeneticOptimizer:
             
             ind.fitness = max(0.01, fitness * 100) # Scale to 0-100 like legacy
             ind.is_valid = True
+            ind.stats["qual_score"] = qual_score  # Store for strategy output
             
         except Exception as e:
             log.warning("evaluation_failed", error=str(e))
@@ -272,6 +273,8 @@ class GeneticOptimizer:
             "enrich_net": bilan.get("enrichissement_net", ind.stats.get("enrichissement_net", 0.0)),
             "tri_annuel": bilan.get("tri_annuel", 0.0),
             "tri_global": bilan.get("tri_annuel", 0.0),
+            "dscr_y1": bilan.get("dscr_y1", 0.0),
+            "qual_score": ind.stats.get("qual_score", 50.0),
         }
         
         # Add CF metrics
@@ -505,123 +508,107 @@ class ExhaustiveOptimizer:
         max_combinations: int = 500000,
         max_props: int = 3
     ) -> List[Dict[str, Any]]:
-        """Run exhaustive search."""
+        """Run exhaustive search using smart bounded enumeration."""
         
-        # Calculate search space
-        N = len(all_bricks)
-        log.info("exhaustive_search_started", bricks=N, max_props=max_props)
+        # Use CombinationGenerator with budget-aware pruning
+        from src.services.strategy_finder import CombinationGenerator
+        
+        combo_gen = CombinationGenerator(max_properties=max_props)
+        combos = combo_gen.generate(all_bricks, budget)
+        
+        log.info("exhaustive_search_started", 
+                 bricks=len(all_bricks), 
+                 max_props=max_props,
+                 combos_after_pruning=len(combos))
         
         candidates = []
         
-        for k in range(1, max_props + 1):
-            # Check size before iterating
-            num_combos = math.comb(N, k)
-            if num_combos > max_combinations:
-                log.warning("exhaustive_limit_exceeded", k=k, count=num_combos, limit=max_combinations)
-                break
+        for combo in combos:
+            # 1. Allocation
+            ok, details, cf_final, apport_used = self.allocator.allocate(
+                list(combo), budget, target_cf, tolerance
+            )
+            
+            # Skip if allocation completely failed
+            if not ok:
+                continue
+            
+            # 2. Construct strategy dict
+            s = {
+                "details": details,
+                "apport_total": apport_used,
+                "cash_flow_final": cf_final,
+                "allocation_ok": ok
+            }
+            
+            # 3. Simulation
+            from src.core.financial import generate_amortization_schedule
+            schedules = []
+            for p in details:
+                sch = generate_amortization_schedule(
+                    float(p.get("credit_final", 0)),
+                    float(p.get("taux_pret", 0)),
+                    int(p.get("duree_pret", 20)) * 12,
+                    float(p.get("assurance_ann_pct", 0))
+                )
+                schedules.append(sch)
+            
+            try:
+                df_sim, bilan = self.simulator.simulate(s, horizon, schedules)
+                s["liquidation_nette"] = bilan.get("liquidation_nette", 0.0)
+                s["enrich_net"] = bilan.get("enrichissement_net", 0.0)
+                s["tri_annuel"] = bilan.get("tri_annuel", 0.0)
+                s["tri_global"] = bilan.get("tri_annuel", 0.0)
+                s["dscr_y1"] = bilan.get("dscr_y1", 0.0)
                 
-            for combo in itertools.combinations(all_bricks, k):
-                # Valid combos only (unique names)
-                names = {b["nom_bien"] for b in combo}
-                if len(names) != len(combo):
-                    continue
-                    
-                # Budget check (fast pre-filter)
-                min_cost = sum(b.get("apport_min", 0) for b in combo)
-                if min_cost > budget:
-                    continue
-                    
-                # Create Individual-like wrapper or just process directly
-                # We need to reuse the _evaluate logic or duplicate it.
-                # Duplicating minimal logic here to avoid overhead of Individual class
+                # CF metrics
+                mode_cf = self.allocator.mode_cf
+                cf_metrics = calculate_cashflow_metrics(df_sim, target_cf, tolerance, mode_cf=mode_cf)
+                s["cf_monthly_y1"] = cf_metrics.get("cf_year_1_monthly", 0)
+                s["cf_monthly_avg"] = cf_metrics.get("cf_avg_5y_monthly", 0)
+                s["is_acceptable"] = cf_metrics["is_acceptable"]
                 
-                # 1. Allocation
-                ok, details, cf_final, apport_used = self.allocator.allocate(
-                    list(combo), budget, target_cf, tolerance
+                # 4. Scoring
+                w = self.scorer.weights if self.scorer else {}
+                
+                s_tri = max(0.0, min(1.0, s["tri_annuel"] / 20.0))
+                roe = s["enrich_net"] / max(1.0, s["apport_total"])
+                s_enrich = max(0.0, min(1.0, roe / 2.0))
+                s_dscr = max(0.0, min(1.0, float(bilan.get("dscr_y1", 0))/1.3))
+                
+                safe_tol = tolerance if tolerance > 1.0 else 100.0
+                gap = cf_metrics["gap"]
+                s_cf = max(0.0, 1.0 - (gap / (safe_tol * 2.0)))
+                
+                finance_score = (
+                    w.get("irr", 0.25) * s_tri +
+                    w.get("enrich_net", 0.30) * s_enrich +
+                    w.get("dscr", 0.15) * s_dscr +
+                    w.get("cf_proximity", 0.20) * s_cf +
+                    w.get("cap_eff", 0.10) * s_enrich
                 )
                 
-                # Filter strictly allocated (or very close)
-                # In v1 we filtered by 'ok'. But for 'tiering' we might want to keep some losers.
-                # For exhaustive, let's keep things that are at least somewhat close.
-                if not ok:
-                    # Optional: Skip if completely failed
-                    pass
+                # Quality
+                from src.core.scoring import calculate_qualitative_score
+                qual_score = calculate_qualitative_score({"details": details})
                 
-                # 2. Simulation (Lazy - only if allocation plausible or we want to score it)
-                # To be fast, maybe only simulate if allocation OK?
-                # v1 simulated everything valid.
+                # Balanced
+                q_w = self.scorer.qualite_weight if self.scorer else 0.5
+                if q_w >= 1.0: 
+                    fit = qual_score / 100.0
+                elif q_w <= 0.0: 
+                    fit = finance_score
+                else: 
+                    fit = (1.0 - q_w) * finance_score + q_w * (qual_score / 100.0)
                 
-                # Construct strategy dict
-                s = {
-                    "details": details,
-                    "apport_total": apport_used,
-                    "cash_flow_final": cf_final,
-                    "allocation_ok": ok
-                }
+                s["fitness"] = max(0.01, fit * 100)
+                s["qual_score"] = qual_score
+                candidates.append(s)
                 
-                # Simulation
-                from src.core.financial import generate_amortization_schedule
-                schedules = []
-                for p in details:
-                    sch = generate_amortization_schedule(
-                        float(p.get("credit_final", 0)),
-                        float(p.get("taux_pret", 0)),
-                        int(p.get("duree_pret", 20)) * 12,
-                        float(p.get("assurance_ann_pct", 0))
-                    )
-                    schedules.append(sch)
-                
-                try:
-                    df_sim, bilan = self.simulator.simulate(s, horizon, schedules)
-                    s["liquidation_nette"] = bilan.get("liquidation_nette", 0.0)
-                    s["enrich_net"] = bilan.get("enrichissement_net", 0.0)
-                    s["tri_annuel"] = bilan.get("tri_annuel", 0.0)
-                    s["tri_global"] = bilan.get("tri_annuel", 0.0)
-                    
-                    # CF metrics
-                    mode_cf = self.allocator.mode_cf
-                    cf_metrics = calculate_cashflow_metrics(df_sim, target_cf, tolerance, mode_cf=mode_cf)
-                    s["cf_monthly_y1"] = cf_metrics.get("cf_year_1_monthly", 0)
-                    s["cf_monthly_avg"] = cf_metrics.get("cf_avg_5y_monthly", 0)
-                    s["is_acceptable"] = cf_metrics["is_acceptable"]
-                    
-                    # Scoring (reuse helper from GeneticOptimizer if possible, or duplicate)
-                    # Duplicating absolute scorer logic for independence/speed
-                    w = self.scorer.weights if self.scorer else {}
-                    
-                    s_tri = max(0.0, min(1.0, s["tri_annuel"] / 20.0))
-                    roe = s["enrich_net"] / max(1.0, s["apport_total"])
-                    s_enrich = max(0.0, min(1.0, roe / 2.0))
-                    s_dscr = max(0.0, min(1.0, float(bilan.get("dscr_y1", 0))/1.3))
-                    
-                    safe_tol = tolerance if tolerance > 1.0 else 100.0
-                    gap = cf_metrics["gap"]
-                    s_cf = max(0.0, 1.0 - (gap / (safe_tol * 2.0)))
-                    
-                    finance_score = (
-                        w.get("irr", 0.25) * s_tri +
-                        w.get("enrich_net", 0.30) * s_enrich +
-                        w.get("dscr", 0.15) * s_dscr +
-                        w.get("cf_proximity", 0.20) * s_cf +
-                        w.get("cap_eff", 0.10) * s_enrich  # cap_eff uses enrichment as proxy
-                    )
-                    
-                    # Quality
-                    from src.core.scoring import calculate_qualitative_score
-                    qual_score = calculate_qualitative_score({"details": details})
-                    
-                    # Balanced
-                    q_w = self.scorer.qualite_weight if self.scorer else 0.5
-                    if q_w >= 1.0: fit = qual_score / 100.0
-                    elif q_w <= 0.0: fit = finance_score
-                    else: fit = (1.0 - q_w) * finance_score + q_w * (qual_score / 100.0)
-                    
-                    s["fitness"] = max(0.01, fit * 100)
-                    candidates.append(s)
-                    
-                except Exception as e:
-                    # Skip invalid simulations
-                    continue
+            except Exception as e:
+                # Skip invalid simulations
+                continue
+
 
         log.info("exhaustive_search_finished", found=len(candidates))
         return candidates

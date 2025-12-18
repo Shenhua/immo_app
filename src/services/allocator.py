@@ -149,13 +149,19 @@ class PortfolioAllocator:
                 apport_necessaire = manque_cf / k
                 delta = min(apport_rest, apport_necessaire, b["capital_restant"])
 
-                # Cap extra apport to avoid 0 loan
-                cap_extra = self.max_extra_apport_pct * float(b.get("capital_emprunte", 0.0))
-                deja = float(b.get("apport_add_bien", 0.0))
-                reste_cap = max(0.0, cap_extra - deja)
+                # Cap extra apport to avoid near-zero loans (bank won't give €100 mortgage)
+                # BUT: Allow paying FULL cash (no loan) if delta covers entire remaining capital
+                is_full_cash_payment = delta >= b["capital_restant"] - 1.0
+                
+                if not is_full_cash_payment:
+                    # Partial payment: apply 95% cap to prevent tiny residual loans
+                    cap_extra = self.max_extra_apport_pct * float(b.get("capital_emprunte", 0.0))
+                    deja = float(b.get("apport_add_bien", 0.0))
+                    reste_cap = max(0.0, cap_extra - deja)
 
-                if delta > reste_cap:
-                    delta = reste_cap
+                    if delta > reste_cap:
+                        delta = reste_cap
+                # else: full cash payment allowed, no cap
 
                 # Adaptive step size (Expert Recommendation Part 4)
                 # Avoid jumping over the target window

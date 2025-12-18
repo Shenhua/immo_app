@@ -151,7 +151,7 @@ class StrategyScorer:
 
 
 class CombinationGenerator:
-    """Generates valid property combinations within budget."""
+    """Generates valid property combinations within budget using bounded enumeration."""
 
     def __init__(self, max_properties: int = 3):
         self.max_properties = max_properties
@@ -161,18 +161,18 @@ class CombinationGenerator:
         bricks: list[dict[str, Any]],
         apport_disponible: float,
     ) -> list[tuple[dict[str, Any], ...]]:
-        """Generate all valid combinations of bricks.
+        """Generate all valid combinations using bounded enumeration.
 
-        Filters:
-        - No duplicate properties (same nom_bien)
-        - Total apport_min <= apport_disponible
+        This uses recursive branch-and-bound to prune infeasible branches early,
+        dramatically reducing the search space for large property counts.
         
-        Optimizations:
-        - Pre-filter bricks that individually exceed budget
-        - Sort by cost for early rejection
-        - K-level pruning (if cheapest K properties > budget, skip)
+        Key optimizations:
+        - Pre-filter bricks individually exceeding budget
+        - Sort by cost ascending for better pruning
+        - Recursive enumeration that tracks running cost and stops when budget exceeded
+        - Deduplication by nom_bien within combinations
         """
-        # P2.1: Pre-filter unaffordable bricks
+        # Pre-filter unaffordable bricks
         affordable_bricks = [b for b in bricks if b.get("apport_min", 0.0) <= apport_disponible]
         
         if len(affordable_bricks) < len(bricks):
@@ -184,70 +184,61 @@ class CombinationGenerator:
             log.info("no_affordable_bricks", budget=apport_disponible)
             return []
         
-        # Sort by Gross Yield descending (Performance) rather than Cost (Apport)
-        # This ensures we test high-potential combinations first before hitting MAX_TOTAL limit.
-        def _yield_score(b):
-            rent = b.get("loyer_mensuel_initial", 0.0) * 12
-            cost = b.get("cout_total", 1.0)
-            return rent / max(1.0, cost)
-
-        sorted_bricks = sorted(affordable_bricks, key=_yield_score, reverse=True)
+        # Sort by cost ASCENDING for better branch-and-bound pruning
+        # (low-cost bricks first means we can add more before hitting budget)
+        sorted_bricks = sorted(affordable_bricks, key=lambda b: b.get("apport_min", 0.0))
         
         combos = []
+        visited_count = [0]  # Use list for mutable in nested function
+        pruned_count = [0]
         
-        # For pruning: Get unique properties by nom_bien, keeping cheapest variant per property
-        unique_props = {}
-        for b in sorted_bricks:
-            nom = b.get("nom_bien", "")
-            cost = b.get("apport_min", 0.0)
-            if nom not in unique_props or cost < unique_props[nom]:
-                unique_props[nom] = cost
-        
-        # Sorted list of min costs per unique property
-        sorted_unique_costs = sorted(unique_props.values())
-        
-        check_count = 0
-        skipped_early = 0
-        
-        for k in range(1, self.max_properties + 1):
-            # Optimization: Smart Pruning
-            # If the cheapest K UNIQUE properties cost more than available apport, 
-            # then ANY combination of K properties will fail. Stop searching bigger Ks.
-            if k <= len(sorted_unique_costs):
-                min_cost_k = sum(sorted_unique_costs[:k])
-            else:
-                # Can't even form k unique properties
-                log.info("pruning_not_enough_properties", k=k, available=len(sorted_unique_costs))
-                break
+        def _enumerate(start_idx: int, current_combo: list, current_cost: float, used_names: set):
+            """Recursive bounded enumeration."""
+            # Valid combo if non-empty
+            if current_combo:
+                combos.append(tuple(current_combo))
+            
+            # Stop if max properties reached
+            if len(current_combo) >= self.max_properties:
+                return
+            
+            # Try adding each remaining brick
+            for i in range(start_idx, len(sorted_bricks)):
+                brick = sorted_bricks[i]
+                brick_cost = brick.get("apport_min", 0.0)
+                brick_name = brick.get("nom_bien", "")
                 
-            if min_cost_k > apport_disponible:
-                log.info("pruning_budget", k=k, min_cost=min_cost_k, budget=apport_disponible)
-                break
+                visited_count[0] += 1
                 
-            for combo in itertools.combinations(sorted_bricks, k):
-                check_count += 1
+                # Pruning 1: Budget exceeded - stop this branch entirely
+                # Since bricks are sorted by cost, all subsequent bricks cost >= this one
+                if current_cost + brick_cost > apport_disponible:
+                    pruned_count[0] += len(sorted_bricks) - i
+                    break  # No point checking more expensive bricks
                 
-                # Check unique properties
-                noms = {c.get("nom_bien") for c in combo if c.get("nom_bien")}
-                if len(noms) != len(combo):
+                # Pruning 2: Skip duplicate property names within combo
+                if brick_name in used_names:
                     continue
-
-                # Check budget
-                apport_min = sum(c.get("apport_min", 0.0) for c in combo)
                 
-                if apport_min > apport_disponible:
-                    skipped_early += 1
-                    continue
-
-                combos.append(combo)
+                # Add brick and recurse
+                current_combo.append(brick)
+                used_names.add(brick_name)
+                
+                _enumerate(i + 1, current_combo, current_cost + brick_cost, used_names)
+                
+                # Backtrack
+                current_combo.pop()
+                used_names.remove(brick_name)
         
-        # Log summary
+        # Start enumeration
+        _enumerate(0, [], 0.0, set())
+        
         log.info("combos_generated", 
                 count=len(combos), 
                 max_props=self.max_properties, 
                 budget=apport_disponible, 
-                checks=check_count,
-                skipped=skipped_early)
+                visited=visited_count[0],
+                pruned=pruned_count[0])
 
         return combos
 
@@ -349,13 +340,15 @@ class StrategyFinder:
         for k in range(1, max_k + 1):
             total_combinations += math.comb(n_bricks, k)
             
-        # Threshold: 500,000 combinations takes ~25-30 seconds in exhaustive mode
-        # Raised from 200k to handle Empire mode (max_props=5) better
-        THRESHOLD_EXHAUSTIVE = 500000
+        # Threshold: With smart bounded enumeration, exhaustive is now efficient
+        # for most realistic scenarios. Set very high to prefer exhaustive.
+        # The actual number of evaluated combos will be much lower due to pruning.
+        THRESHOLD_EXHAUSTIVE = 100_000_000  # 100M - effectively always exhaustive
         
         strategies = []
         
-        if total_combinations < THRESHOLD_EXHAUSTIVE:
+        # Always use exhaustive with smart pruning (GA removed)
+        if True:  # Was: total_combinations < THRESHOLD_EXHAUSTIVE
             # --- EXHAUSTIVE MODE (v1 Fidelity) ---
             log.info("hybrid_solver_selected", 
                      mode="EXHAUSTIVE", 
