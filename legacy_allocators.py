@@ -1,5 +1,5 @@
 # --- allocators.py -----------------------------------------------------------
-from typing import List, Dict, Optional
+
 
 def _pmt_factor(annual_rate: float, years: int) -> float:
     """Monthly payment per € borrowed for a fixed-rate loan (€/mo per €)."""
@@ -10,8 +10,8 @@ def _pmt_factor(annual_rate: float, years: int) -> float:
     return rm / (1.0 - (1.0 + rm) ** (-n))
 
 def _marginal_cf_gain_per_euro(
-    brique: Dict,
-    rates_by_term: Optional[Dict[int, float]],
+    brique: dict,
+    rates_by_term: dict[int, float] | None,
     insurance_annual_pct: float,
     default_rate: float = 0.035,
 ) -> float:
@@ -30,12 +30,12 @@ def _marginal_cf_gain_per_euro(
     return max(0.0, alpha + beta)
 
 def allocate_portfolio_cf(
-    briques: List[Dict],
+    briques: list[dict],
     budget_eur: float,
-    rates_by_term: Optional[Dict[int, float]] = None,
+    rates_by_term: dict[int, float] | None = None,
     insurance_annual_pct: float = 0.003,  # 0.30%/year
     max_extra_apport_pct: float = 0.30,   # per-bien cap vs initial loan
-    ltv_min: Optional[float] = None,      # e.g. 0.55 to avoid de-levering too much
+    ltv_min: float | None = None,      # e.g. 0.55 to avoid de-levering too much
     price_key_fallback: str = "prix_total",
 ) -> float:
     """

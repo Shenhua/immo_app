@@ -7,14 +7,14 @@ Tests the complete pipeline with edge cases that span multiple components:
 - Rent cap enforcement
 """
 
+
 import pytest
-from pathlib import Path
 
 from src.services.brick_factory import (
     FinancingConfig,
     OperatingConfig,
-    create_investment_bricks,
     apply_rent_caps,
+    create_investment_bricks,
 )
 from src.services.strategy_finder import StrategyFinder, StrategyScorer
 from src.ui.app_controller import load_archetypes
@@ -42,7 +42,7 @@ class TestDSCRPropagation:
     def test_dscr_present_in_strategy_results(self, setup):
         """DSCR should be calculated and present in final strategies."""
         bricks = setup
-        
+
         finder = StrategyFinder(
             bricks=bricks,
             apport_disponible=50000,
@@ -50,13 +50,13 @@ class TestDSCRPropagation:
             tolerance=500,
             mode_cf="min",
         )
-        
+
         strategies = finder.find_strategies(
             eval_params={"tmi_pct": 30, "regime_fiscal": "lmnp"},
             horizon_years=20,
             top_n=3,
         )
-        
+
         # At least one strategy should have DSCR
         if strategies:
             # DSCR might be in bilan or propagated
@@ -71,9 +71,9 @@ class TestWeightConsistency:
     def test_scorer_weights_match_base_weights(self):
         """StrategyScorer weights should match BASE_WEIGHTS keys."""
         from src.services.strategy_finder import BASE_WEIGHTS
-        
+
         scorer = StrategyScorer()
-        
+
         # All BASE_WEIGHTS keys should be present in scorer weights
         for key in BASE_WEIGHTS:
             assert key in scorer.weights, f"Missing key: {key}"
@@ -82,7 +82,7 @@ class TestWeightConsistency:
         """Custom weights should be normalized and applied."""
         custom = {"irr": 50, "enrich_net": 30, "dscr": 10, "cf_proximity": 10}
         scorer = StrategyScorer(weights=custom)
-        
+
         # Sum should be 1.0
         total = sum(scorer.weights.values())
         assert abs(total - 1.0) < 0.01
@@ -103,9 +103,9 @@ class TestRentCapEnforcement:
             "charges_m2_an": 30,
             "taxe_fonciere_m2_an": 20,
         }]
-        
+
         capped = apply_rent_caps(archetypes, apply_cap=True)
-        
+
         assert capped[0]["loyer_m2"] == 20.0  # Should be capped
 
     def test_rent_not_capped_when_disabled(self):
@@ -120,9 +120,9 @@ class TestRentCapEnforcement:
             "charges_m2_an": 30,
             "taxe_fonciere_m2_an": 20,
         }]
-        
+
         not_capped = apply_rent_caps(archetypes, apply_cap=False)
-        
+
         assert not_capped[0]["loyer_m2"] == 25.0  # Original value
 
     def test_unregulated_property_not_capped(self):
@@ -137,9 +137,9 @@ class TestRentCapEnforcement:
             "charges_m2_an": 30,
             "taxe_fonciere_m2_an": 20,
         }]
-        
+
         result = apply_rent_caps(archetypes, apply_cap=True)
-        
+
         assert result[0]["loyer_m2"] == 25.0  # Not capped
 
 
@@ -156,7 +156,7 @@ class TestEmptyResultHandling:
         )
         operating = OperatingConfig()
         bricks = create_investment_bricks(archetypes, finance, operating)
-        
+
         finder = StrategyFinder(
             bricks=bricks,
             apport_disponible=10000,  # Very small budget
@@ -164,12 +164,12 @@ class TestEmptyResultHandling:
             tolerance=10,  # Very tight tolerance
             mode_cf="target",
         )
-        
+
         strategies = finder.find_strategies(
             horizon_years=20,
             top_n=5,
         )
-        
+
         # Should return empty list, not crash
         assert isinstance(strategies, list)
 
@@ -181,9 +181,9 @@ class TestEmptyResultHandling:
             cash_flow_cible=0,
             tolerance=100,
         )
-        
+
         strategies = finder.find_strategies(top_n=5)
-        
+
         assert strategies == []
 
 
@@ -192,15 +192,15 @@ class TestScheduleMismatchHandling:
 
     def test_simulation_rejects_mismatched_schedules(self):
         """Simulation should raise ValueError for schedule/details mismatch."""
-        from src.core.simulation import SimulationEngine, MarketHypotheses, TaxParams, IRACalculator
         from src.core.financial import generate_amortization_schedule
-        
+        from src.core.simulation import IRACalculator, MarketHypotheses, SimulationEngine, TaxParams
+
         engine = SimulationEngine(
             market=MarketHypotheses(),
             tax=TaxParams(),
             ira=IRACalculator(),
         )
-        
+
         # 2 properties but only 1 schedule
         strategy = {
             "apport_total": 20000,
@@ -239,13 +239,13 @@ class TestScheduleMismatchHandling:
                 }
             ]
         }
-        
+
         # Only 1 schedule for 2 properties
         schedules = [generate_amortization_schedule(80000, 3.6, 300, 0.35)]
-        
+
         with pytest.raises(ValueError) as exc_info:
             engine.simulate(strategy, 25, schedules)
-        
+
         assert "Schedule count" in str(exc_info.value)
         assert "1" in str(exc_info.value)
         assert "2" in str(exc_info.value)
@@ -268,7 +268,7 @@ class TestHorizonEffects:
     def test_longer_horizon_higher_liquidation(self, bricks):
         """25-year horizon should have >= liquidation than 15-year."""
         results = {}
-        
+
         for horizon in [15, 25]:
             finder = StrategyFinder(
                 bricks=bricks,
@@ -277,16 +277,16 @@ class TestHorizonEffects:
                 tolerance=500,
                 mode_cf="min",
             )
-            
+
             strategies = finder.find_strategies(
                 eval_params={"tmi_pct": 30},
                 horizon_years=horizon,
                 top_n=1,
             )
-            
+
             if strategies:
                 results[horizon] = strategies[0].get("liquidation_nette", 0)
-        
+
         if len(results) == 2:
             # Property appreciation over more years should increase value
             assert results[25] >= results[15], \

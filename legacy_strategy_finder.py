@@ -2,12 +2,15 @@ import inspect
 import itertools
 import math
 import os
-from financial_calculations import simuler_strategie_long_terme, mensualite_et_assurance, _accept_cf, k_factor
-from utils import calculate_qualitative_score
-from typing import Any, Dict, List, Tuple, Callable, Optional
+from collections.abc import Callable
+from typing import Any, Optional
 
-eval_params: Dict[str, Any] = {}, Optional
-eval_params: Dict[str, Any] = {}
+from financial_calculations import _accept_cf, k_factor, mensualite_et_assurance, simuler_strategie_long_terme
+
+from utils import calculate_qualitative_score
+
+eval_params: dict[str, Any] = {}, Optional
+eval_params: dict[str, Any] = {}
 BASE_WEIGHTS = {
     'enrich_net': 0.30,
     'irr': 0.25,
@@ -84,7 +87,7 @@ def trouver_top_strategies(apport_disponible: float, cash_flow_cible: float, tol
             seen.add(sig)
             out.append(s)
         return out
-    
+
     scenarios = []
     max_biens = 3
     for k in range(1, max_biens + 1):
@@ -146,7 +149,7 @@ def trouver_top_strategies(apport_disponible: float, cash_flow_cible: float, tol
 
     for s in scenarios:
         try:
-            df_sim, bilan = _call_sim_with_horizon(simuler_strategie_long_terme, 
+            df_sim, bilan = _call_sim_with_horizon(simuler_strategie_long_terme,
                 s,
                 horizon_years=horizon_years,
                 duree_simulation_ans=int(ep.get("duree_simulation_ans", 25)),
@@ -232,7 +235,7 @@ def trouver_top_strategies(apport_disponible: float, cash_flow_cible: float, tol
     scenarios.sort(key=_sort_key, reverse=True)
     return scenarios[:6]
 def creer_briques_investissement(archetypes: list, _taux_credits, frais_gestion_pct: float, provision_pct: float, frais_notaire_pct: float, apport_min_pct_prix: float, inclure_travaux: bool, inclure_reno_ener: bool, inclure_mobilier: bool, financer_mobilier: bool, assurance_ann_pct: float, frais_pret_pct: float, cfe_par_bien_ann: float):
-    briques = []; 
+    briques = []
     for a in archetypes:
         surf = a["surface"]; prix_achat = surf * a["prix_m2"]; loyer_mth0 = surf * (float(a["loyer_m2"]) or 0.0); charges_mth0 = (surf * a["charges_m2_an"]) / 12.0; tf_mth0 = (surf * a["taxe_fonciere_m2_an"]) / 12.0; travaux = a.get("budget_travaux", 0.0) if inclure_travaux else 0.0; renoEner = float(a.get("renovation_energetique_cout", 0.0)) if inclure_reno_ener and a.get("dpe_initial", "D").upper() == "E" else 0.0; mobilier = a.get("valeur_mobilier", 0.0) if inclure_mobilier else 0.0; frais_notaire = prix_achat * (frais_notaire_pct / 100.0); cout_total = prix_achat + frais_notaire + travaux + renoEner + mobilier; apport_min = frais_notaire + prix_achat * (apport_min_pct_prix / 100.0)
         if inclure_mobilier and not financer_mobilier: apport_min += mobilier
@@ -264,9 +267,9 @@ def allouer_apport_pour_cf(combo, cf_cible, tol, apport_suppl_max: float, mode_c
             delta = reste_cap
         # Toujours laisser un reliquat minimal pour éviter cap/assurance à zéro strict.
         b["capital_restant"] = max(1e-2, b["capital_restant"] - delta)
-        _, _, p_tot = mensualite_et_assurance(b["capital_restant"], b["taux_pret"], b["duree_pret"], b["assurance_ann_pct"]) 
-        b["pmt_total"] = p_tot 
-        b["apport_add_bien"] = b.get("apport_add_bien", 0.0) + delta 
+        _, _, p_tot = mensualite_et_assurance(b["capital_restant"], b["taux_pret"], b["duree_pret"], b["assurance_ann_pct"])
+        b["pmt_total"] = p_tot
+        b["apport_add_bien"] = b.get("apport_add_bien", 0.0) + delta
         apport_rest -= delta; cf0 = sum(x["loyer_mensuel_initial"] - x["depenses_mensuelles_hors_credit_initial"] - x["pmt_total"] for x in biens); manque_cf = besoin(cf0)
     ok = _accept_cf(cf0, cf_cible, tol, mode_cf); details = [{**b, "apport_add_bien": b.get("apport_add_bien", 0.0), "apport_final_bien": b["apport_min"] + b.get("apport_add_bien", 0.0), "credit_final": b["capital_restant"]} for b in biens]; apport_total = sum(d["apport_final_bien"] for d in details); return ok, details, cf0, apport_total
 
@@ -277,7 +280,7 @@ def _norm01(x: float, lo: float, hi: float) -> float:
     return max(0.0, min(1.0, (x - lo) / (hi - lo)))
 
 
-def clamp_norm_metrics(m: Dict[str, float]) -> Dict[str, float]:
+def clamp_norm_metrics(m: dict[str, float]) -> dict[str, float]:
     dscr_raw = float(m.get('dscr_y1', m.get('dscr', 0.0)))
     irr_raw = float(m.get('irr', m.get('tri_annuel', 0.0)))
     cap_raw = float(m.get('cap_eff', 0.0))
@@ -310,7 +313,7 @@ def clamp_norm_metrics(m: Dict[str, float]) -> Dict[str, float]:
     )
 
 
-def compute_finance_score(norms: Dict[str, float], weights: Dict[str, float]) -> float:
+def compute_finance_score(norms: dict[str, float], weights: dict[str, float]) -> float:
     w = {k: float(v) for k, v in weights.items()}
     total = sum(w.get(k, 0.0) for k in ['dscr', 'irr', 'cap_eff', 'cf_proximity', 'enrich_net'])
     if total <= 0:
@@ -331,7 +334,7 @@ def balanced_score(finance_score: float, qual_score_pct: float, w_qual: float) -
     return (1.0 - wq) * float(finance_score) + wq * (float(qual_score_pct) / 100.0)
 
 
-def sort_key_by_preset(preset: str, s: Dict[str, float]) -> Tuple:
+def sort_key_by_preset(preset: str, s: dict[str, float]) -> tuple:
     p = (preset or '').strip().lower()
     if p.startswith('dscr'):
         return (s.get('dscr_norm', 0.0), s.get('finance_score', 0.0), s.get('cf_prox_norm', 0.0))
@@ -342,7 +345,7 @@ def sort_key_by_preset(preset: str, s: Dict[str, float]) -> Tuple:
     return (s.get('balanced_score', 0.0), s.get('finance_score', 0.0), s.get('dscr_norm', 0.0))
 
 
-def pareto_filter(strats: List[Dict[str, Any]], tol_apport: int = 100) -> List[Dict[str, Any]]:
+def pareto_filter(strats: list[dict[str, Any]], tol_apport: int = 100) -> list[dict[str, Any]]:
     if not strats:
         return []
     buckets = {}
@@ -379,14 +382,14 @@ def pareto_filter(strats: List[Dict[str, Any]], tol_apport: int = 100) -> List[D
 
 
 def resimulate_with_horizon(
-    strategies: List[Dict[str, Any]],
+    strategies: list[dict[str, Any]],
     horizon_years: int,
-    simulate_fn: Callable[[Dict[str, Any], int], Dict[str, float]],
-    weights: Dict[str, float],
+    simulate_fn: Callable[[dict[str, Any], int], dict[str, float]],
+    weights: dict[str, float],
     preset_name: str,
     w_quality: float = 0.25,
     apply_pareto: bool = True,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Re-simulate each strategy at the given horizon, recompute scores, sort & pareto-filter."""
     out = []
     for s in strategies:
@@ -409,18 +412,18 @@ def resimulate_with_horizon(
 
 
 def optimise_apport_greedy(
-    strategy: Dict[str, Any],
+    strategy: dict[str, Any],
     horizon_years: int,
-    simulate_proxy_fn: Callable[[Dict[str, Any], List[int], int], Dict[str, float]],
-    simulate_final_fn: Callable[[Dict[str, Any], List[int], int], Dict[str, float]],
-    initial_apports: List[int],
+    simulate_proxy_fn: Callable[[dict[str, Any], list[int], int], dict[str, float]],
+    simulate_final_fn: Callable[[dict[str, Any], list[int], int], dict[str, float]],
+    initial_apports: list[int],
     apport_budget: int,
-    weights: Dict[str, float],
-    optim_cfg: Optional[Dict[str, Any]] = None,
+    weights: dict[str, float],
+    optim_cfg: dict[str, Any] | None = None,
     cf_target: float = 0.0,
     cf_scale: float = 300.0,
-    loan_terms: Optional[List[Tuple[float, int, float]]] = None,
-) -> Tuple[List[int], Dict[str, float]]:
+    loan_terms: list[tuple[float, int, float]] | None = None,
+) -> tuple[list[int], dict[str, float]]:
     """
     Greedy multi-pass optimiser:
     - simulate_proxy_fn(strategy, apports, horizon) -> metrics 'cf', 'dscr', 'cap_eff', 'irr', 'enrich_net'
@@ -436,7 +439,7 @@ def optimise_apport_greedy(
         scale = apport_budget / float(total_apport)
         apports = [int(round(a*scale/100.0)*100) for a in apports]
 
-    def eval_proxy(apports_vec: List[int]) -> float:
+    def eval_proxy(apports_vec: list[int]) -> float:
         m = simulate_proxy_fn(strategy, apports_vec, horizon_years)
         return proxy_finance_score_from_cf_dscr(
             cf=m.get('cf', 0.0), dscr=m.get('dscr_y1', m.get('dscr', 0.0)),
@@ -484,15 +487,15 @@ def optimise_apport_greedy(
 
 
 def local_optimality_check(
-    strategy: Dict[str, Any],
+    strategy: dict[str, Any],
     horizon_years: int,
-    simulate_final_fn: Callable[[Dict[str, Any], List[int], int], Dict[str, float]],
-    apports: List[int],
-    weights: Dict[str, float],
+    simulate_final_fn: Callable[[dict[str, Any], list[int], int], dict[str, float]],
+    apports: list[int],
+    weights: dict[str, float],
     delta: int = 1000,
     cf_target: float = 0.0,
     cf_scale: float = 300.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Return a dict with 'is_local_optimal' and optional 'better_variant' if found by ±delta moves."""
     n = len(apports)
     base = simulate_final_fn(strategy, apports, horizon_years)
@@ -533,19 +536,19 @@ def local_optimality_check(
 
 
 def optimise_and_resimulate_pipeline(
-    strategies: List[Dict[str, Any]],
+    strategies: list[dict[str, Any]],
     horizon_years: int,
     preset_name: str,
-    weights: Dict[str, float],
+    weights: dict[str, float],
     w_quality: float,
     optimiser_enabled: bool,
-    simulate_proxy_fn: Callable[[Dict[str, Any], List[int], int], Dict[str, float]],
-    simulate_final_fn: Callable[[Dict[str, Any], List[int], int], Dict[str, float]],
+    simulate_proxy_fn: Callable[[dict[str, Any], list[int], int], dict[str, float]],
+    simulate_final_fn: Callable[[dict[str, Any], list[int], int], dict[str, float]],
     initial_apports_key: str = "apports_par_bien",
     apport_budget_key: str = "apport_budget",
     add_local_certificate: bool = True,
     pareto: bool = True,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     For each strategy:
       - if optimiser_enabled → run greedy + final sim; else → just final sim at current horizon.
@@ -606,7 +609,7 @@ def balanced_score(finance_score: float, qual_score_pct: float, w_qual: float) -
     wq = max(0.0, min(1.0, float(w_qual)))
     return (1.0 - wq)*float(finance_score) + wq*(float(qual_score_pct)/100.0)
 
-def sort_key_by_preset(preset: str, s: Dict[str, float]) -> Tuple:
+def sort_key_by_preset(preset: str, s: dict[str, float]) -> tuple:
     p = (preset or '').strip().lower()
     if p.startswith('dscr'):
         return (s.get('dscr_norm',0.0), s.get('finance_score',0.0), s.get('cf_prox_norm',0.0))
@@ -669,7 +672,7 @@ def _simulate_final_adapter(strategy: dict, apports: list, horizon_years: int, e
 
     return {"cf": cf, "dscr_y1": dscr, "cap_eff": cap_eff, "irr": irr, "enrich_net": enrich}
 
-def local_optimality_check(strategy: Dict[str, Any], horizon_years: int, apports: List[int], weights: Dict[str, float], delta: int = 1000):
+def local_optimality_check(strategy: dict[str, Any], horizon_years: int, apports: list[int], weights: dict[str, float], delta: int = 1000):
     base = _simulate_final_adapter(strategy, apports, horizon_years, eval_params)
     base_s = proxy_finance_score_from_cf_dscr(base['cf'], base['dscr_y1'], base['cap_eff'], base['irr'], base['enrich_net'], weights)
     n = len(apports); improved = False
@@ -690,7 +693,7 @@ def local_optimality_check(strategy: Dict[str, Any], horizon_years: int, apports
 
 
 
-def _get_finance_weights(eval_params: Optional[Dict[str, Any]] = None) -> Dict[str, float]:
+def _get_finance_weights(eval_params: dict[str, Any] | None = None) -> dict[str, float]:
     w = (eval_params or {}).get('finance_weights_override')
     if isinstance(w, dict) and w:
         return w

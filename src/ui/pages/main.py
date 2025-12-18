@@ -100,7 +100,7 @@ def render_strategy_list(
                        render_simulation_chart(df_sim, key=f"strat_chart_{selected_idx}")
                    with col2:
                        render_cashflow_chart(df_sim, key=f"strat_cf_{selected_idx}")
-                   
+
                    # Row 2: Credit breakdown & Fiscal (if LMNP)
                    col3, col4 = st.columns(2)
                    with col3:
@@ -146,13 +146,13 @@ def render_strategy_list(
         data = []
         max_enrich = 0
         min_enrich = 0
-        
+
         for i, s in enumerate(strategies):
             taxonomy = s.get("taxonomy", "Mix")
             icon = {"Optimisé": "🚀", "Patrimonial": "🏛️", "Mix": "⚖️"}.get(taxonomy, "🔀")
             is_hero = (i == 0)
             hero_mark = "🏆 " if is_hero else ""
-            
+
             enrich = int(s.get("liquidation_nette", 0) / 1000)
             max_enrich = max(max_enrich, enrich)
             min_enrich = min(min_enrich, enrich)
@@ -166,22 +166,26 @@ def render_strategy_list(
             })
 
         df_display = pd.DataFrame(data)
-        
+
         # Apply color gradients using Pandas Styler
         # Note: We must be careful not to break st.dataframe interactivity.
         # Simple text coloring is robust.
         def color_score(val):
             # Red (0) -> Green (100)
             # Simple threshold logic for readability
-            if val >= 80: return 'color: #28a745; font-weight: bold'
-            if val >= 50: return 'color: #ffc107'
+            if val >= 80:
+                return 'color: #28a745; font-weight: bold'
+            if val >= 50:
+                return 'color: #ffc107'
             return 'color: #dc3545'
-            
+
         def color_tri(val):
-            if val >= 8.0: return 'color: #28a745; font-weight: bold'
-            if val >= 4.0: return 'color: #ffc107'
+            if val >= 8.0:
+                return 'color: #28a745; font-weight: bold'
+            if val >= 4.0:
+                return 'color: #ffc107'
             return 'color: #dc3545'
-            
+
         # Create Styler
         styler = df_display.style.map(color_score, subset=["Score"])\
                                  .map(color_tri, subset=["TRI (%)"])
@@ -191,7 +195,7 @@ def render_strategy_list(
             "Cash-Flow": st.column_config.NumberColumn("Cash-Flow", format="%.0f €"),
             "TRI (%)": st.column_config.NumberColumn("TRI", format="%.1f %%"),
             "Enrich. (k€)": st.column_config.ProgressColumn(
-                "Enrich.", 
+                "Enrich.",
                 format="%d k€",
                 min_value=min(0, min_enrich),
                 max_value=max(100, max_enrich),
@@ -235,7 +239,7 @@ def render_comparison_panel(strategies: list[dict[str, Any]], horizon: int = 25)
     render_risk_reward_scatter(strategies)
     st.markdown("#### Performance Relative")
     render_comparison_heatmap(strategies)
-    
+
     st.markdown("#### Détails côte-à-côte")
     render_comparison_charts(strategies[:6], horizon)
 
@@ -283,7 +287,7 @@ def render_main_page(
         df_sim: Simulation data
     """
     render_header()
-    
+
     # Render persistent search info zone (Phase 22)
     from src.ui.components.progress_display import render_search_info_zone
     from src.ui.progress import SearchStats
@@ -297,7 +301,7 @@ def render_main_page(
     # Get current state
     horizon = SessionManager.get_horizon()
     show_comparison = get_state("show_comparison", False)
-    
+
     # View Mode Toggle
     mode = st.radio(
         "Mode d'affichage",
@@ -306,7 +310,7 @@ def render_main_page(
         horizontal=True,
         label_visibility="collapsed"
     )
-    
+
     # Update state only if changed
     new_show_comp = (mode == "⚖️ Comparaison Globale")
     if new_show_comp != show_comparison:

@@ -71,12 +71,12 @@ def render_objectives_section() -> dict[str, Any]:
     # --- Financial Profile Auto-Switch Logic ---
     # To help the user, we switch the scoring profile when the strategy changes.
     last_strat = st.session_state.get("last_strategy_mode", None)
-    
+
     if last_strat != strategy_mode:
         st.session_state.last_strategy_mode = strategy_mode
         # Only switch if we are strictly changing (avoid override on first load if user had custom)
         # But here we want to guide them.
-        
+
         target_preset = None
         if "Rentier" in strategy_mode:
             target_preset = "Cash-flow d'abord" # or Sécurité
@@ -84,7 +84,7 @@ def render_objectives_section() -> dict[str, Any]:
             target_preset = "Patrimoine LT"
         elif "Classique" in strategy_mode:
             target_preset = "Équilibré (défaut)"
-            
+
         if target_preset and target_preset in FINANCIAL_PRESETS:
              st.session_state.finance_preset = target_preset
              st.session_state.finance_custom = FINANCIAL_PRESETS[target_preset].copy()
@@ -93,7 +93,7 @@ def render_objectives_section() -> dict[str, Any]:
 
     max_props = 3
     use_full_capital = False
-    
+
     # Logic flags
     is_rentier = "Rentier" in strategy_mode
     is_empire = "Empire" in strategy_mode
@@ -113,7 +113,7 @@ def render_objectives_section() -> dict[str, Any]:
             format="%d",
             help="Capital total que vous êtes prêt à investir (frais de notaire + apport bancaire)."
         )
-        
+
         # In Rentier mode, CF Target is irrelevant because we maximize it.
         # In other modes, we let user set a minimum target.
         c_target, c_tol = st.columns(2)
@@ -377,27 +377,28 @@ def render_debug_section(params: dict[str, Any]) -> None:
     st.markdown("---")
     with st.expander("🛠️ Debug AI Agent", expanded=False):
         st.write("Générer un contexte complet pour le débogage par IA.")
-        
+
         if st.button("📸 Capturer le Contexte"):
-            from src.utils.debug import collect_debug_context, save_debug_context
-            from src.ui.state import SessionManager
             import json
-            
+
+            from src.ui.state import SessionManager
+            from src.utils.debug import collect_debug_context
+
             # Gather state
             strategies = SessionManager.get_strategies()
             # Note: We don't have direct access to last simulation df here unless passed or stored in session
             # For now, we'll rely on what we can gather.
-            
+
             ctx = collect_debug_context(
                 session_state=dict(st.session_state),
                 params=params,
                 strategies=strategies,
                 last_simulation=None # Optional for now
             )
-            
+
             # Serialize for download
             json_str = json.dumps(ctx, default=str, indent=2, ensure_ascii=False)
-            
+
             st.download_button(
                 label="📥 Télécharger context.json",
                 data=json_str,

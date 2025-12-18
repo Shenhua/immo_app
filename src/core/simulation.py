@@ -42,7 +42,7 @@ class TaxParams:
     regime_fiscal: str = "lmnp"  # lmnp or microbic
     amort_mobilier: bool = True
     micro_bic_abatt_pct: float = 50.0  # Default 50%, can be 71% for classé
-    
+
 
     def calculate_tax(
         self,
@@ -184,14 +184,14 @@ class SimulationEngine:
             return pd.DataFrame(), {}
 
         projets = [p.copy() for p in strategy["details"]]
-        
+
         # Validate schedule count matches property count
         if len(schedules) != len(projets):
             raise ValueError(
                 f"Schedule count ({len(schedules)}) != property count ({len(projets)}). "
                 "Each property requires a pre-computed amortization schedule."
             )
-        
+
         valeur_biens = sum(p["prix_achat_bien"] for p in projets)
         flux = [-float(strategy["apport_total"])]
 
@@ -350,16 +350,16 @@ class SimulationEngine:
         except Exception:
             tri = 0.0
             tri_warning = "IRR calculation failed (unstable cashflow pattern)"
-            
+
         # Handle non-finite IRR
         if not isfinite(tri):
             tri = 0.0
             tri_warning = "IRR is non-finite (NaN or Inf)"
-            
+
         # Initial investment (flux[0] is negative apport)
         apport_initial = -flux[0] if flux else 0.0
         enrichissement_net = liquidation_nette - apport_initial
-        
+
         # Calculate DSCR from Year 1 data
         from src.core.glossary import calculate_dscr_metric
         if results:

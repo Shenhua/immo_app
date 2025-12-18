@@ -6,10 +6,10 @@ from business logic to UI without coupling to Streamlit.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Callable
 
 
 class SearchPhase(Enum):
@@ -44,7 +44,7 @@ PHASES_ORDER: list[SearchPhase] = [
 class SearchProgress:
     """
     Tracks progress of strategy search for UI display.
-    
+
     Attributes:
         phase: Current phase of the search
         phase_index: 1-based index of current phase (1-5)
@@ -60,19 +60,19 @@ class SearchProgress:
     items_total: int = 0
     valid_count: int = 0
     message: str = ""
-    
+
     @property
     def percentage(self) -> float:
         """Calculate completion percentage (0-100)."""
         if self.items_total == 0:
             return 0.0
         return min(100.0, (self.items_processed / self.items_total) * 100)
-    
+
     @property
     def label(self) -> str:
         """Get French label for current phase."""
         return PHASE_LABELS.get(self.phase, str(self.phase.value))
-    
+
     @property
     def is_complete(self) -> bool:
         """Check if current phase is complete."""
@@ -83,7 +83,7 @@ class SearchProgress:
 class SearchStats:
     """
     Persistent search statistics for display after search completes.
-    
+
     Stored in session state and shown in collapsible zone.
     """
     timestamp: str = ""
@@ -95,7 +95,7 @@ class SearchStats:
     strategies_after_dedupe: int = 0
     mode: str = "EXHAUSTIVE"
     max_properties: int = 3
-    
+
     def __post_init__(self):
         if not self.timestamp:
             self.timestamp = datetime.now().strftime("%H:%M:%S")

@@ -1,6 +1,8 @@
 
 import pytest
-from src.services.brick_factory import apply_rent_caps, create_investment_bricks, FinancingConfig, OperatingConfig
+
+from src.services.brick_factory import FinancingConfig, OperatingConfig, apply_rent_caps, create_investment_bricks
+
 
 @pytest.fixture
 def sample_archetypes():
@@ -42,13 +44,13 @@ def test_apply_rent_caps(sample_archetypes):
     """Verify correct application of rent control caps."""
     # Test strict application
     capped = apply_rent_caps(sample_archetypes, apply_cap=True)
-    
+
     # Paris (Appart A): Should be capped at 30
     assert capped[0]["loyer_m2"] == 30.0
-    
+
     # Lyon (Appart B): Rent 20 < Cap 25, should remain 20
     assert capped[1]["loyer_m2"] == 20.0
-    
+
     # Bordeaux (Appart C): Not subject, should remain 20
     assert capped[2]["loyer_m2"] == 20.0
 
@@ -70,7 +72,7 @@ def test_create_investment_bricks():
         "charges_m2_an": 0, "taxe_fonciere_m2_an": 0,
         "budget_travaux": 0, "renovation_energetique_cout": 0, "valeur_mobilier": 0
     }]
-    
+
     fin_config = FinancingConfig(
         credit_rates={20: 3.5, 25: 3.8}, # Two variants expected
         frais_notaire_pct=8.0,
@@ -81,14 +83,14 @@ def test_create_investment_bricks():
     op_config = OperatingConfig()
 
     bricks = create_investment_bricks(input_data, fin_config, op_config)
-    
+
     # Should produce 2 bricks (one for 20y, one for 25y)
     assert len(bricks) == 2
-    
+
     # Check durations
     durations = sorted([b["duree_pret"] for b in bricks])
     assert durations == [20, 25]
-    
+
     # Check basic cost calc (Surface 10 * Prix 2000 = 20000)
     # Notaire 8% = 1600. Total Project ~ 21600 (+ fees)
     b20 = bricks[0]

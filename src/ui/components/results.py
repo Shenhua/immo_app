@@ -51,13 +51,13 @@ def get_taxonomy_badge(taxonomy: str) -> tuple:
 
 def get_star_rating(score: float, max_stars: int = 5) -> str:
     """Convert 0-100 score to star rating string."""
-    if score is None: 
+    if score is None:
         return "—"
-    
+
     # Calculate filled stars
     normalized = (score / 100) * max_stars
     filled = int(round(normalized))
-    
+
     # Build string
     stars = "★" * filled + "☆" * (max_stars - filled)
     return stars
@@ -178,7 +178,7 @@ def render_strategy_details(strategy: dict[str, Any], horizon: int = 25) -> None
                 qs = bien.get('qual_score_bien', 50)
                 stars = get_star_rating(qs, 5)
                 st.markdown(f"**Qualité**: {stars} <span style='color:grey;font-size:0.8em'>({qs:.0f}/100)</span>", unsafe_allow_html=True)
-                
+
                 st.write(f"Prix: {format_euro(bien.get('prix_achat_bien', 0))}")
                 st.write(f"Frais notaire: {format_euro(bien.get('frais_notaire', 0))}")
                 st.write(f"Travaux: {format_euro(bien.get('budget_travaux', 0))}")
@@ -199,15 +199,15 @@ def render_strategy_details(strategy: dict[str, Any], horizon: int = 25) -> None
                     delta="+ Revenu",
                     delta_color="normal"
                 )
-                
-                charges_tot = bien.get("charges_non_recuperables_mensuel", 0) + bien.get("taxe_fonciere_mensuel", 0)
+
+                bien.get("charges_non_recuperables_mensuel", 0) + bien.get("taxe_fonciere_mensuel", 0)
                 st.metric(
                     label="Mensualité Crédit",
                     value=f"{format_euro(bien.get('pmt_total', 0))}",
                     delta="- Crédit",
                     delta_color="inverse"
                 )
- 
+
             # Qualitative Factors Restoration
             if "facteurs_qualitatifs" in bien:
                 with st.expander("🔍 Voir le détail du score qualitatif"):
@@ -234,8 +234,8 @@ def render_kpi_summary(strategy: dict[str, Any], horizon: int = 25) -> None:
         (f"TRI ({horizon}a)", strategy.get("tri_annuel", 0), format_pct, "Taux de Rentabilité Interne annualisé (inclut la revente)."),
         ("Enrichissement", strategy.get("liquidation_nette", 0), format_euro, f"Capital net disponible à la revente au bout de {horizon} ans (après impôts et remboursement dette)."),
         ("DSCR Y1", strategy.get("dscr_y1", 0), lambda x: f"{x:.2f}" if x else "—", "Ratio de couverture de la dette (Revenus / Charges crédit). >1.0 signifie autofinancement."),
-        ("Score Qualité", strategy.get("qual_score", 50), lambda x: f"{get_star_rating(x)}", "Qualité intrinsèque des biens (Emplacement, Tension, Liquidité)."), 
-        ("Score Global", strategy.get("balanced_score", 0) * 100, lambda x: f"{get_star_rating(x)}", "Note pondérée combinant performance financière et qualité."), 
+        ("Score Qualité", strategy.get("qual_score", 50), lambda x: f"{get_star_rating(x)}", "Qualité intrinsèque des biens (Emplacement, Tension, Liquidité)."),
+        ("Score Global", strategy.get("balanced_score", 0) * 100, lambda x: f"{get_star_rating(x)}", "Note pondérée combinant performance financière et qualité."),
     ]
 
     for col, (label, value, formatter, help_text) in zip(cols, metrics):
@@ -243,7 +243,7 @@ def render_kpi_summary(strategy: dict[str, Any], horizon: int = 25) -> None:
             # Special handling for Scores to show numeric value as secondary (delta)
             if label in ["Score Qualité", "Score Global"]:
                  st.metric(
-                     label, 
+                     label,
                      formatter(value),
                      delta=f"{value:.0f}/100",
                      delta_color="off",

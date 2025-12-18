@@ -56,7 +56,10 @@ exclude = [
     "env",
     "__pycache__",
     "*.egg-info",
+    "legacy_*.py",
+    "debug_*.py",
 ]
+
 
 [tool.ruff.lint]
 select = [

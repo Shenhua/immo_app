@@ -56,7 +56,7 @@ def render_sidebar() -> dict[str, Any]:
 
         # Objectives
         objectives = render_objectives_section()
-        
+
         # Credit
         with st.expander("🏦 Financement", expanded=False):
             credit_params = render_credit_params_tab()
@@ -89,7 +89,7 @@ def render_sidebar() -> dict[str, Any]:
 
         # Scoring Preset
         finance_preset_name, finance_weights = render_scoring_preset()
-        
+
         # Advanced Settings (Phase 17.1)
         with st.expander("⚙️ Avancé", expanded=False):
             top_n = st.slider(
@@ -133,34 +133,35 @@ def handle_analysis(params: dict[str, Any], archetypes: list[dict[str, Any]]) ->
         archetypes: Filtered and compliant archetypes
     """
     import time
+
     from src.ui.components.progress_display import render_progress_display
     from src.ui.progress import SearchProgress, SearchStats
     from src.ui.state import set_state
-    
+
     # Track timing
     start_time = time.time()
-    
+
     # Track stats during search
     search_stats_tracker = {
         "bricks_count": 0,
         "combos_evaluated": 0,
         "valid_strategies": 0,
     }
-    
+
     # Create a placeholder for progress updates
     progress_placeholder = st.empty()
-    
+
     def on_progress(progress: SearchProgress):
         """Callback to update progress display and track stats."""
         with progress_placeholder.container():
             render_progress_display(progress)
-        
+
         # Track stats
         if progress.items_total > 0:
             search_stats_tracker["combos_evaluated"] = progress.items_total
         if progress.valid_count > 0:
             search_stats_tracker["valid_strategies"] = progress.valid_count
-    
+
     # Build configs
     fin_config = build_financing_config(params["credit_params"])
     op_config = build_operating_config(
@@ -199,10 +200,10 @@ def handle_analysis(params: dict[str, Any], archetypes: list[dict[str, Any]]) ->
         top_n=params.get("top_n", 50),
         progress_callback=on_progress,
     )
-    
+
     # Calculate duration
     duration = time.time() - start_time
-    
+
     # Store search stats for persistent display
     search_stats = SearchStats(
         duration_seconds=duration,
@@ -225,7 +226,7 @@ def handle_analysis(params: dict[str, Any], archetypes: list[dict[str, Any]]) ->
         "mode": search_stats.mode,
         "max_properties": search_stats.max_properties,
     })
-    
+
     # Clear progress display
     progress_placeholder.empty()
 
@@ -247,7 +248,7 @@ def main() -> None:
     )
     load_css()
     log = get_logger(__name__)
-    
+
     # 1. Initialize session
     SessionManager.initialize()
     log.info("app_started")

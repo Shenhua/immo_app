@@ -6,8 +6,8 @@ These tests exercise the complete flow:
 Run with: python -m pytest tests/e2e/test_full_pipeline.py -v
 """
 
+
 import pytest
-from pathlib import Path
 
 from src.services.brick_factory import (
     FinancingConfig,
@@ -70,9 +70,9 @@ class TestFullPipeline:
     def test_bricks_creation(self, archetypes, finance_config, operating_config):
         """Test brick creation from archetypes."""
         bricks = create_investment_bricks(archetypes, finance_config, operating_config)
-        
+
         assert len(bricks) > 0
-        
+
         # Check required fields exist
         for brick in bricks:
             assert "nom_bien" in brick
@@ -88,7 +88,7 @@ class TestFullPipeline:
         """Validate that created bricks pass validation."""
         bricks = create_investment_bricks(archetypes, finance_config, operating_config)
         warnings = validate_bricks(bricks)
-        
+
         # No critical warnings expected for real data
         critical_warnings = [w for w in warnings if "Missing" in w or "Invalid" in w]
         assert len(critical_warnings) == 0, f"Validation warnings: {critical_warnings}"
@@ -101,7 +101,7 @@ class TestFullPipeline:
         from src.services.strategy_finder import StrategyFinder
 
         bricks = create_investment_bricks(archetypes, finance_config, operating_config)
-        
+
         finder = StrategyFinder(
             bricks=bricks,
             apport_disponible=50000.0,
@@ -110,15 +110,15 @@ class TestFullPipeline:
             mode_cf="min",
             qualite_weight=0.25,
         )
-        
+
         strategies = finder.find_strategies(
             eval_params=eval_params,
             horizon_years=25,
             top_n=5,
         )
-        
+
         assert len(strategies) > 0, "Should find at least one strategy"
-        
+
         # Validate strategy structure
         top = strategies[0]
         assert "details" in top
@@ -133,7 +133,7 @@ class TestFullPipeline:
         from src.services.strategy_finder import StrategyFinder
 
         bricks = create_investment_bricks(archetypes, finance_config, operating_config)
-        
+
         finder = StrategyFinder(
             bricks=bricks,
             apport_disponible=50000.0,
@@ -142,20 +142,20 @@ class TestFullPipeline:
             mode_cf="min",
             qualite_weight=0.25,
         )
-        
+
         strategies = finder.find_strategies(
             eval_params=eval_params,
             horizon_years=25,
             top_n=3,
         )
-        
+
         assert len(strategies) > 0
         top = strategies[0]
-        
+
         # Key metrics should be present and non-zero
         assert top.get("liquidation_nette", 0) > 0, "Liquidation should be positive"
         assert top.get("enrich_net") is not None, "Enrichment should be calculated"
-        
+
         # TRI can be zero in some edge cases, but should generally be positive
         tri = top.get("tri_annuel", 0)
         # Just check it's a number, not None
@@ -315,8 +315,9 @@ class TestRegressionGuards:
 
     def test_insurance_key_is_correct(self):
         """Ensure evaluator uses assurance_ann_pct, not assurance_pret_pct."""
-        from src.services.evaluator import StrategyEvaluator
         import inspect
+
+        from src.services.evaluator import StrategyEvaluator
 
         source = inspect.getsource(StrategyEvaluator.generate_schedules)
         assert "assurance_ann_pct" in source
@@ -324,8 +325,9 @@ class TestRegressionGuards:
 
     def test_strategy_result_enrichment_is_correct(self):
         """Ensure StrategyResult.enrichissement_net uses correct field."""
-        from src.models.strategy import StrategyResult
         import inspect
+
+        from src.models.strategy import StrategyResult
 
         source = inspect.getsource(StrategyResult.enrichissement_net.fget)
         assert "enrichissement_net" in source
@@ -333,8 +335,9 @@ class TestRegressionGuards:
 
     def test_tri_units_are_percent(self):
         """Ensure TRI normalization expects percent, not fraction."""
-        from src.core.scoring import calculate_balanced_score
         import inspect
+
+        from src.core.scoring import calculate_balanced_score
 
         source = inspect.getsource(calculate_balanced_score)
         # Should divide by 20.0 (for percent), not 0.20 (for fraction)
@@ -342,8 +345,9 @@ class TestRegressionGuards:
 
     def test_vacancy_uses_tension_not_travaux(self):
         """Ensure vacancy calculation uses tension or vacance_pct."""
-        from src.core.scoring import calculate_property_qualitative_score
         import inspect
+
+        from src.core.scoring import calculate_property_qualitative_score
 
         source = inspect.getsource(calculate_property_qualitative_score)
         # Should reference vacance_pct or tension for vacancy

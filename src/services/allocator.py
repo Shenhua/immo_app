@@ -90,7 +90,7 @@ class PortfolioAllocator:
 
         # Iterative greedy allocation
         apport_rest = apport_suppl_max
-        
+
         log.debug(
             "starting_allocation",
             cf_start=cf0,
@@ -111,34 +111,35 @@ class PortfolioAllocator:
         # Convergence loop (Multi-pass for Coarse -> Refine strategy)
         # Pass 1 may use coarse steps and undershoot (due to truncation).
         # Pass 2+ will refine with smaller steps to hit target.
-        for pass_idx in range(5):
+        for _pass_idx in range(5):
             # Check success at start of pass
             # Phase 18.2 Fix: Do NOT break if we want to use full capital (Empire mode)
             if self._accept_cf(cf0, target_cf, tolerance):
                 if not (use_full_capital and not is_precise):
                     break
-                
+
             # Recalculate need
             manque_cf = self._calc_need(cf0, target_cf, tolerance)
              # If forcing full capital, behave as if we have an infinite need for CF
             if use_full_capital and not is_precise:
                 manque_cf = 1e9
 
-            # Stop if no need (and not forced) 
+            # Stop if no need (and not forced)
             if manque_cf <= 1e-9 and not (use_full_capital and not is_precise):
                 break
-            
+
             # Allow visiting properties again to fill the gap
             changes_made = False
-            
+
             for b in ordre:
                 if apport_rest <= 1e-9:
                     break
-                
+
                 # Re-check local need inside loop (since others might have filled it)
                 manque_cf = self._calc_need(cf0, target_cf, tolerance)
-                if use_full_capital and not is_precise: manque_cf = 1e9
-                
+                if use_full_capital and not is_precise:
+                    manque_cf = 1e9
+
                 if manque_cf <= 1e-9 and not (use_full_capital and not is_precise):
                     break
 
@@ -152,7 +153,7 @@ class PortfolioAllocator:
                 # Cap extra apport to avoid near-zero loans (bank won't give €100 mortgage)
                 # BUT: Allow paying FULL cash (no loan) if delta covers entire remaining capital
                 is_full_cash_payment = delta >= b["capital_restant"] - 1.0
-                
+
                 if not is_full_cash_payment:
                     # Partial payment: apply 95% cap to prevent tiny residual loans
                     cap_extra = self.max_extra_apport_pct * float(b.get("capital_emprunte", 0.0))
@@ -167,14 +168,14 @@ class PortfolioAllocator:
                 # Avoid jumping over the target window
                 # Approx k ~ 150-250 for typical loans. Using 200 as proxy if not calcable.
                 k_proxy = k if k > 0 else 200.0
-                
+
                 if is_precise:
                     # Dynamic Refinement (Coarse -> Fine):
                     # If gap is huge, stride big. If close, tiptoe.
                     # This implements "Coarse then Refine" inside the loop efficiently.
                     current_gap = abs(manque_cf)
                     fine_step = max(1.0, (0.5 * tolerance) / k_proxy)
-                    
+
                     if current_gap > 5 * tolerance:
                         # Coarse mode: go fast (10x fine step or generic coarse)
                         step_size = max(fine_step * 10.0, apport_disponible / 1000.0)
@@ -184,11 +185,11 @@ class PortfolioAllocator:
                 else:
                     # In min mode (>= target), coarser steps are efficient
                     # But kept reasonable to not overshoot massive amounts
-                    step_size = max(apport_disponible / 2000, 10.0) 
+                    step_size = max(apport_disponible / 2000, 10.0)
 
                 # Round delta
                 if step_size > 0:
-                    # Use int() to floor/truncate. 
+                    # Use int() to floor/truncate.
                     # Rounding up (nearest) risks overshooting the target in an additive-only process.
                     # It's safer to under-step and let the next iteration finish the job.
                     delta = int(delta / step_size) * step_size
@@ -224,13 +225,13 @@ class PortfolioAllocator:
                     for x in biens
                 )
                 # log.debug("step_allocation", delta=delta,  new_cf=cf0, property=b.get("nom_bien"))
-            
+
             if not changes_made:
                 # If we iterated all properties and made no changes, we are stuck. Stop.
                 break
 
         success = self._accept_cf(cf0, target_cf, tolerance)
-        
+
         log.debug("allocation_finished", final_cf=cf0, success=success, remaining_apport=apport_rest)
 
         details = [

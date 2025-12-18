@@ -38,11 +38,11 @@ def configure_logging(
         Configured logger instance.
     """
     global _configured, _default_logger
-    
+
     # Skip if already configured (idempotent)
     if _configured:
         return structlog.get_logger()
-    
+
     log_level = level or os.environ.get("LOGLEVEL", "INFO").upper()
     numeric_level = getattr(logging, log_level, logging.INFO)
 
@@ -50,7 +50,7 @@ def configure_logging(
     handlers: list[logging.Handler] = [
         logging.StreamHandler(sys.stdout),
     ]
-    
+
     # Only add file handler if not in test mode
     if not os.environ.get("PYTEST_CURRENT_TEST"):
         try:
@@ -110,11 +110,11 @@ def get_logger(name: str | None = None) -> structlog.BoundLogger:
         Bound logger instance.
     """
     global _configured
-    
+
     # Lazy initialization
     if not _configured:
         configure_logging()
-    
+
     logger = structlog.get_logger()
     if name:
         return logger.bind(logger_name=name)

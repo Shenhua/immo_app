@@ -1,17 +1,18 @@
 """AI Debug Context Exporter.
 
 This module provides tools to capture the entire state of the application
-(configurations, inputs, intermediate results, and final outputs) into a 
-structured JSON file. This file is designed to be consumed by an AI agent 
+(configurations, inputs, intermediate results, and final outputs) into a
+structured JSON file. This file is designed to be consumed by an AI agent
 to instantly understand the context, reproduce issues, and spot logic errors.
 """
 
 import json
-import abc
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any
+
 import numpy as np
 import pandas as pd
+
 
 class AIContextEncoder(json.JSONEncoder):
     """Custom encoder to handle NumPy and Pandas types."""
@@ -29,16 +30,16 @@ class AIContextEncoder(json.JSONEncoder):
         return super().default(obj)
 
 def collect_debug_context(
-    session_state: Dict[str, Any] = None,
-    params: Dict[str, Any] = None,
-    strategies: List[Dict[str, Any]] = None,
+    session_state: dict[str, Any] = None,
+    params: dict[str, Any] = None,
+    strategies: list[dict[str, Any]] = None,
     last_simulation: pd.DataFrame = None,
     log_file_path: str = "logs/app.log"
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Collect full application context."""
-    
+
     timestamp = datetime.now().isoformat()
-    
+
     context = {
         "meta": {
             "timestamp": timestamp,
@@ -66,8 +67,8 @@ def collect_debug_context(
              # This helps spot issued in the build_config functions themselves
              fin = build_financing_config(params.get("credit_params", {}))
              op = build_operating_config(
-                 params.get("gestion", 0), 
-                 params.get("vacance", 0), 
+                 params.get("gestion", 0),
+                 params.get("vacance", 0),
                  params.get("cfe", 0)
              )
              context["derived_configs"]["financing_config"] = fin.__dict__
@@ -95,7 +96,7 @@ def collect_debug_context(
         context["results"]["strategies_found_count"] = len(strategies)
         # Deep dump of top 3 strategies
         context["results"]["top_strategies"] = strategies[:3]
-        
+
         # Logic Verification Helper: Check totals
         # Add a "AI Verification" block where we manually sum things up for the AI to check against
         if strategies:
@@ -121,10 +122,10 @@ def collect_debug_context(
         if log_file_path:
             import os
             if os.path.exists(log_file_path):
-                with open(log_file_path, 'r') as f:
+                with open(log_file_path) as f:
                     lines = f.readlines()
-                    context["logs_tail"] = [l.strip() for l in lines[-100:]] # Increased to 100
-                    
+                    context["logs_tail"] = [line.strip() for line in lines[-100:]]  # Increased to 100
+
                     # 7. AI Traceability Extraction (Phase 22)
                     # Parse critical events from logs to structurally expose Solver Mode
                     solver_trace = {}
@@ -136,13 +137,16 @@ def collect_debug_context(
                                 # Simple partial extraction for robustness
                                 parts = line.split()
                                 for p in parts:
-                                    if "mode=" in p: solver_trace["mode"] = p.split("=")[1].replace('"', '')
-                                    if "combos=" in p: solver_trace["combos"] = str(p.split("=")[1])
-                                    if "threshold=" in p: solver_trace["threshold"] = str(p.split("=")[1])
-                            except:
+                                    if "mode=" in p:
+                                        solver_trace["mode"] = p.split("=")[1].replace('"', '')
+                                    if "combos=" in p:
+                                        solver_trace["combos"] = str(p.split("=")[1])
+                                    if "threshold=" in p:
+                                        solver_trace["threshold"] = str(p.split("=")[1])
+                            except Exception:
                                 solver_trace["raw_event"] = line
                             break
-                            
+
                     # Extract Tier Distribution if available
                     for line in reversed(context["logs_tail"]):
                          if "strategy_tiers" in line:
@@ -154,10 +158,10 @@ def collect_debug_context(
                                          k, v = p.split("=")
                                          tiers[k] = int(v)
                                  solver_trace["tier_distribution"] = tiers
-                             except:
+                             except Exception:
                                  pass
                              break
-                             
+
                     if solver_trace:
                         context["results"]["solver_trace"] = solver_trace
 
@@ -166,7 +170,7 @@ def collect_debug_context(
 
     return context
 
-def save_debug_context(context: Dict[str, Any], filepath: str = "debug_context.json") -> str:
+def save_debug_context(context: dict[str, Any], filepath: str = "debug_context.json") -> str:
     """Save context to disk."""
     with open(filepath, 'w', encoding='utf-8') as f:
         json.dump(context, f, cls=AIContextEncoder, indent=2, ensure_ascii=False)

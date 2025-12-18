@@ -1,6 +1,8 @@
 
 import pytest
+
 from src.services.allocator import PortfolioAllocator
+
 
 class MockBrick(dict):
     pass
@@ -25,7 +27,7 @@ def sample_bricks():
     # Delta Apport = 1000€.
     # k = 0.006 (approx).
     # Inverse k = 166.
-    
+
     return [
         {
             "nom_bien": "B1",
@@ -48,22 +50,22 @@ def test_allocator_step_logic_coarse(allocator, sample_bricks):
     # Target +500 CF. Current -80. Gap 580.
     # Tolerance 10. Gap is 58x tolerance.
     # Should use coarse step.
-    
-    # We can't easily spy on internal variables without mocking logic, 
+
+    # We can't easily spy on internal variables without mocking logic,
     # but we can check if it converges reasonably fast or hits the target.
-    
+
     ok, details, cf_final, apport_used = allocator.allocate(
-        sample_bricks, 
+        sample_bricks,
         apport_disponible=100000.0,
         target_cf=100.0, # Target +100
         tolerance=10.0
     )
-    
+
     # We expect it to find a solution
     # Initial CF -80. Need +180 delta.
     # k approx 0.0055.
     # Delta apport needed approx 180 / 0.0055 = 32,727
-    
+
     assert ok is True
     assert abs(cf_final - 100.0) <= 10.0
     assert 30000 < apport_used < 45000
@@ -73,21 +75,21 @@ def test_allocator_precise_landing(allocator, sample_bricks):
     # Target -70 CF. Current -80. Gap 10.
     # Tolerance 1.
     # Needs very small step.
-    
+
     ok, details, cf_final, apport_used = allocator.allocate(
-        sample_bricks, 
+        sample_bricks,
         apport_disponible=50000.0,
         target_cf=-75.0, # Just 5€ boost
         tolerance=1.0
     )
-    
+
     # Delta CF 5€. k ~ 0.0055.
     # Apport needed ~ 900€.
-    # If step logic was "apport/1000" (50€ step), we might jump 0.25€ CF per step? 
+    # If step logic was "apport/1000" (50€ step), we might jump 0.25€ CF per step?
     # Wait, apport/1000 of 50k is 50€. 50€ * 0.0055 = 0.27€ CF change.
     # That is smaller than tolerance 1.0, so old logic would work here too.
     # Let's try aggressive budget.
-    
+
     assert ok is True
     assert abs(cf_final - (-75.0)) <= 1.0
 

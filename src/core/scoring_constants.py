@@ -48,7 +48,7 @@ SCORING_SCALES = {
 # Preset configurations for different investor profiles
 PRESET_WEIGHTS = {
     "Équilibré": DEFAULT_WEIGHTS,
-    
+
     "Sécurité (DSCR)": {
         "dscr": 0.40,
         "cf_proximity": 0.25,
@@ -56,7 +56,7 @@ PRESET_WEIGHTS = {
         "irr": 0.10,
         "cap_eff": 0.05,
     },
-    
+
     "Cash-flow d'abord": {
         "cf_proximity": 0.40,
         "dscr": 0.25,
@@ -64,7 +64,7 @@ PRESET_WEIGHTS = {
         "enrich_net": 0.15,
         "cap_eff": 0.05,
     },
-    
+
     "Rendement / IRR": {
         "irr": 0.40,
         "enrich_net": 0.25,
@@ -72,7 +72,7 @@ PRESET_WEIGHTS = {
         "dscr": 0.15,
         "cap_eff": 0.05,
     },
-    
+
     "Patrimoine LT": {
         "enrich_net": 0.40,
         "irr": 0.25,
@@ -85,38 +85,38 @@ PRESET_WEIGHTS = {
 
 def validate_weights(weights: dict[str, float]) -> bool:
     """Validate that weights have all required keys and sum to ~1.0.
-    
+
     Args:
         weights: Weight dictionary to validate
-        
+
     Returns:
         True if valid, raises ValueError otherwise
     """
     required_keys = set(DEFAULT_WEIGHTS.keys())
     provided_keys = set(weights.keys())
-    
+
     missing = required_keys - provided_keys
     if missing:
         raise ValueError(f"Missing weight keys: {missing}")
-    
+
     total = sum(weights.values())
     if abs(total - 1.0) > 0.01:
         raise ValueError(f"Weights must sum to 1.0, got {total:.2f}")
-    
+
     return True
 
 
 def normalize_weights(weights: dict[str, float]) -> dict[str, float]:
     """Normalize weights to sum to 1.0.
-    
+
     Args:
         weights: Raw weights (any positive values)
-        
+
     Returns:
         Normalized weights summing to 1.0
     """
     total = sum(weights.values())
     if total <= 0:
         return DEFAULT_WEIGHTS.copy()
-    
+
     return {k: v / total for k, v in weights.items()}

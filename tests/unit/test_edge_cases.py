@@ -3,32 +3,31 @@
 Tests based on QA Audit "Matrix of Pain" covering:
 - Financial calculations with extreme inputs
 - Simulation edge cases
-- Allocation edge cases  
+- Allocation edge cases
 - Optimizer edge cases
 - Scoring edge cases
 """
 
 import pytest
-import pandas as pd
 
 from src.core.financial import (
-    calculate_monthly_payment,
     calculate_insurance,
+    calculate_monthly_payment,
+    calculate_remaining_balance,
     generate_amortization_schedule,
     k_factor,
-    calculate_remaining_balance,
-)
-from src.core.simulation import (
-    SimulationEngine,
-    MarketHypotheses,
-    TaxParams,
-    IRACalculator,
 )
 from src.core.scoring import (
+    calculate_balanced_score,
     calculate_dpe_score,
     calculate_property_qualitative_score,
     calculate_qualitative_score,
-    calculate_balanced_score,
+)
+from src.core.simulation import (
+    IRACalculator,
+    MarketHypotheses,
+    SimulationEngine,
+    TaxParams,
 )
 from src.services.allocator import PortfolioAllocator
 from src.services.strategy_finder import StrategyScorer
@@ -138,7 +137,7 @@ class TestSimulationEdgeCases:
 
         with pytest.raises(ValueError) as exc_info:
             engine.simulate(strategy, 25, schedules)
-        
+
         assert "Schedule count" in str(exc_info.value)
 
     def test_dscr_populated_in_bilan(self, engine):
@@ -163,9 +162,9 @@ class TestSimulationEdgeCases:
             }]
         }
         schedules = [generate_amortization_schedule(100000, 3.6, 300, 0.35)]
-        
+
         df, bilan = engine.simulate(strategy, 25, schedules)
-        
+
         assert "dscr_y1" in bilan
         assert bilan["dscr_y1"] > 0
 
@@ -177,7 +176,7 @@ class TestAllocationEdgeCases:
         """Empty brick list should return zero allocation."""
         allocator = PortfolioAllocator(mode_cf="target")
         ok, details, cf, apport = allocator.allocate([], 50000, 0, 100)
-        
+
         assert cf == 0
         assert apport == 0
         assert len(details) == 0
@@ -195,7 +194,7 @@ class TestAllocationEdgeCases:
             "duree_pret": 25,
             "assurance_ann_pct": 0.35,
         }]
-        
+
         # Budget is only 50k but brick needs 100k
         ok, details, cf, apport = allocator.allocate(bricks, 50000, 0, 100)
         # The allocation will try but brick doesn't fit the budget constraint
@@ -203,7 +202,7 @@ class TestAllocationEdgeCases:
     def test_allocate_mode_min_accepts_above_target(self):
         """Mode 'min' should accept CF above target."""
         allocator = PortfolioAllocator(mode_cf="min")
-        
+
         # CF observed = 100, target = 50, tolerance = 25
         # In min mode: accept if CF >= (target - tolerance) = 25
         result = allocator._accept_cf(100, 50, 25)
@@ -212,7 +211,7 @@ class TestAllocationEdgeCases:
     def test_allocate_mode_target_within_tolerance(self):
         """Mode 'target' should accept CF within tolerance window."""
         allocator = PortfolioAllocator(mode_cf="target")
-        
+
         # CF = 55, target = 50, tolerance = 10
         # |55 - 50| = 5 <= 10 → accept
         result = allocator._accept_cf(55, 50, 10)
@@ -221,7 +220,7 @@ class TestAllocationEdgeCases:
     def test_allocate_mode_target_outside_tolerance(self):
         """Mode 'target' should reject CF outside tolerance window."""
         allocator = PortfolioAllocator(mode_cf="target")
-        
+
         # CF = 100, target = 50, tolerance = 10
         # |100 - 50| = 50 > 10 → reject
         result = allocator._accept_cf(100, 50, 10)
@@ -315,7 +314,7 @@ class TestOptimizerEdgeCases:
             "qual_score": 60,
         }]
         scorer.score_strategies(strategies, 100)
-        
+
         # With single value, normalization gives 0.5
         assert "finance_score" in strategies[0]
         assert "balanced_score" in strategies[0]

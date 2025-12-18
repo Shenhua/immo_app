@@ -18,7 +18,7 @@ from src.core.financial import generate_amortization_schedule
 from src.core.logging import get_logger
 from src.core.simulation import IRACalculator, MarketHypotheses, SimulationEngine, TaxParams
 from src.models.archetype import ArchetypeV2
-from src.services.brick_factory import FinancingConfig, OperatingConfig, apply_rent_caps, create_investment_bricks
+from src.services.brick_factory import FinancingConfig, OperatingConfig, create_investment_bricks
 from src.services.strategy_finder import StrategyFinder
 from src.ui.state import SessionManager
 
@@ -41,7 +41,7 @@ def load_archetypes_from_disk(data_path: str) -> list[dict[str, Any]]:
     with open(data_path, encoding="utf-8") as f:
         raw_data = json.load(f)
         archetypes = [ArchetypeV2(**item).model_dump() for item in raw_data]
-    
+
     # Validate rent caps at load time
     cap_violations = 0
     for a in archetypes:
@@ -52,10 +52,10 @@ def load_archetypes_from_disk(data_path: str) -> list[dict[str, Any]]:
                            loyer=a["loyer_m2"],
                            cap=a["loyer_m2_max"])
                 cap_violations += 1
-    
+
     if cap_violations > 0:
         log.warning("rent_cap_violations_found", count=cap_violations)
-    
+
     log.info("archetypes_loaded_from_disk", count=len(archetypes))
     return archetypes
 
@@ -187,7 +187,7 @@ def run_strategy_search(
 
     # Allow use_full_capital from params
     use_full = eval_params.get("use_full_capital", False)
-    
+
     strategies = finder.find_strategies(
         eval_params=eval_params,
         horizon_years=horizon_years,
@@ -201,7 +201,7 @@ def run_strategy_search(
     # Phase 19: Automatic Debug Context
     try:
         from src.utils.debug import collect_debug_context, save_debug_context
-        
+
         ctx_params = {
             "apport": apport,
             "cf_cible": cf_cible,
@@ -212,7 +212,7 @@ def run_strategy_search(
             "top_n": top_n,
             "eval_params": eval_params,
         }
-        
+
         ctx = collect_debug_context(
             params=ctx_params,
             strategies=strategies,

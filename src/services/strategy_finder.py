@@ -6,15 +6,14 @@ Provides combination generation, scoring, and ranking.
 
 from __future__ import annotations
 
-import itertools
-from dataclasses import dataclass, field
 import math
+from dataclasses import dataclass, field
 from math import isfinite
-from typing import Any, Dict
+from typing import Any
 
 from src.core.logging import get_logger
 from src.services.allocator import PortfolioAllocator
-from src.services.optimizer import GeneticOptimizer, ExhaustiveOptimizer
+from src.services.optimizer import ExhaustiveOptimizer, GeneticOptimizer
 
 log = get_logger(__name__)
 
@@ -165,7 +164,7 @@ class CombinationGenerator:
 
         This uses recursive branch-and-bound to prune infeasible branches early,
         dramatically reducing the search space for large property counts.
-        
+
         Key optimizations:
         - Pre-filter bricks individually exceeding budget
         - Sort by cost ascending for better pruning
@@ -174,69 +173,69 @@ class CombinationGenerator:
         """
         # Pre-filter unaffordable bricks
         affordable_bricks = [b for b in bricks if b.get("apport_min", 0.0) <= apport_disponible]
-        
+
         if len(affordable_bricks) < len(bricks):
-            log.debug("pruning_unaffordable_bricks", 
-                     original=len(bricks), 
+            log.debug("pruning_unaffordable_bricks",
+                     original=len(bricks),
                      remaining=len(affordable_bricks))
-        
+
         if not affordable_bricks:
             log.info("no_affordable_bricks", budget=apport_disponible)
             return []
-        
+
         # Sort by cost ASCENDING for better branch-and-bound pruning
         # (low-cost bricks first means we can add more before hitting budget)
         sorted_bricks = sorted(affordable_bricks, key=lambda b: b.get("apport_min", 0.0))
-        
+
         combos = []
         visited_count = [0]  # Use list for mutable in nested function
         pruned_count = [0]
-        
+
         def _enumerate(start_idx: int, current_combo: list, current_cost: float, used_names: set):
             """Recursive bounded enumeration."""
             # Valid combo if non-empty
             if current_combo:
                 combos.append(tuple(current_combo))
-            
+
             # Stop if max properties reached
             if len(current_combo) >= self.max_properties:
                 return
-            
+
             # Try adding each remaining brick
             for i in range(start_idx, len(sorted_bricks)):
                 brick = sorted_bricks[i]
                 brick_cost = brick.get("apport_min", 0.0)
                 brick_name = brick.get("nom_bien", "")
-                
+
                 visited_count[0] += 1
-                
+
                 # Pruning 1: Budget exceeded - stop this branch entirely
                 # Since bricks are sorted by cost, all subsequent bricks cost >= this one
                 if current_cost + brick_cost > apport_disponible:
                     pruned_count[0] += len(sorted_bricks) - i
                     break  # No point checking more expensive bricks
-                
+
                 # Pruning 2: Skip duplicate property names within combo
                 if brick_name in used_names:
                     continue
-                
+
                 # Add brick and recurse
                 current_combo.append(brick)
                 used_names.add(brick_name)
-                
+
                 _enumerate(i + 1, current_combo, current_cost + brick_cost, used_names)
-                
+
                 # Backtrack
                 current_combo.pop()
                 used_names.remove(brick_name)
-        
+
         # Start enumeration
         _enumerate(0, [], 0.0, set())
-        
-        log.info("combos_generated", 
-                count=len(combos), 
-                max_props=self.max_properties, 
-                budget=apport_disponible, 
+
+        log.info("combos_generated",
+                count=len(combos),
+                max_props=self.max_properties,
+                budget=apport_disponible,
                 visited=visited_count[0],
                 pruned=pruned_count[0])
 
@@ -285,14 +284,12 @@ class StrategyFinder:
         2. Allocate capital
         3. Simulate financial performance
         4. Score and rank
-        
+
         Args:
             progress_callback: Optional callback function(SearchProgress) for UI updates
         """
         # Dependencies
-        from src.core.financial import generate_amortization_schedule
         from src.core.simulation import IRACalculator, MarketHypotheses, SimulationEngine, TaxParams
-        from src.services.allocator import PortfolioAllocator
 
         # 1. Setup
         ep = EvaluationParams.from_dict(eval_params or {})
@@ -328,15 +325,15 @@ class StrategyFinder:
         from src.services.brick_factory import validate_bricks
         validation_warnings = validate_bricks(self.bricks)
         if validation_warnings:
-            log.warning("brick_validation_warnings", count=len(validation_warnings), 
+            log.warning("brick_validation_warnings", count=len(validation_warnings),
                         first_warning=validation_warnings[0] if validation_warnings else None)
 
         log.info("strategy_search_started",
                  brick_count=len(self.bricks),
                  apport=self.apport_disponible)
-        
+
         # Report Phase 1: Brick generation (already done in __init__)
-        from src.ui.progress import SearchProgress, SearchPhase
+        from src.ui.progress import SearchPhase, SearchProgress
         if progress_callback:
             progress_callback(SearchProgress(
                 phase=SearchPhase.BRICK_GENERATION,
@@ -350,26 +347,26 @@ class StrategyFinder:
         # Check problem size to decide between Brute Force (Exhaustive) and Genetic Algorithm
         n_bricks = len(self.bricks)
         max_k = self.max_properties
-        
+
         total_combinations = 0
         for k in range(1, max_k + 1):
             total_combinations += math.comb(n_bricks, k)
-            
+
         # Threshold: With smart bounded enumeration, exhaustive is now efficient
         # for most realistic scenarios. Set very high to prefer exhaustive.
         # The actual number of evaluated combos will be much lower due to pruning.
         THRESHOLD_EXHAUSTIVE = 100_000_000  # 100M - effectively always exhaustive
-        
+
         strategies = []
-        
+
         # Always use exhaustive with smart pruning (GA removed)
         if True:  # Was: total_combinations < THRESHOLD_EXHAUSTIVE
             # --- EXHAUSTIVE MODE (v1 Fidelity) ---
-            log.info("hybrid_solver_selected", 
-                     mode="EXHAUSTIVE", 
-                     combos=total_combinations, 
+            log.info("hybrid_solver_selected",
+                     mode="EXHAUSTIVE",
+                     combos=total_combinations,
                      threshold=THRESHOLD_EXHAUSTIVE)
-            
+
             # Report Phase 2: Combination generation
             if progress_callback:
                 progress_callback(SearchProgress(
@@ -377,13 +374,13 @@ class StrategyFinder:
                     phase_index=2,
                     message="Génération des combinaisons..."
                 ))
-            
+
             optimizer = ExhaustiveOptimizer(
                 allocator=allocator,
                 simulator=engine,
                 scorer=self.scorer
             )
-            
+
             strategies = optimizer.solve(
                 all_bricks=self.bricks,
                 budget=self.apport_disponible,
@@ -394,7 +391,7 @@ class StrategyFinder:
                 max_props=self.max_properties,
                 progress_callback=progress_callback
             )
-            
+
         else:
             # --- GENETIC MODE (v2 Scalability) ---
             # Adaptive GA parameters based on search space size
@@ -411,14 +408,14 @@ class StrategyFinder:
                 pop_size = 100
                 generations = 30
                 elite_size = 10
-                
-            log.info("hybrid_solver_selected", 
-                     mode="GENETIC", 
-                     combos=total_combinations, 
+
+            log.info("hybrid_solver_selected",
+                     mode="GENETIC",
+                     combos=total_combinations,
                      threshold=THRESHOLD_EXHAUSTIVE,
                      pop_size=pop_size,
                      generations=generations)
-                     
+
             optimizer = GeneticOptimizer(
                 population_size=pop_size,
                 generations=generations,
@@ -428,25 +425,25 @@ class StrategyFinder:
                 simulator=engine,
                 scorer=self.scorer
             )
-            
+
             # Phase 17 Review: Deep Diversity
             # Request larger pool for dedupe
             pool_size = max(500, top_n * 5)
-            
+
             strategies = optimizer.evolve(
                 all_bricks=self.bricks,
                 budget=self.apport_disponible,
                 target_cf=self.cash_flow_cible,
                 tolerance=self.tolerance,
                 horizon=horizon_years,
-                top_n=pool_size 
+                top_n=pool_size
             )
-            
+
         log.info("optimization_finished", count=len(strategies))
 
         # Guard against empty results from optimizer
         if not strategies:
-            log.warning("no_strategies_found", 
+            log.warning("no_strategies_found",
                         reason="optimizer_returned_empty",
                         brick_count=len(self.bricks),
                         budget=self.apport_disponible)
@@ -461,7 +458,7 @@ class StrategyFinder:
                 items_total=len(strategies),
                 message="Scoring et classement..."
             ))
-        
+
         # We re-run relative scoring on the "Elite" set to populate UI-friendly normalized fields (A-score, etc.)
         self.scorer.score_strategies(strategies, self.cash_flow_cible)
 
@@ -486,19 +483,19 @@ class StrategyFinder:
 
         # Sort by tier then fitness (best first within each tier)
         strategies.sort(key=lambda x: (x.get("tier", 3), -x.get("fitness", 0)))
-        
+
         # Log tier distribution
         tier_counts = {1: 0, 2: 0, 3: 0}
         for s in strategies:
             tier_counts[s.get("tier", 3)] = tier_counts.get(s.get("tier", 3), 0) + 1
         log.info("strategy_tiers", tier_1=tier_counts[1], tier_2=tier_counts[2], tier_3=tier_counts[3])
-        
+
         # STRICT FILTER: Remove Tier 3 ("Difficile") strategies
         # User Feedback: "remove results that are totally out of scope"
         # We only keep Tier 1 (Feasible) and Tier 2 (Near-Feasible, within 3x tolerance)
         pre_filter_count = len(strategies)
         strategies = [s for s in strategies if s.get("tier", 3) < 3]
-        
+
         # Log when all strategies were filtered
         if not strategies and pre_filter_count > 0:
             log.warning("all_strategies_infeasible",
@@ -506,7 +503,7 @@ class StrategyFinder:
                         target_cf=self.cash_flow_cible,
                         tolerance=self.tolerance,
                         hint="Consider relaxing tolerance or adjusting cash flow target")
-        
+
         # Dedupe (preserving tier order)
         # Report Phase 5: Deduplication
         if progress_callback:
@@ -516,7 +513,7 @@ class StrategyFinder:
                 items_total=len(strategies),
                 message="Déduplication et filtrage..."
             ))
-        
+
         strategies = self.dedupe_strategies(strategies, top_n=top_n)
 
         # Apply Pareto Filter (v1 Logic) to clean up dominated strategies
@@ -552,7 +549,7 @@ class StrategyFinder:
 
     def dedupe_strategies(self, strategies: list[dict[str, Any]], top_n: int = 10) -> list[dict[str, Any]]:
         """Remove near-duplicate strategies.
-        
+
         Groups by property signature and keeps best per group.
         Labels variations explicitly for UI clarity.
         """
@@ -576,46 +573,46 @@ class StrategyFinder:
         # This forces the result list to be composed of DISTINCT strategies.
         # If we want 50 results, we must find 50 distinct property combinations.
         final_list = []
-        
-        for sig, items in grouped.items():
+
+        for _sig, items in grouped.items():
             # Keep only the absolute best (index 0)
             best_item = items[0]
             final_list.append(best_item)
 
         # Re-sort final list by tier then score
         final_list.sort(key=lambda x: (x.get("tier", 3), -x.get("balanced_score", 0)))
-        
+
         return final_list
 
     def _pareto_filter(self, strategies: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Filter out dominated strategies (Pareto Efficiency).
-        
-        A strategy A dominates B if A is better or equal in all metrics 
+
+        A strategy A dominates B if A is better or equal in all metrics
         and strictly better in at least one.
-        Metrics checked: 
+        Metrics checked:
         - Cash Flow (Higher is better, unless target... assuming general 'wealth' for now)
           Actually for Pareto we care about: Yield vs Risk vs Cost.
-          Simple v1 Pareto: 
+          Simple v1 Pareto:
           - Cost (Lower is better)
           - CashFlow (Higher is better)
           - Yield (Higher is better)
         """
         # Sort by cost ascending to make comparison easier
         sorted_s = sorted(strategies, key=lambda x: x.get("apport_total", 0))
-        
+
         keep = []
-        
+
         for cand in sorted_s:
             dominated = False
             c_cost = cand.get("apport_total", 0)
             c_cf = cand.get("cash_flow_final", 0)
             c_tri = cand.get("tri_annuel", 0)
-            
+
             for exist in keep:
                 e_cost = exist.get("apport_total", 0)
                 e_cf = exist.get("cash_flow_final", 0)
                 e_tri = exist.get("tri_annuel", 0)
-                
+
                 # Check if 'exist' dominates 'cand'
                 # Exist costs less/equal AND has better/equal CF AND better/equal TRI
                 if (e_cost <= c_cost) and (e_cf >= c_cf) and (e_tri >= c_tri):
@@ -623,10 +620,10 @@ class StrategyFinder:
                     if (e_cost < c_cost) or (e_cf > c_cf) or (e_tri > c_tri):
                         dominated = True
                         break
-            
+
             if not dominated:
                 keep.append(cand)
-                
+
         return keep
 
     def rank_strategies(
@@ -650,7 +647,7 @@ class StrategyFinder:
             # Tier 1 (Best) > Tier 3 (Worst).
             # So we use negative tier: -1 > -3.
             tier_score = -x.get("tier", 3)
-            
+
             # CF proximity as final tiebreaker (higher is better)
             cf_prox = x.get("cf_proximity", 0)
             finance = x.get("finance_score", 0)

@@ -85,30 +85,30 @@ def _generate_schedule_cached(
     annual_insurance_pct: float,
 ) -> tuple[tuple[float, ...], tuple[float, ...], tuple[float, ...], float, float]:
     """Cacheable internal function for amortization schedule core data.
-    
+
     Returns tuple of (interets, principals, balances, pmt_assur, pmt_total).
     """
     if principal <= 0 or duration_months <= 0:
         return ((), (), (), 0.0, 0.0)
-    
+
     monthly_rate = (annual_rate_pct / 100.0) / 12.0
     pmt_pi = calculate_monthly_payment(principal, annual_rate_pct, duration_months)
     pmt_ins = calculate_insurance(principal, annual_insurance_pct)
-    
+
     interets = []
     principals = []
     balances = []
     balance = principal
-    
+
     for _ in range(duration_months):
         interest = balance * monthly_rate
         principal_payment = pmt_pi - interest
         balance = max(0.0, balance - principal_payment)
-        
+
         interets.append(round(interest, 2))
         principals.append(round(principal_payment, 2))
         balances.append(round(balance, 2))
-    
+
     return (tuple(interets), tuple(principals), tuple(balances), pmt_ins, pmt_pi + pmt_ins)
 
 
@@ -128,7 +128,7 @@ def generate_amortization_schedule(
 
     Returns:
         Dict with schedule data and legacy aliases.
-        
+
     Note:
         Uses internal caching for ~30% performance improvement on repeated calls.
     """
@@ -148,16 +148,16 @@ def generate_amortization_schedule(
             "balances": [],
             "nmois": 0,
         }
-    
+
     # Use cached core calculation
     interets, principals, balances, pmt_ins, pmt_total = _generate_schedule_cached(
         principal, annual_rate_pct, duration_months, annual_insurance_pct
     )
-    
+
     # Build full schedule from cached data
     n = duration_months
-    pmt_pi = pmt_total - pmt_ins
-    
+    pmt_total - pmt_ins
+
     return {
         "mois": list(range(1, n + 1)),
         "capital_restant_debut": [principal] + list(balances[:-1]) if balances else [],
