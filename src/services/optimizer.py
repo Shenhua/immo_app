@@ -446,20 +446,70 @@ class GeneticOptimizer:
 class ExhaustiveOptimizer:
     """
     Deterministic Brute Force Optimizer for small search spaces.
-    Ported from v1 'itertools.combinations' logic.
+    Uses parallel processing for large search spaces.
     """
+    
+    # Threshold for enabling parallel processing
+    PARALLEL_THRESHOLD = 5000  # Use parallel if > 5K combos
+    
     def __init__(
         self,
         allocator: PortfolioAllocator,
         simulator: SimulationEngine,
         scorer: Any,
+        n_workers: int = None,  # None = auto-detect CPU count
     ):
         self.allocator = allocator
         self.simulator = simulator
         self.scorer = scorer
+        self.n_workers = n_workers
         
         # Create evaluator for shared evaluation logic
         self.evaluator = StrategyEvaluator(simulator, allocator, scorer)
+    
+    def _evaluate_combo(
+        self,
+        combo: tuple,
+        budget: float,
+        target_cf: float,
+        tolerance: float,
+        horizon: int
+    ) -> Dict[str, Any] | None:
+        """Evaluate a single combination. Returns strategy dict or None if invalid."""
+        # 1. Allocation
+        ok, details, cf_final, apport_used = self.allocator.allocate(
+            list(combo), budget, target_cf, tolerance
+        )
+        
+        if not ok:
+            return None
+        
+        # 2. Evaluate with StrategyEvaluator
+        strategy = {
+            "details": details,
+            "apport_total": apport_used,
+            "cash_flow_final": cf_final,
+            "allocation_ok": ok
+        }
+        
+        is_valid, metrics = self.evaluator.evaluate(strategy, target_cf, tolerance, horizon)
+        
+        if "error" in metrics:
+            return None
+        
+        # Merge metrics
+        strategy["liquidation_nette"] = metrics.get("liquidation_nette", 0.0)
+        strategy["enrich_net"] = metrics.get("enrich_net", 0.0)
+        strategy["tri_annuel"] = metrics.get("tri_annuel", 0.0)
+        strategy["tri_global"] = metrics.get("tri_annuel", 0.0)
+        strategy["dscr_y1"] = metrics.get("dscr_y1", 0.0)
+        strategy["cf_monthly_y1"] = metrics.get("cf_monthly_y1", 0.0)
+        strategy["cf_monthly_avg"] = metrics.get("cf_monthly_avg", 0.0)
+        strategy["is_acceptable"] = metrics.get("is_acceptable", False)
+        strategy["fitness"] = metrics.get("fitness", 0.01)
+        strategy["qual_score"] = metrics.get("qual_score", 50.0)
+        
+        return strategy
     
     def solve(
         self,
@@ -471,7 +521,7 @@ class ExhaustiveOptimizer:
         max_combinations: int = 500000,
         max_props: int = 3
     ) -> List[Dict[str, Any]]:
-        """Run exhaustive search using smart bounded enumeration."""
+        """Run exhaustive search using smart bounded enumeration with parallel processing."""
         
         # Use CombinationGenerator with budget-aware pruning
         from src.services.strategy_finder import CombinationGenerator
@@ -479,49 +529,94 @@ class ExhaustiveOptimizer:
         combo_gen = CombinationGenerator(max_properties=max_props)
         combos = combo_gen.generate(all_bricks, budget)
         
+        n_combos = len(combos)
+        
         log.info("exhaustive_search_started", 
                  bricks=len(all_bricks), 
                  max_props=max_props,
-                 combos_after_pruning=len(combos))
+                 combos_after_pruning=n_combos)
         
+        # Decide between sequential and parallel
+        use_parallel = n_combos > self.PARALLEL_THRESHOLD
+        
+        if use_parallel:
+            candidates = self._solve_parallel(combos, budget, target_cf, tolerance, horizon)
+        else:
+            candidates = self._solve_sequential(combos, budget, target_cf, tolerance, horizon)
+        
+        log.info("exhaustive_search_finished", found=len(candidates))
+        return candidates
+    
+    def _solve_sequential(
+        self,
+        combos: List[tuple],
+        budget: float,
+        target_cf: float,
+        tolerance: float,
+        horizon: int
+    ) -> List[Dict[str, Any]]:
+        """Sequential evaluation for small search spaces."""
         candidates = []
         
         for combo in combos:
-            # 1. Allocation (Exhaustive-specific step)
-            ok, details, cf_final, apport_used = self.allocator.allocate(
-                list(combo), budget, target_cf, tolerance
-            )
+            result = self._evaluate_combo(combo, budget, target_cf, tolerance, horizon)
+            if result is not None:
+                candidates.append(result)
+        
+        return candidates
+    
+    def _solve_parallel(
+        self,
+        combos: List[tuple],
+        budget: float,
+        target_cf: float,
+        tolerance: float,
+        horizon: int
+    ) -> List[Dict[str, Any]]:
+        """Parallel evaluation for large search spaces using ThreadPoolExecutor.
+        
+        Uses threading for parallel processing. While GIL limits true parallelism,
+        this still provides speedup for I/O-bound operations.
+        """
+        import concurrent.futures
+        import os
+        
+        n_workers = self.n_workers or min(8, (os.cpu_count() or 4))
+        
+        log.info("parallel_processing_started", 
+                 workers=n_workers, 
+                 combos=len(combos),
+                 mode="threaded")
+        
+        candidates = []
+        
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=n_workers) as executor:
+                # Submit all combos for evaluation
+                future_to_combo = {
+                    executor.submit(
+                        self._evaluate_combo, 
+                        combo, budget, target_cf, tolerance, horizon
+                    ): combo
+                    for combo in combos
+                }
+                
+                # Collect results as they complete
+                for future in concurrent.futures.as_completed(future_to_combo):
+                    try:
+                        result = future.result()
+                        if result is not None:
+                            candidates.append(result)
+                    except Exception as e:
+                        log.warning("combo_evaluation_failed", error=str(e))
+                        continue
             
-            # Skip if allocation completely failed
-            if not ok:
-                continue
+            log.info("parallel_processing_finished", found=len(candidates))
             
-            # 2. Use StrategyEvaluator for simulation and scoring
-            strategy = {
-                "details": details,
-                "apport_total": apport_used,
-                "cash_flow_final": cf_final,
-                "allocation_ok": ok
-            }
-            
-            is_valid, metrics = self.evaluator.evaluate(strategy, target_cf, tolerance, horizon)
-            
-            if "error" in metrics:
-                continue
-            
-            # Merge metrics into strategy dict
-            strategy["liquidation_nette"] = metrics.get("liquidation_nette", 0.0)
-            strategy["enrich_net"] = metrics.get("enrich_net", 0.0)
-            strategy["tri_annuel"] = metrics.get("tri_annuel", 0.0)
-            strategy["tri_global"] = metrics.get("tri_annuel", 0.0)
-            strategy["dscr_y1"] = metrics.get("dscr_y1", 0.0)
-            strategy["cf_monthly_y1"] = metrics.get("cf_monthly_y1", 0.0)
-            strategy["cf_monthly_avg"] = metrics.get("cf_monthly_avg", 0.0)
-            strategy["is_acceptable"] = metrics.get("is_acceptable", False)
-            strategy["fitness"] = metrics.get("fitness", 0.01)
-            strategy["qual_score"] = metrics.get("qual_score", 50.0)
-            
-            candidates.append(strategy)
-
-        log.info("exhaustive_search_finished", found=len(candidates))
+        except Exception as e:
+            log.warning("parallel_processing_error", error=str(e))
+            # Fallback to sequential
+            log.info("falling_back_to_sequential")
+            return self._solve_sequential(combos, budget, target_cf, tolerance, horizon)
+        
         return candidates
