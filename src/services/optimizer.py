@@ -192,56 +192,7 @@ class GeneticOptimizer:
         ind.is_valid = True
         ind.stats["qual_score"] = metrics.get("qual_score", 50.0)
 
-    def _calculate_absolute_finance_score(self, bilan: dict, cf_metrics: dict, target_cf: float, tolerance: float) -> float:
-        """
-        Calculate finance score (0.0 to 1.0) using constant absolute scales.
-        Implements Expert Report "Absolute Scales" recommendation.
-        Respects user-defined weights from StrategyScorer (Phase 15).
-        """
-        w = self.scorer.weights if self.scorer else {
-            "enrich_net": 0.30, "irr": 0.25, "cf_proximity": 0.20, "dscr": 0.15, "cap_eff": 0.10
-        }
 
-        # 1. TRI (Internal Rate of Return)
-        # Target: > 20% is excellent (1.0). Old cap (10%) hid unicorn deals (Phase 14.3).
-        tri = bilan.get("tri_annuel", 0.0)
-        s_tri = max(0.0, min(1.0, tri / 20.0))
-
-        # 2. Enrichment (ROE bias for Empire/Growth)
-        # Target: 2.0x (doubling equity) over horizon is good baseline.
-        enrich = bilan.get("enrichissement_net", 0.0)
-        apport_total = cf_metrics.get("apport_total", 1.0)
-        if apport_total < 1.0:
-            apport_total = 1.0
-
-        roe = enrich / apport_total
-        s_enrich = max(0.0, min(1.0, roe / 2.0))
-
-        # 3. DSCR
-        # Target: 1.3 is safe (1.0). Old (1.5) was too banking-conservative (Phase 14.2).
-        dscr = float(bilan.get("dscr_y1", 0.0) or 0.0)
-        s_dscr = max(0.0, min(1.0, dscr / 1.3))
-
-        # 4. Cashflow Proximity (Dynamic Tolerance)
-        # Score = 1.0 at gap=0. Score = 0.5 at gap=tolerance. Score = 0 at gap=2*tolerance.
-        # This respects strict user tolerance settings (Phase 14.1).
-        gap = cf_metrics["gap"]
-
-        # Use provided tolerance, default to 100 if missing/zero
-        safe_tol = tolerance if tolerance > 1.0 else 100.0
-        s_cf = max(0.0, 1.0 - (gap / (safe_tol * 2.0)))
-
-        # Weighted average using User Weights (Phase 15.2)
-        # StrategyScorer keys map: "irr"->s_tri, "enrich_net"->s_enrich
-        # "dscr"->s_dscr, "cf_proximity"->s_cf
-
-        score = (
-            w.get("irr", 0.25) * s_tri +
-            w.get("enrich_net", 0.30) * s_enrich +
-            w.get("dscr", 0.15) * s_dscr +
-            w.get("cf_proximity", 0.20) * s_cf
-        )
-        return score
 
     def _individual_to_strategy(self, ind: Individual) -> dict[str, Any]:
         """Convert Individual to Strategy dict format."""

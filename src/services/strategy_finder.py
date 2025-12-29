@@ -359,8 +359,8 @@ class StrategyFinder:
 
         strategies = []
 
-        # Always use exhaustive with smart pruning (GA removed)
-        if True:  # Was: total_combinations < THRESHOLD_EXHAUSTIVE
+        # Hybrid Solver Selection
+        if total_combinations < THRESHOLD_EXHAUSTIVE:
             # --- EXHAUSTIVE MODE (v1 Fidelity) ---
             log.info("hybrid_solver_selected",
                      mode="EXHAUSTIVE",
