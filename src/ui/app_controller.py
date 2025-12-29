@@ -18,7 +18,12 @@ from src.core.financial import generate_amortization_schedule
 from src.core.logging import get_logger
 from src.core.simulation import IRACalculator, MarketHypotheses, SimulationEngine, TaxParams
 from src.models.archetype import ArchetypeV2
-from src.services.brick_factory import FinancingConfig, OperatingConfig, create_investment_bricks
+from src.services.brick_factory import (
+    FinancingConfig,
+    OperatingConfig,
+    apply_rent_caps,
+    create_investment_bricks,
+)
 from src.services.strategy_finder import StrategyFinder
 from src.ui.state import SessionManager
 
