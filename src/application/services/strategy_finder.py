@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from math import isfinite
-from typing import Any, Union
+from typing import Any, Sequence, Union
 
 from src.core.logging import get_logger
 from src.domain.models.brick import InvestmentBrick
@@ -382,7 +382,7 @@ class StrategyFinder:
                     message="Génération des combinaisons..."
                 ))
 
-            optimizer = ExhaustiveOptimizer(
+            optimizer: Union[ExhaustiveOptimizer, GeneticOptimizer] = ExhaustiveOptimizer(
                 allocator=allocator,
                 simulator=engine,
                 scorer=self.scorer

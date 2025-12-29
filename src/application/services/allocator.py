@@ -7,7 +7,7 @@ Converted from legacy `allouer_apport_pour_cf`.
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import Any, Union
 
 from src.domain.models.brick import InvestmentBrick
 from src.domain.calculator.financial import calculate_total_monthly_payment, k_factor
@@ -77,7 +77,7 @@ class PortfolioAllocator:
             return True, [], 0.0, 0.0
 
         # Initial setup: minimal apport
-        biens = []
+        biens: list[dict[str, Any]] = []
         for b in bricks:
             # Setup initial state with minimum apport
             if hasattr(b, "model_dump"):
