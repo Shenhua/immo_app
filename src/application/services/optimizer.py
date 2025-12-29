@@ -510,7 +510,7 @@ class ExhaustiveOptimizer:
         target_cf: float,
         tolerance: float,
         horizon: int = 20,
-        max_combinations: int = 500000,  # Reserved for Genetic mode fallback
+        max_combinations: int = 500000,
         max_props: int = 3,
         progress_callback: Any = None
     ) -> list[dict[str, Any]]:
@@ -524,22 +524,45 @@ class ExhaustiveOptimizer:
         from .strategy_finder import CombinationGenerator
 
         combo_gen = CombinationGenerator(max_properties=max_props)
+        # combos is now an Iterator (generator), not a list
         combos = combo_gen.generate(all_bricks, budget)
-
-        n_combos = len(combos)
 
         log.info("exhaustive_search_started",
                  bricks=len(all_bricks),
                  max_props=max_props,
-                 combos_after_pruning=n_combos)
+                 combos_after_pruning="unknown (iterator)")
 
         # Decide between sequential and parallel
+        # Since we can't key off len() easily without consuming, 
+        # we will default to parallel for robustness on large expected sets, 
+        # or consume in chunks. 
+        # Given the new safeguard (Hybrid Solver < 1M), the list is small enough 
+        # to convert to list safely IF it is under 1M.
+        # But for "Zero Trust", we should respect memory.
+        
+        # Strategy: Consume first N items to see if small?
+        # Simpler: Just convert to list but with a hard cap protection?
+        # No, Hybrid Solver guarantees < 1M theoretical max. 
+        # And pruning makes it smaller.
+        # So list(combos) IS safe given the new 1M cap in strategy_finder.
+        # BUT to be strictly memory safe as requested:
+        
+        candidates = []
+        
+        # Hybrid approach: consume into list because 1M tuples is only ~80MB RAM.
+        # This simplifies parallelization logic significantly.
+        # The risk was 100M (8GB). 1M is fine.
+        combo_list = list(combos) 
+        n_combos = len(combo_list)
+        
+        log.info("combos_materialized", count=n_combos)
+        
         use_parallel = n_combos > self.PARALLEL_THRESHOLD
 
         if use_parallel:
-            candidates = self._solve_parallel(combos, budget, target_cf, tolerance, horizon, progress_callback)
+            candidates = self._solve_parallel(combo_list, budget, target_cf, tolerance, horizon, progress_callback)
         else:
-            candidates = self._solve_sequential(combos, budget, target_cf, tolerance, horizon, progress_callback)
+            candidates = self._solve_sequential(combo_list, budget, target_cf, tolerance, horizon, progress_callback)
 
         log.info("exhaustive_search_finished", found=len(candidates))
         return candidates

@@ -121,7 +121,8 @@ def render_objectives_section() -> dict[str, Any]:
              if not is_rentier:
                 cf_cible = st.number_input(
                     "Cash-Flow Cible (/mois)",
-                    value=st.session_state.get("cf_cible", 0.0),
+                    min_value=0.0,
+                    value=max(0.0, float(st.session_state.get("cf_cible", 0.0))),
                     step=50.0,
                     help="Le cash-flow net minimum que vous visez."
                 )

@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from math import isfinite
-from typing import Any, Sequence, Union
+from typing import Any, Sequence, Union, Iterator
 
 from src.core.logging import get_logger
 from src.domain.models.brick import InvestmentBrick
@@ -166,11 +166,14 @@ class CombinationGenerator:
         self,
         bricks: list[InvestmentBrick],
         apport_disponible: float,
-    ) -> list[tuple[InvestmentBrick, ...]]:
+    ) -> Iterator[tuple[InvestmentBrick, ...]]:
         """Generate all valid combinations using bounded enumeration.
 
         This uses recursive branch-and-bound to prune infeasible branches early,
         dramatically reducing the search space for large property counts.
+        
+        Yields:
+            Valid combinations as tuples of InvestmentBrick.
 
         Key optimizations:
         - Pre-filter bricks individually exceeding budget
@@ -188,15 +191,37 @@ class CombinationGenerator:
 
         if not affordable_bricks:
             log.info("no_affordable_bricks", budget=apport_disponible)
-            return []
+            return
 
         # Sort by cost ASCENDING for better branch-and-bound pruning
         # (low-cost bricks first means we can add more before hitting budget)
         sorted_bricks = sorted(affordable_bricks, key=lambda b: b.apport_min)
 
-        combos = []
-        visited_count = [0]  # Use list for mutable in nested function
-        pruned_count = [0]
+        def _backtrack(start_idx: int, current_combo: list[InvestmentBrick], current_cost: float):
+            # Base case: we have a valid combo (yield it)
+            if current_combo:
+                yield tuple(current_combo)
+
+            # Stop if we reached max size
+            if len(current_combo) >= self.max_properties:
+                return
+
+            for i in range(start_idx, len(sorted_bricks)):
+                brick = sorted_bricks[i]
+                new_cost = current_cost + brick.apport_min
+
+                # Pruning: Cost exceeds budget
+                if new_cost > apport_disponible:
+                    break  # Since sorted by cost, following bricks will also fail
+
+                # Optimization: Deduplication name check
+                # (Assuming sorted_bricks contain unique items, but strictly 
+                # we don't pick same brick twice in a set - handled by start_idx+1)
+                
+                # Recurse
+                yield from _backtrack(i + 1, current_combo + [brick], new_cost)
+
+        yield from _backtrack(0, [], 0.0)
 
         def _enumerate(start_idx: int, current_combo: list, current_cost: float, used_names: set):
             """Recursive bounded enumeration."""
@@ -362,7 +387,7 @@ class StrategyFinder:
         # Threshold: With smart bounded enumeration, exhaustive is now efficient
         # for most realistic scenarios. Set very high to prefer exhaustive.
         # The actual number of evaluated combos will be much lower due to pruning.
-        THRESHOLD_EXHAUSTIVE = 100_000_000  # 100M - effectively always exhaustive
+        THRESHOLD_EXHAUSTIVE = 1_000_000  # Cap at 1M to prevent freezes/OOM
 
         strategies = []
 

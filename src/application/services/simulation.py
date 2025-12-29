@@ -162,6 +162,13 @@ class SimulationEngine:
         self.ira = ira
         self.cfe_par_bien_ann = cfe_par_bien_ann
         self.frais_vente_pct = frais_vente_pct
+        self.frais_vente_pct = frais_vente_pct
+        
+        if amort_immo_years <= 0:
+            raise ValueError("amort_immo_years must be > 0 to avoid division by zero")
+        if amort_mobilier_years <= 0:
+            raise ValueError("amort_mobilier_years must be > 0 to avoid division by zero")
+
         self.amort_immo_years = amort_immo_years
         self.amort_mobilier_years = amort_mobilier_years
 
