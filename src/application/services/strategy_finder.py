@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from math import isfinite
-from typing import Any
+from typing import Any, Union
 
 from src.core.logging import get_logger
 from src.domain.models.brick import InvestmentBrick
@@ -53,7 +53,11 @@ class EvaluationParams:
     def from_dict(cls, d: dict[str, Any]) -> EvaluationParams:
         return cls(
             duree_simulation_ans=d.get("duree_simulation_ans", 25),
-            hypotheses_marche=d.get("hypotheses_marche", cls.__dataclass_fields__["hypotheses_marche"].default_factory()),
+            hypotheses_marche=d.get("hypotheses_marche") or {
+                "appreciation_bien_pct": 2.0,
+                "revalo_loyer_pct": 1.5,
+                "inflation_charges_pct": 2.0,
+            },
             regime_fiscal=d.get("regime_fiscal", "lmnp"),
             tmi_pct=d.get("tmi_pct", 30.0),
             frais_vente_pct=d.get("frais_vente_pct", 6.0),
@@ -105,18 +109,19 @@ class StrategyScorer:
     def compute_finance_score(self, strategy: dict[str, Any]) -> float:
         """Compute weighted finance score for a single strategy."""
         w = self.weights
-        return (
-            w.get("enrich_net", 0.0) * strategy.get("enrich_norm", 0.0) +
-            w.get("irr", 0.0) * strategy.get("tri_norm", 0.0) +
-            w.get("cap_eff", 0.0) * strategy.get("cap_eff_norm", 0.0) +
-            w.get("dscr", 0.0) * strategy.get("dscr_norm", 0.0) +
-            w.get("cf_proximity", 0.0) * strategy.get("cf_proximity", 0.0)
+        score: float = (
+            w.get("enrich_net", 0.0) * float(strategy.get("enrich_norm", 0.0)) +
+            w.get("irr", 0.0) * float(strategy.get("tri_norm", 0.0)) +
+            w.get("cap_eff", 0.0) * float(strategy.get("cap_eff_norm", 0.0)) +
+            w.get("dscr", 0.0) * float(strategy.get("dscr_norm", 0.0)) +
+            w.get("cf_proximity", 0.0) * float(strategy.get("cf_proximity", 0.0))
         )
+        return score
 
     def compute_balanced_score(self, strategy: dict[str, Any]) -> float:
         """Combine finance and quality scores."""
-        fin = strategy.get("finance_score", 0.0)
-        qual = strategy.get("qual_score", 50.0) / 100.0
+        fin = float(strategy.get("finance_score", 0.0))
+        qual = float(strategy.get("qual_score", 50.0)) / 100.0
         return (1.0 - self.qualite_weight) * fin + self.qualite_weight * qual
 
     def score_strategies(self, strategies: list[dict[str, Any]], cash_flow_cible: float) -> None:

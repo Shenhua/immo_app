@@ -4,7 +4,7 @@ Strategy Evaluator - Shared evaluation logic for strategy optimization.
 This module consolidates the evaluation pipeline used by both GeneticOptimizer
 and ExhaustiveOptimizer, reducing code duplication and ensuring consistency.
 """
-from typing import Any
+from typing import Any, Optional
 
 import structlog
 
@@ -37,8 +37,8 @@ class StrategyEvaluator:
     def __init__(
         self,
         simulator: SimulationEngine,
-        allocator: PortfolioAllocator = None,
-        scorer: Any = None
+        allocator: Optional[PortfolioAllocator] = None,
+        scorer: Optional[Any] = None
     ):
         """
         Initialize evaluator with dependencies.

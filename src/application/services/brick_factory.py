@@ -6,7 +6,7 @@ Generates investable 'bricks' (property + financing + costs) from archetypes.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Union
 
 from src.domain.calculator.financial import calculate_total_monthly_payment
 from src.domain.calculator.scoring import calculate_property_qualitative_score
@@ -230,7 +230,7 @@ class BrickValidationError(ValueError):
     pass
 
 
-def validate_brick(brick: dict[str, Any], strict: bool = False) -> list[str]:
+def validate_brick(brick: Union[dict[str, Any], InvestmentBrick], strict: bool = False) -> list[str]:
     """Validate a brick has all required fields for simulation.
 
     Args:
@@ -243,11 +243,16 @@ def validate_brick(brick: dict[str, Any], strict: bool = False) -> list[str]:
     Raises:
         BrickValidationError: If strict=True and validation fails
     """
-    warnings = []
-    brick_name = brick.get("nom_bien", "Unknown")
+    warnings: list[str] = []
+    # Handle both dict and InvestmentBrick
+    if hasattr(brick, 'model_dump'):
+        brick_data = brick.model_dump()
+    else:
+        brick_data = brick
+    brick_name = brick_data.get("nom_bien") or brick_data.get("nom", "Unknown")
 
     for field, description in REQUIRED_BRICK_FIELDS:
-        value = brick.get(field)
+        value = brick_data.get(field)
         if value is None:
             msg = f"Brick '{brick_name}': Missing {description} ({field})"
             warnings.append(msg)
@@ -264,7 +269,7 @@ def validate_brick(brick: dict[str, Any], strict: bool = False) -> list[str]:
     return warnings
 
 
-def validate_bricks(bricks: list[dict[str, Any]], strict: bool = False) -> list[str]:
+def validate_bricks(bricks: list[Union[dict[str, Any], InvestmentBrick]], strict: bool = False) -> list[str]:
     """Validate all bricks in a list.
 
     Args:
@@ -274,7 +279,7 @@ def validate_bricks(bricks: list[dict[str, Any]], strict: bool = False) -> list[
     Returns:
         Aggregated list of all warnings
     """
-    all_warnings = []
+    all_warnings: list[str] = []
     for brick in bricks:
         all_warnings.extend(validate_brick(brick, strict=strict))
     return all_warnings

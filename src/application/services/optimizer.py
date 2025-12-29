@@ -5,7 +5,7 @@ subject to Budget and Cashflow constraints.
 """
 import copy
 import random
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 import structlog
@@ -61,9 +61,9 @@ class GeneticOptimizer:
         crossover_rate: float = 0.7,
         elite_size: int = 5,
         max_properties: int = 5,
-        allocator: PortfolioAllocator = None,
-        simulator: SimulationEngine = None,
-        scorer: Any = None,
+        allocator: Optional[PortfolioAllocator] = None,
+        simulator: Optional[SimulationEngine] = None,
+        scorer: Optional[Any] = None,
         seed: int = 42
     ):
         """Initialize the Genetic Optimizer.
@@ -94,7 +94,7 @@ class GeneticOptimizer:
 
         # Create evaluator for shared evaluation logic
         if simulator:
-            self.evaluator = StrategyEvaluator(simulator, allocator, scorer)
+            self.evaluator: Optional[StrategyEvaluator] = StrategyEvaluator(simulator, allocator, scorer)
         else:
             self.evaluator = None
 
@@ -367,7 +367,7 @@ class GeneticOptimizer:
 
         return Individual(child_bricks)
 
-    def _mutate(self, ind: Individual, all_bricks: list[dict[str, Any]], budget: float):
+    def _mutate(self, ind: Individual, all_bricks: list[InvestmentBrick], budget: float) -> None:
         """Randomly add/remove/swap properties."""
         if random.random() > self.mutation_rate:
             return
@@ -441,7 +441,7 @@ class ExhaustiveOptimizer:
         allocator: PortfolioAllocator,
         simulator: SimulationEngine,
         scorer: Any,
-        n_workers: int = None,  # None = auto-detect CPU count
+        n_workers: Optional[int] = None,  # None = auto-detect CPU count
     ):
         """Initialize ExhaustiveOptimizer.
 
