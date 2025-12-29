@@ -10,6 +10,7 @@ from typing import Any
 
 from src.core.financial import calculate_total_monthly_payment
 from src.core.scoring import calculate_property_qualitative_score
+from src.models.brick import InvestmentBrick
 
 
 @dataclass
@@ -31,14 +32,14 @@ class OperatingConfig:
     """Configuration for operating costs."""
     frais_gestion_pct: float = 5.0
     provision_pct: float = 5.0
-    cfe_par_bien_ann: float = 500.0
+    cfe_par_bien_ann: float = 150.0
 
 
 def create_investment_bricks(
     archetypes: list[dict[str, Any]],
     finance: FinancingConfig,
     operating: OperatingConfig,
-) -> list[dict[str, Any]]:
+) -> list[InvestmentBrick]:
     """Create investment bricks from archetypes and configuration.
 
     A 'brick' is a specific combination of a property archetype and a financing plan.
@@ -126,14 +127,16 @@ def create_investment_bricks(
             duration_months = int(duree) * 12
 
             # Calculate Monthly Payment
-            _, _, pmt_total = calculate_total_monthly_payment(
+            p_i, ins, pmt_total = calculate_total_monthly_payment(
                 capital_emprunte,
                 taux,
                 duration_months,
                 finance.assurance_ann_pct
             )
 
-            brick = {
+            # Create InvestmentBrick instance
+            # We use model_validate with a dictionary to handle field mappings
+            brick_dict = {
                 **base_data,
                 # Financials
                 "prix_achat_bien": prix_achat,
@@ -147,6 +150,13 @@ def create_investment_bricks(
                 # Loan
                 "capital_emprunte": capital_emprunte,
                 "credit_final": capital_emprunte,  # Alias
+                "duree_credit_mois": duration_months,
+                "taux_annuel_pct": float(taux),
+                "assurance_annuelle_pct": float(finance.assurance_ann_pct),
+                "pmt_principal_interet": p_i,
+                "pmt_assurance": ins,
+
+                # Legacy fields for backward compatibility (allowed by extra="allow")
                 "duree_pret": int(duree),
                 "taux_pret": float(taux),
                 "assurance_ann_pct": float(finance.assurance_ann_pct),
@@ -164,7 +174,11 @@ def create_investment_bricks(
                 "qual_score_bien": qual_score,
             }
 
-            bricks.append(brick)
+            # Map 'nom_bien' back to 'nom' for the model if needed
+            if 'nom_bien' in brick_dict and 'nom' not in brick_dict:
+                brick_dict['nom'] = brick_dict['nom_bien']
+
+            bricks.append(InvestmentBrick.model_validate(brick_dict))
 
 
     return bricks

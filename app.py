@@ -63,7 +63,7 @@ def render_sidebar() -> dict[str, Any]:
 
         # Operating Costs (Exploitation)
         with st.expander("📉 Frais & Charges", expanded=False):
-            cfe = st.number_input("CFE (€/an)", 100, 2000, 500, 50)
+            cfe = st.number_input("CFE (€/an)", 0, 2000, 150, 50)
             gestion = st.slider("Gestion (%)", 0.0, 15.0, 5.0, 0.5)
             vacance = st.slider("Vacance/Imp. (%)", 0.0, 10.0, 3.0, 0.5)
             frais_vente = st.slider("Frais Revente (%)", 0.0, 10.0, 6.0, 0.5)

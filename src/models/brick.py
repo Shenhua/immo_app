@@ -6,6 +6,7 @@ from an archetype, with calculated financial details.
 
 from __future__ import annotations
 
+from typing import Any
 from pydantic import BaseModel, Field, computed_field
 
 
@@ -17,9 +18,9 @@ class InvestmentBrick(BaseModel):
 
     # Identity (from archetype)
     nom: str = Field(..., description="Property identifier")
-    ville: str = Field(..., description="City")
-    mode_loyer: str = Field(..., description="Rental mode")
-    surface: float = Field(..., gt=0, description="Surface in m²")
+    ville: str = Field(default="Paris", description="City")
+    mode_loyer: str = Field(default="nu", description="Rental mode")
+    surface: float = Field(default=20.0, gt=0, description="Surface in m²")
 
     # Purchase
     prix_achat_bien: float = Field(..., ge=0, description="Purchase price in €")
@@ -85,3 +86,52 @@ class InvestmentBrick(BaseModel):
             - self.depenses_mensuelles_hors_credit_initial
             - self.pmt_total
         )
+
+    def __getitem__(self, key: str) -> Any:
+        """Legacy dict-style access for backward compatibility."""
+        mapping = {
+            "nom_bien": "nom",
+            "taux_pret": "taux_annuel_pct",
+            "assurance_ann_pct": "assurance_annuelle_pct",
+            "cout_total_bien": "cout_total",
+            "capital_emprunte": "capital_emprunte",
+            "apport_add_bien": "apport_add_bien",
+            "duree_pret": "duree_credit_mois",
+            "cf_proximity": "cf_proximity", # For sorting tests
+        }
+        
+        # Resolve key
+        actual_key = mapping.get(key, key)
+        
+        # Check attributes first
+        if hasattr(self, actual_key):
+            val = getattr(self, actual_key)
+            # Special case for duration: return years if legacy key 'duree_pret' is used
+            if key == "duree_pret" and isinstance(val, int):
+                return val // 12
+            return val
+        
+        # Fallback to model_extra
+        if self.model_extra and actual_key in self.model_extra:
+            return self.model_extra[actual_key]
+            
+        raise KeyError(f"Key '{key}' (mapped to '{actual_key}') not found in InvestmentBrick")
+
+    def __contains__(self, key: str) -> bool:
+        """Support 'in' operator for legacy keys."""
+        mapping = {
+            "nom_bien": "nom",
+            "taux_pret": "taux_annuel_pct",
+            "assurance_ann_pct": "assurance_annuelle_pct",
+            "cout_total_bien": "cout_total",
+            "duree_pret": "duree_credit_mois",
+        }
+        actual_key = mapping.get(key, key)
+        return hasattr(self, actual_key) or (self.model_extra and actual_key in self.model_extra)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Legacy dict-style get for backward compatibility."""
+        try:
+            return self[key]
+        except KeyError:
+            return default

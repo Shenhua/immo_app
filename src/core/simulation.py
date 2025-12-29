@@ -12,6 +12,7 @@ from typing import Any
 
 import numpy_financial as npf
 import pandas as pd
+from src.core.exceptions import SimulationError
 
 # Tax constants
 TAUX_PRELEVEMENTS_SOCIAUX = 17.2
@@ -181,7 +182,7 @@ class SimulationEngine:
             Tuple of (yearly DataFrame, summary bilan dict)
         """
         if not strategy or not strategy.get("details"):
-            return pd.DataFrame(), {}
+            raise SimulationError("Cannot simulate an empty strategy")
 
         projets = [p.copy() for p in strategy["details"]]
 
@@ -423,7 +424,7 @@ def simulate_long_term_strategy(
     from src.core.financial import generate_amortization_schedule
 
     if not strategy or not strategy.get("details"):
-        return pd.DataFrame(), {}
+        raise SimulationError("Cannot simulate an empty strategy")
 
     market = MarketHypotheses.from_dict(market_hypotheses or {})
 

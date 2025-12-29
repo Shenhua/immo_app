@@ -186,6 +186,7 @@ class TestBoundarySafety:
         fin = FinancingConfig(credit_rates={25: 3.0})
         op = OperatingConfig()
 
-        # Should allow it (garbage in, garbage out) but not crash
-        bricks = create_investment_bricks([bad_apt], fin, op)
-        assert bricks[0]["loyer_mensuel_initial"] < 0
+        # Should raise ValidationError because we hardened the model
+        from pydantic import ValidationError
+        with pytest.raises(ValidationError):
+            create_investment_bricks([bad_apt], fin, op)

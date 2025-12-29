@@ -1,5 +1,7 @@
 """Unit tests for src.services.strategy_finder module."""
 
+from src.models.brick import InvestmentBrick
+
 from src.services.strategy_finder import (
     BASE_WEIGHTS,
     CombinationGenerator,
@@ -81,8 +83,8 @@ class TestCombinationGenerator:
     def test_generates_combinations(self):
         """Should generate valid combinations."""
         bricks = [
-            {"nom_bien": "A", "apport_min": 10000},
-            {"nom_bien": "B", "apport_min": 20000},
+            InvestmentBrick(nom="A", apport_min=10000, prix_achat_bien=100000, capital_emprunte=90000, loyer_mensuel_initial=500),
+            InvestmentBrick(nom="B", apport_min=20000, prix_achat_bien=200000, capital_emprunte=180000, loyer_mensuel_initial=1000),
         ]
         gen = CombinationGenerator(max_properties=2)
         combos = gen.generate(bricks, apport_disponible=50000)
@@ -93,8 +95,8 @@ class TestCombinationGenerator:
     def test_respects_budget(self):
         """Should filter by apport_min."""
         bricks = [
-            {"nom_bien": "A", "apport_min": 30000},
-            {"nom_bien": "B", "apport_min": 30000},
+            InvestmentBrick(nom="A", apport_min=30000, prix_achat_bien=100000, capital_emprunte=70000, loyer_mensuel_initial=500),
+            InvestmentBrick(nom="B", apport_min=30000, prix_achat_bien=100000, capital_emprunte=70000, loyer_mensuel_initial=500),
         ]
         gen = CombinationGenerator(max_properties=2)
         combos = gen.generate(bricks, apport_disponible=40000)
@@ -105,8 +107,8 @@ class TestCombinationGenerator:
     def test_no_duplicates_same_name(self):
         """Should not allow same property twice."""
         bricks = [
-            {"nom_bien": "A", "apport_min": 10000},
-            {"nom_bien": "A", "apport_min": 15000},  # Same name, different duration
+            InvestmentBrick(nom="A", apport_min=10000, prix_achat_bien=100000, capital_emprunte=90000, loyer_mensuel_initial=500),
+            InvestmentBrick(nom="A", apport_min=15000, prix_achat_bien=100000, capital_emprunte=85000, loyer_mensuel_initial=550), # Same name
         ]
         gen = CombinationGenerator(max_properties=2)
         combos = gen.generate(bricks, apport_disponible=50000)
@@ -134,10 +136,13 @@ class TestStrategyFinder:
     def test_dedupe_strategies(self):
         """Should dedupe to keep only best per signature."""
         finder = StrategyFinder([], 100000, -100)
+        bricks_a = [InvestmentBrick(nom="A", prix_achat_bien=100000)]
+        bricks_b = [InvestmentBrick(nom="B", prix_achat_bien=100000)]
+        
         strategies = [
-            {"details": [{"nom_bien": "A", "duree_pret": 20, "apport_final_bien": 50000}], "balanced_score": 0.8},
-            {"details": [{"nom_bien": "A", "duree_pret": 20, "apport_final_bien": 50050}], "balanced_score": 0.7},  # ~same sig
-            {"details": [{"nom_bien": "B", "duree_pret": 20, "apport_final_bien": 50000}], "balanced_score": 0.9},  # different
+            {"details": bricks_a, "balanced_score": 0.8},
+            {"details": bricks_a, "balanced_score": 0.7},  # ~same sig
+            {"details": bricks_b, "balanced_score": 0.9},  # different
         ]
         deduped = finder.dedupe_strategies(strategies)
         # Only 2 distinct signatures: "A" and "B" → keeps best per each

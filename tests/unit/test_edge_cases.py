@@ -28,7 +28,9 @@ from src.core.simulation import (
     MarketHypotheses,
     SimulationEngine,
     TaxParams,
+    SimulationError,
 )
+from src.models.brick import InvestmentBrick
 from src.services.allocator import PortfolioAllocator
 from src.services.strategy_finder import StrategyScorer
 
@@ -113,16 +115,15 @@ class TestSimulationEdgeCases:
             ira=IRACalculator(apply_ira=False),
         )
 
-    def test_simulate_empty_strategy(self, engine):
-        """Empty strategy should return empty results."""
-        df, bilan = engine.simulate({}, 25, [])
-        assert df.empty
-        assert bilan == {}
+    def test_simulate_empty_strategy_raises(self, engine):
+        """Empty strategy should raise SimulationError."""
+        with pytest.raises(SimulationError):
+            engine.simulate({}, 25, [])
 
-    def test_simulate_no_details(self, engine):
-        """Strategy with no details should return empty."""
-        df, bilan = engine.simulate({"apport_total": 10000}, 25, [])
-        assert df.empty
+    def test_simulate_no_details_raises(self, engine):
+        """Strategy with no details should raise SimulationError."""
+        with pytest.raises(SimulationError):
+            engine.simulate({"apport_total": 10000}, 25, [])
 
     def test_simulate_schedule_mismatch_raises(self, engine):
         """Schedule count != property count should raise ValueError."""
@@ -184,20 +185,21 @@ class TestAllocationEdgeCases:
     def test_allocate_all_over_budget(self):
         """All bricks over budget should return minimal state."""
         allocator = PortfolioAllocator(mode_cf="target")
-        bricks = [{
-            "apport_min": 100000,  # Way over budget
-            "capital_emprunte": 200000,
-            "pmt_total": 1000,
-            "loyer_mensuel_initial": 800,
-            "depenses_mensuelles_hors_credit_initial": 100,
-            "taux_pret": 3.6,
-            "duree_pret": 25,
-            "assurance_ann_pct": 0.35,
-        }]
+        bricks = [InvestmentBrick(
+            nom="HighCost",
+            apport_min=100000,  # Way over budget
+            prix_achat_bien=200000,
+            capital_emprunte=100000.0,
+            loyer_mensuel_initial=800,
+            taux_annuel_pct=3.6,
+            duree_credit_mois=300,
+            assurance_annuelle_pct=0.35,
+        )]
 
         # Budget is only 50k but brick needs 100k
         ok, details, cf, apport = allocator.allocate(bricks, 50000, 0, 100)
-        # The allocation will try but brick doesn't fit the budget constraint
+        assert ok is False
+        assert apport == 100000.0  # Still uses min apport even if over budget (allocator behavior)
 
     def test_allocate_mode_min_accepts_above_target(self):
         """Mode 'min' should accept CF above target."""

@@ -11,6 +11,7 @@ import numpy as np
 import structlog
 
 from src.core.simulation import SimulationEngine
+from src.models.brick import InvestmentBrick
 from src.services.allocator import PortfolioAllocator
 from src.services.evaluator import StrategyEvaluator
 
@@ -18,7 +19,7 @@ log = structlog.get_logger()
 
 class Individual:
     """Represents a candidate portfolio (strategy)."""
-    def __init__(self, bricks: list[dict[str, Any]]):
+    def __init__(self, bricks: list[InvestmentBrick]):
         self.bricks = bricks
         self.fitness: float = -1.0
         self.stats: dict[str, Any] = {}
@@ -27,7 +28,7 @@ class Individual:
     @property
     def key(self) -> str:
         """Unique signature for deduplication."""
-        names = sorted([b["nom_bien"] for b in self.bricks])
+        names = sorted([b.nom for b in self.bricks])
         return "|".join(names)
 
 class GeneticOptimizer:
@@ -102,7 +103,7 @@ class GeneticOptimizer:
 
     def _generate_random_individual(
         self,
-        all_bricks: list[dict[str, Any]],
+        all_bricks: list[InvestmentBrick],
         budget: float,
         target_cf: float,
         tolerance: float
@@ -117,7 +118,7 @@ class GeneticOptimizer:
         for b in available:
             if len(selected) >= self.max_properties:
                 break
-            cost = b.get("apport_min", 0.0)
+            cost = b.apport_min
             if current_cost + cost <= budget:
                 selected.append(b)
                 current_cost += cost
@@ -227,7 +228,7 @@ class GeneticOptimizer:
 
     def evolve(
         self,
-        all_bricks: list[dict[str, Any]],
+        all_bricks: list[InvestmentBrick],
         budget: float,
         target_cf: float,
         tolerance: float,
@@ -239,11 +240,11 @@ class GeneticOptimizer:
         # Pre-process bricks for Smart Seeding (Expert Recommendation Part 3)
         # Sort biased pools to ensure initial population isn't just random trash
         # 1. Yield (Gross)
-        bricks_yield = sorted(all_bricks, key=lambda b: (b.get("loyer_mensuel_initial",0)*12)/max(1, b.get("cout_total",1)), reverse=True)
+        bricks_yield = sorted(all_bricks, key=lambda b: (b.loyer_mensuel_initial*12)/max(1, b.cout_total), reverse=True)
         # 2. Quality
-        bricks_qual = sorted(all_bricks, key=lambda b: b.get("qual_score_bien", 0), reverse=True)
+        bricks_qual = sorted(all_bricks, key=lambda b: b.qual_score_bien or 0.0, reverse=True)
         # 3. Cost (Cheapest first - helps fit more items)
-        bricks_cost = sorted(all_bricks, key=lambda b: b.get("apport_min", 0))
+        bricks_cost = sorted(all_bricks, key=lambda b: b.apport_min)
 
         # Initialize Population with diversity
         population = []
@@ -341,9 +342,9 @@ class GeneticOptimizer:
         contestants = random.sample(population, min(len(population), k))
         return max(contestants, key=lambda ind: ind.fitness)
 
-    def _brick_key(self, b: dict[str, Any]) -> str:
+    def _brick_key(self, b: InvestmentBrick) -> str:
         """Generate unique key for a brick (property + loan duration)."""
-        return f"{b['nom_bien']}_{b.get('duree_pret', 20)}"
+        return f"{b.nom}_{b.duree_credit_mois}"
 
     def _crossover(self, p1: Individual, p2: Individual) -> Individual:
         """Uniform crossover: take properties from both parents."""
@@ -395,7 +396,7 @@ class GeneticOptimizer:
 
     def _generate_biased_individual(
         self,
-        sorted_bricks: list[dict[str, Any]],
+        sorted_bricks: list[InvestmentBrick],
         budget: float,
         top_n_percent: float = 0.25
     ) -> Individual:
@@ -414,7 +415,7 @@ class GeneticOptimizer:
         for b in candidates:
             if len(selected) >= self.max_properties:
                 break
-            cost = b.get("apport_min", 0.0)
+            cost = b.apport_min
             if current_cost + cost <= budget:
                 selected.append(b)
                 current_cost += cost
@@ -503,7 +504,7 @@ class ExhaustiveOptimizer:
 
     def solve(
         self,
-        all_bricks: list[dict[str, Any]],
+        all_bricks: list[InvestmentBrick],
         budget: float,
         target_cf: float,
         tolerance: float,

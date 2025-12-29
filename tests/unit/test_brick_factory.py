@@ -88,11 +88,12 @@ def test_create_investment_bricks():
     assert len(bricks) == 2
 
     # Check durations
-    durations = sorted([b["duree_pret"] for b in bricks])
+    # durre_credit_mois is in months in InvestmentBrick
+    durations = sorted([b.duree_credit_mois // 12 for b in bricks])
     assert durations == [20, 25]
 
     # Check basic cost calc (Surface 10 * Prix 2000 = 20000)
     # Notaire 8% = 1600. Total Project ~ 21600 (+ fees)
     b20 = bricks[0]
-    assert b20["prix_achat_bien"] == 20000.0
-    assert b20["frais_notaire"] == 1600.0
+    assert b20.prix_achat_bien == 20000.0
+    assert b20.frais_notaire == 1600.0

@@ -12,6 +12,7 @@ from math import isfinite
 from typing import Any
 
 from src.core.logging import get_logger
+from src.models.brick import InvestmentBrick
 from src.services.allocator import PortfolioAllocator
 from src.services.optimizer import ExhaustiveOptimizer, GeneticOptimizer
 
@@ -41,7 +42,7 @@ class EvaluationParams:
     regime_fiscal: str = "lmnp"
     tmi_pct: float = 30.0
     frais_vente_pct: float = 6.0
-    cfe_par_bien_ann: float = 500.0
+    cfe_par_bien_ann: float = 150.0
     apply_ira: bool = True
     ira_cap_pct: float = 3.0
     finance_weights_override: dict[str, float] | None = None
@@ -157,9 +158,9 @@ class CombinationGenerator:
 
     def generate(
         self,
-        bricks: list[dict[str, Any]],
+        bricks: list[InvestmentBrick],
         apport_disponible: float,
-    ) -> list[tuple[dict[str, Any], ...]]:
+    ) -> list[tuple[InvestmentBrick, ...]]:
         """Generate all valid combinations using bounded enumeration.
 
         This uses recursive branch-and-bound to prune infeasible branches early,
@@ -172,7 +173,7 @@ class CombinationGenerator:
         - Deduplication by nom_bien within combinations
         """
         # Pre-filter unaffordable bricks
-        affordable_bricks = [b for b in bricks if b.get("apport_min", 0.0) <= apport_disponible]
+        affordable_bricks = [b for b in bricks if b.apport_min <= apport_disponible]
 
         if len(affordable_bricks) < len(bricks):
             log.debug("pruning_unaffordable_bricks",
@@ -185,7 +186,7 @@ class CombinationGenerator:
 
         # Sort by cost ASCENDING for better branch-and-bound pruning
         # (low-cost bricks first means we can add more before hitting budget)
-        sorted_bricks = sorted(affordable_bricks, key=lambda b: b.get("apport_min", 0.0))
+        sorted_bricks = sorted(affordable_bricks, key=lambda b: b.apport_min)
 
         combos = []
         visited_count = [0]  # Use list for mutable in nested function
@@ -204,8 +205,8 @@ class CombinationGenerator:
             # Try adding each remaining brick
             for i in range(start_idx, len(sorted_bricks)):
                 brick = sorted_bricks[i]
-                brick_cost = brick.get("apport_min", 0.0)
-                brick_name = brick.get("nom_bien", "")
+                brick_cost = brick.apport_min
+                brick_name = brick.nom
 
                 visited_count[0] += 1
 
@@ -250,7 +251,7 @@ class StrategyFinder:
 
     def __init__(
         self,
-        bricks: list[dict[str, Any]],
+        bricks: list[InvestmentBrick],
         apport_disponible: float,
         cash_flow_cible: float,
         tolerance: float = 100.0,
@@ -534,14 +535,16 @@ class StrategyFinder:
         # But ideally we should move scoring logic here fully.
         # For now, using simple weighted average of bricks
 
-        total_price = sum(b.get("prix_achat_bien", 0) for b in strategy.get("details", []))
+        # Details are now list[InvestmentBrick]
+        details = strategy.get("details", [])
+        total_price = sum(b.prix_achat_bien for b in details)
         if total_price <= 0:
             return 50.0
 
         score_sum = 0.0
-        for b in strategy.get("details", []):
-            qs = b.get("qual_score_bien", 50.0)
-            price = b.get("prix_achat_bien", 0)
+        for b in details:
+            qs = b.qual_score_bien or 50.0
+            price = b.prix_achat_bien
             score_sum += qs * price
 
         return score_sum / total_price
@@ -557,7 +560,11 @@ class StrategyFinder:
         grouped = {}
         for s in strategies:
             details = s.get("details", [])
-            sig = tuple(sorted(d.get("nom_bien", "") for d in details))
+            # Details are InvestmentBrick objects or dicts
+            sig = tuple(sorted(
+                (d.nom if hasattr(d, "nom") else d.get("nom_bien", d.get("nom", "")))
+                for d in details
+            ))
             if sig not in grouped:
                 grouped[sig] = []
             grouped[sig].append(s)

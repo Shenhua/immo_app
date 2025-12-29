@@ -1,11 +1,11 @@
-"""Unit tests for src.core.simulation module."""
-
+import pytest
 from src.core.simulation import (
     IRACalculator,
     MarketHypotheses,
     SimulationEngine,
     TaxParams,
     YearResult,
+    SimulationError,
 )
 
 
@@ -100,17 +100,16 @@ class TestYearResult:
 class TestSimulationEngine:
     """Tests for SimulationEngine."""
 
-    def test_empty_strategy_returns_empty(self):
-        """Empty strategy should return empty results."""
+    def test_empty_strategy_throws_error(self):
+        """Empty strategy should raise SimulationError."""
         engine = SimulationEngine(
             market=MarketHypotheses(),
             tax=TaxParams(),
             ira=IRACalculator(),
         )
 
-        df, bilan = engine.simulate({}, 25, [])
-        assert df.empty
-        assert bilan == {}
+        with pytest.raises(SimulationError):
+            engine.simulate({}, 25, [])
 
     def test_simulation_returns_dataframe_and_bilan(self):
         """Full simulation should return DataFrame and bilan dict."""

@@ -108,7 +108,7 @@ class TestQualScoreVariation:
             default_operating_config,
         )
 
-        scores = [b["qual_score_bien"] for b in bricks]
+        scores = [b.qual_score_bien for b in bricks]
         unique_scores = set(scores)
 
         # Should have more than one unique score
@@ -128,8 +128,8 @@ class TestQualScoreVariation:
         )
 
         for brick in bricks:
-            score = brick["qual_score_bien"]
-            assert 0 <= score <= 100, f"Score {score} out of range for {brick['nom_bien']}"
+            score = brick.qual_score_bien
+            assert 0 <= score <= 100, f"Score {score} out of range for {brick.nom}"
 
 
 class TestParameterEffects:
@@ -154,8 +154,8 @@ class TestParameterEffects:
         bricks_high = create_investment_bricks(sample_archetypes, high_rate, default_operating_config)
 
         # Compare same property
-        pmt_low = bricks_low[0]["pmt_total"]
-        pmt_high = bricks_high[0]["pmt_total"]
+        pmt_low = bricks_low[0].pmt_total
+        pmt_high = bricks_high[0].pmt_total
 
         assert pmt_high > pmt_low, f"Higher rate should increase PMT: {pmt_low} vs {pmt_high}"
 
@@ -171,8 +171,8 @@ class TestParameterEffects:
         bricks_low = create_investment_bricks(sample_archetypes, default_finance_config, low_gestion)
         bricks_high = create_investment_bricks(sample_archetypes, default_finance_config, high_gestion)
 
-        exp_low = bricks_low[0]["depenses_mensuelles_hors_credit_initial"]
-        exp_high = bricks_high[0]["depenses_mensuelles_hors_credit_initial"]
+        exp_low = bricks_low[0].depenses_mensuelles_hors_credit_initial
+        exp_high = bricks_high[0].depenses_mensuelles_hors_credit_initial
 
         assert exp_high > exp_low, f"Higher gestion should increase expenses: {exp_low} vs {exp_high}"
 

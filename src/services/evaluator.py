@@ -88,11 +88,22 @@ class StrategyEvaluator:
             # Use credit_final (already calculated by allocator)
             principal = float(p.get("credit_final", p.get("capital_restant", 0)))
 
+            # Prefer Pydantic model names, then legacy names
+            rate = float(p.get("taux_annuel_pct", p.get("taux_pret", 0.0)))
+            
+            # Duration in months
+            if "duree_credit_mois" in p:
+                duration_months = int(p["duree_credit_mois"])
+            else:
+                duration_months = int(p.get("duree_pret", 20)) * 12
+
+            insurance = float(p.get("assurance_annuelle_pct", p.get("assurance_ann_pct", 0.0)))
+
             sch = generate_amortization_schedule(
                 principal=principal,
-                annual_rate_pct=float(p.get("taux_pret", 0.0)),
-                duration_months=int(p.get("duree_pret", 20)) * 12,
-                annual_insurance_pct=float(p.get("assurance_ann_pct", 0.0))
+                annual_rate_pct=rate,
+                duration_months=duration_months,
+                annual_insurance_pct=insurance
             )
             schedules.append(sch)
 

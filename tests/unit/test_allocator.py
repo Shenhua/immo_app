@@ -2,6 +2,7 @@
 import pytest
 
 from src.services.allocator import PortfolioAllocator
+from src.models.brick import InvestmentBrick
 
 
 class MockBrick(dict):
@@ -29,20 +30,17 @@ def sample_bricks():
     # Inverse k = 166.
 
     return [
-        {
-            "nom_bien": "B1",
-            "capital_emprunte": 100000.0,
-            "apport_min": 10000.0,
-            "apport_add_bien": 0.0,
-            "capital_restant": 100000.0,
-            "taux_pret": 3.0,
-            "duree_pret": 20,
-            "assurance_ann_pct": 0.36,
-            "loyer_mensuel_initial": 600.0,
-            "depenses_mensuelles_hors_credit_initial": 100.0,
-            "pmt_total": 580.0, # Initial PMT
-            # CF = 600 - 100 - 580 = -80
-        }
+        InvestmentBrick(
+            nom="B1",
+            prix_achat_bien=110000.0,
+            apport_min=10000.0,
+            capital_emprunte=100000.0,
+            taux_annuel_pct=3.0,
+            duree_credit_mois=240,
+            assurance_annuelle_pct=0.36,
+            loyer_mensuel_initial=600.0,
+            depenses_mensuelles_hors_credit_initial=100.0
+        )
     ]
 
 def test_allocator_step_logic_coarse(allocator, sample_bricks):

@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 import pandas as pd
 
 from src.services.optimizer import GeneticOptimizer, Individual
+from src.models.brick import InvestmentBrick
 
 
 class TestGeneticOptimizer(unittest.TestCase):
@@ -36,13 +37,13 @@ class TestGeneticOptimizer(unittest.TestCase):
         )
 
         self.sample_bricks = [
-            {
-                "nom_bien": f"B{i}",
-                "apport_min": 10000.0,
-                "loyer_mensuel_initial": 500.0 + (i * 10),
-                "cout_total": 100000.0 + (i * 1000),
-                "qual_score_bien": 10.0 * i
-            } for i in range(10)
+            InvestmentBrick(
+                nom=f"B{i}",
+                apport_min=10000.0,
+                prix_achat_bien=100000.0 + (i * 1000),
+                loyer_mensuel_initial=500.0 + (i * 10),
+                qual_score_bien=10.0 * i
+            ) for i in range(10)
         ]
 
     def test_initialization(self):
@@ -55,7 +56,7 @@ class TestGeneticOptimizer(unittest.TestCase):
         )
         self.assertIsInstance(ind, Individual)
         # Should fit <= 2 bricks (20k <= 25k)
-        total_apport = sum(b["apport_min"] for b in ind.bricks)
+        total_apport = sum(b.apport_min for b in ind.bricks)
         self.assertLessEqual(total_apport, 25000.0)
 
     def test_evaluate_success(self):

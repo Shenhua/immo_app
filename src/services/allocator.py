@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
+from src.models.brick import InvestmentBrick
 from src.core.financial import calculate_total_monthly_payment, k_factor
 from src.core.logging import get_logger
 
@@ -25,44 +26,128 @@ class PortfolioAllocator:
 
     def allocate(
         self,
-        bricks: list[dict[str, Any]],
+        bricks: list[InvestmentBrick],
         apport_disponible: float,
         target_cf: float,
         tolerance: float = 100.0,
         use_full_capital: bool = False,
     ) -> tuple[bool, list[dict[str, Any]], float, float]:
-        """Allocate capital to maximize cash flow proximity or usage.
+        """Allocate capital to maximize cash flow proximity or usage."""
+        
+        def _get_val(obj: Any, key: str, default: Any = 0.0) -> Any:
+            """Safe access for both InvestmentBrick and dict with legacy key mapping."""
+            mapping = {
+                "nom_bien": "nom",
+                "taux_pret": "taux_annuel_pct",
+                "assurance_ann_pct": "assurance_annuelle_pct",
+                "duree_pret": "duree_credit_mois",
+                "cout_total_bien": "cout_total",
+            }
+            actual_key = mapping.get(key, key)
+            
+            # 1. Try dict-style access (for speed and model_dump result)
+            if isinstance(obj, dict):
+                val = obj.get(actual_key, obj.get(key))
+                if val is not None:
+                    if key == "duree_pret" and actual_key == "duree_credit_mois" and val > 100:
+                        return val // 12
+                    return val
+                return default
 
-        Args:
-            bricks: List of investment bricks (properties)
-            apport_disponible: Total capital available
-            target_cf: Target monthly cash flow
-            tolerance: Tolerance for CF target
-            use_full_capital: If True, try to use all available apport (unless precise target)
+            # 2. Try attribute access (for InvestmentBrick objects)
+            val = getattr(obj, actual_key, getattr(obj, key, None))
+            if val is not None:
+                if key == "duree_pret" and actual_key == "duree_credit_mois" and isinstance(val, int):
+                    return val // 12
+                return val
+            
+            # 3. Try subscripting if supported (fallback)
+            try:
+                val = obj[actual_key]
+                if key == "duree_pret" and actual_key == "duree_credit_mois":
+                     return val // 12
+                return val
+            except (KeyError, TypeError):
+                try:
+                    return obj[key]
+                except (KeyError, TypeError):
+                    return default
 
-        Returns:
-            Tuple of (success, details_list, final_cf, total_apport_used)
-        """
+        if not bricks:
+            return True, [], 0.0, 0.0
+
         # Initial setup: minimal apport
         biens = []
         for b in bricks:
             # Setup initial state with minimum apport
+            if hasattr(b, "model_dump"):
+                data = b.model_dump()
+            else:
+                data = b.copy()
+
+            # Ensure pmt_total is calculated even if it was 0 in data
+            pmt_pi, pmt_ins, pmt_tot = calculate_total_monthly_payment(
+                data.get("capital_emprunte", 0.0),
+                _get_val(b, "taux_pret"),
+                _get_val(b, "duree_pret") * 12,
+                _get_val(b, "assurance_ann_pct")
+            )
+
             biens.append({
-                **b,
-                "capital_restant": b["capital_emprunte"],  # Initial loan amount
-                "pmt_total": b["pmt_total"],  # Monthly payment at min apport
+                **data,
+                "capital_restant": data.get("capital_emprunte", 0.0),  # Initial loan amount
+                "pmt_total": pmt_tot if pmt_tot > 0 else data.get("pmt_total", 0.0),
                 "apport_add_bien": 0.0,
             })
 
+        def _get_val(obj: Any, key: str, default: Any = 0.0) -> Any:
+            """Safe access for both InvestmentBrick and dict with legacy key mapping."""
+            mapping = {
+                "nom_bien": "nom",
+                "taux_pret": "taux_annuel_pct",
+                "assurance_ann_pct": "assurance_annuelle_pct",
+                "duree_pret": "duree_credit_mois",
+                "cout_total_bien": "cout_total",
+            }
+            actual_key = mapping.get(key, key)
+            
+            # 1. Try dict-style access (for speed and model_dump result)
+            if isinstance(obj, dict):
+                val = obj.get(actual_key, obj.get(key))
+                if val is not None:
+                    if key == "duree_pret" and actual_key == "duree_credit_mois" and val > 100:
+                        return val // 12
+                    return val
+                return default
+
+            # 2. Try attribute access (for InvestmentBrick objects)
+            val = getattr(obj, actual_key, getattr(obj, key, None))
+            if val is not None:
+                if key == "duree_pret" and actual_key == "duree_credit_mois" and isinstance(val, int):
+                    return val // 12
+                return val
+            
+            # 3. Try subscripting if supported (fallback)
+            try:
+                val = obj[actual_key]
+                if key == "duree_pret" and actual_key == "duree_credit_mois":
+                     return val // 12
+                return val
+            except (KeyError, TypeError):
+                try:
+                    return obj[key]
+                except (KeyError, TypeError):
+                    return default
+
         # Calculate initial CF
         cf0 = sum(
-            b["loyer_mensuel_initial"] -
-            b["depenses_mensuelles_hors_credit_initial"] -
-            b["pmt_total"]
+            _get_val(b, "loyer_mensuel_initial") -
+            _get_val(b, "depenses_mensuelles_hors_credit_initial") -
+            _get_val(b, "pmt_total")
             for b in biens
         )
 
-        apport_total_min = sum(b.get("apport_min", 0.0) for b in bricks)
+        apport_total_min = sum(_get_val(b, "apport_min") for b in bricks)
         apport_suppl_max = max(0.0, apport_disponible - apport_total_min)
 
         # check precise mode
@@ -103,7 +188,7 @@ class PortfolioAllocator:
         ordre = sorted(
             biens,
             key=lambda x: k_factor(
-                x["taux_pret"], x["duree_pret"], x["assurance_ann_pct"]
+                _get_val(x, "taux_pret"), _get_val(x, "duree_pret"), _get_val(x, "assurance_ann_pct")
             ),
             reverse=True
         )
@@ -143,7 +228,7 @@ class PortfolioAllocator:
                 if manque_cf <= 1e-9 and not (use_full_capital and not is_precise):
                     break
 
-                k = k_factor(b["taux_pret"], b["duree_pret"], b["assurance_ann_pct"])
+                k = k_factor(_get_val(b, "taux_pret"), _get_val(b, "duree_pret"), _get_val(b, "assurance_ann_pct"))
                 if k <= 0:
                     continue
 
@@ -156,8 +241,8 @@ class PortfolioAllocator:
 
                 if not is_full_cash_payment:
                     # Partial payment: apply 95% cap to prevent tiny residual loans
-                    cap_extra = self.max_extra_apport_pct * float(b.get("capital_emprunte", 0.0))
-                    deja = float(b.get("apport_add_bien", 0.0))
+                    cap_extra = self.max_extra_apport_pct * float(_get_val(b, "capital_emprunte"))
+                    deja = float(_get_val(b, "apport_add_bien", 0.0))
                     reste_cap = max(0.0, cap_extra - deja)
 
                     if delta > reste_cap:
@@ -207,12 +292,12 @@ class PortfolioAllocator:
                 # Recompute payment
                 _, _, p_tot = calculate_total_monthly_payment(
                     b["capital_restant"],
-                    b["taux_pret"],
-                    b["duree_pret"] * 12,
-                    b["assurance_ann_pct"]
+                    _get_val(b, "taux_pret"),
+                    _get_val(b, "duree_pret") * 12,
+                    _get_val(b, "assurance_ann_pct")
                 )
                 b["pmt_total"] = p_tot
-                b["apport_add_bien"] = b.get("apport_add_bien", 0.0) + delta
+                b["apport_add_bien"] = _get_val(b, "apport_add_bien", 0.0) + delta
                 changes_made = True
 
                 apport_rest -= delta
