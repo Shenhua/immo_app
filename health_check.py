@@ -46,7 +46,7 @@ def check_syntax():
 # ============================================================
 def check_imports():
     print("🔍 Checking module imports...")
-    modules = ["app", "src.services.allocator", "src.services.strategy_finder", "src.services.brick_factory"]
+    modules = ["app", "src.application.services.allocator", "src.application.services.strategy_finder", "src.application.services.brick_factory"]
 
     failed = []
     for mod in modules:
@@ -253,12 +253,12 @@ def check_structure():
 
     expected = [
         "app.py",
-        "src.application.services.simulation",
-        "src.application.services.allocator",
-        "src.application.services.brick_factory",
-        "src.application.services.evaluator",
-        "src.application.services.optimizer",
-        "src.application.services.strategy_finder",
+        "src/application/services/simulation.py",
+        "src/application/services/allocator.py",
+        "src/application/services/brick_factory.py",
+        "src/application/services/evaluator.py",
+        "src/application/services/optimizer.py",
+        "src/application/services/strategy_finder.py",
         "src/core/__init__.py",
         "tests/__init__.py",
     ]
