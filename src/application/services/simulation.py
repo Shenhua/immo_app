@@ -421,8 +421,12 @@ def simulate_long_term_strategy(
     For full control, use SimulationEngine directly.
     """
     # Import modular generator
-    from src.core.financial import generate_amortization_schedule
-
+    from src.domain.calculator.financial import (
+        calculate_insurance,
+        calculate_monthly_payment,
+        calculate_remaining_balance,
+        generate_amortization_schedule,
+    )
     if not strategy or not strategy.get("details"):
         raise SimulationError("Cannot simulate an empty strategy")
 

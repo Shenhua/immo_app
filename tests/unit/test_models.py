@@ -3,9 +3,9 @@
 import pytest
 from pydantic import ValidationError
 
-from src.models.archetype import ArchetypeV2
-from src.models.brick import InvestmentBrick
-from src.models.strategy import SimulationParams, Strategy
+from src.domain.models.archetype import ArchetypeV2
+from src.domain.models.brick import InvestmentBrick
+from src.domain.models.strategy import PortfolioStrategy, SimulationParams
 
 
 class TestArchetypeV2:
@@ -97,12 +97,12 @@ class TestInvestmentBrick:
         assert brick.cash_flow_mensuel_initial == 50
 
 
-class TestStrategy:
-    """Tests for Strategy model."""
+class TestPortfolioStrategy:
+    """Tests for PortfolioStrategy model."""
 
     def test_nombre_biens(self, sample_strategy_data):
-        """nombre_biens should count properties."""
-        strategy = Strategy(**sample_strategy_data)
+        """Should correctly count bricks in details."""
+        strategy = PortfolioStrategy(**sample_strategy_data)
         assert strategy.nombre_biens == 2
 
 

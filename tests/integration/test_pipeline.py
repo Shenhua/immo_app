@@ -59,8 +59,8 @@ class TestStrategyPipeline:
         ]
 
     def test_create_bricks_from_archetypes(self, sample_archetypes):
-        """Test that bricks can be created from archetypes."""
-        from src.services.brick_factory import FinancingConfig, OperatingConfig, create_investment_bricks
+        """Test brick generation from archetypes."""
+        from src.application.services.brick_factory import FinancingConfig, OperatingConfig, create_investment_bricks
 
         taux_credits = {15: 3.2, 20: 3.4, 25: 3.6}
 
@@ -101,7 +101,7 @@ class TestStrategyPipeline:
 
     def test_archetype_validation(self, sample_archetypes):
         """Test archetype validation via Pydantic model."""
-        from src.models.archetype import ArchetypeV2
+        from src.domain.models.archetype import ArchetypeV2
 
         validated = []
         for a in sample_archetypes:
@@ -113,7 +113,7 @@ class TestStrategyPipeline:
 
     def test_qualitative_scoring_integration(self, sample_archetypes):
         """Test qualitative scoring on real archetype data."""
-        from src.core.scoring import calculate_property_qualitative_score
+        from src.domain.calculator.scoring import calculate_property_qualitative_score
 
         for arch in sample_archetypes:
             score, features = calculate_property_qualitative_score(
@@ -131,7 +131,7 @@ class TestStrategyPipeline:
 
     def test_financial_calculations_integration(self):
         """Test financial calculations with realistic values."""
-        from src.core.financial import (
+        from src.domain.calculator.financial import (
             calculate_monthly_payment,
             calculate_remaining_balance,
             generate_amortization_schedule,

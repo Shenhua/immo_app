@@ -14,17 +14,17 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 
-from src.core.financial import generate_amortization_schedule
+from src.domain.calculator.financial import calculate_monthly_payment
 from src.core.logging import get_logger
-from src.core.simulation import IRACalculator, MarketHypotheses, SimulationEngine, TaxParams
-from src.models.archetype import ArchetypeV2
-from src.services.brick_factory import (
+from src.application.services.simulation import IRACalculator, MarketHypotheses, SimulationEngine, TaxParams
+from src.domain.models.archetype import ArchetypeV2
+from src.application.services.brick_factory import (
     FinancingConfig,
     OperatingConfig,
     apply_rent_caps,
     create_investment_bricks,
 )
-from src.services.strategy_finder import StrategyFinder
+from src.application.services.strategy_finder import StrategyFinder
 from src.ui.state import SessionManager
 
 log = get_logger(__name__)
@@ -307,7 +307,7 @@ def autosave_results(
         metadata: Additional metadata
     """
     try:
-        from src.services.exporter import ResultExporter
+        from src.application.services.exporter import ResultExporter
         exporter = ResultExporter()
         exporter.save_results(strategies, metadata=metadata)
     except Exception as e:

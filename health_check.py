@@ -63,11 +63,11 @@ def check_imports():
 
     # Check src package
     src_modules = [
-        "src.models.archetype",
-        "src.models.brick",
-        "src.models.strategy",
-        "src.core.financial",
-        "src.core.scoring",
+        "src.domain.models.archetype",
+        "src.domain.models.brick",
+        "src.domain.models.strategy",
+        "src.domain.calculator.financial",
+        "src.domain.calculator.scoring",
         "src.core.logging",
     ]
     failed_src = []
@@ -253,12 +253,12 @@ def check_structure():
 
     expected = [
         "app.py",
-        "requirements.txt",
-        "pyproject.toml",
-        "README.md",
-        ".env.example",
-        "src/__init__.py",
-        "src/models/__init__.py",
+        "src.application.services.simulation",
+        "src.application.services.allocator",
+        "src.application.services.brick_factory",
+        "src.application.services.evaluator",
+        "src.application.services.optimizer",
+        "src.application.services.strategy_finder",
         "src/core/__init__.py",
         "tests/__init__.py",
     ]

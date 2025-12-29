@@ -1,8 +1,8 @@
 """Unit tests for src.services.strategy_finder module."""
 
-from src.models.brick import InvestmentBrick
+from src.domain.models.brick import InvestmentBrick
 
-from src.services.strategy_finder import (
+from src.application.services.strategy_finder import (
     BASE_WEIGHTS,
     CombinationGenerator,
     EvaluationParams,

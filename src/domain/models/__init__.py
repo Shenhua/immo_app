@@ -2,12 +2,12 @@
 
 from .archetype import Archetype, ArchetypeV2
 from .brick import InvestmentBrick
-from .strategy import Strategy, StrategyResult
+from .strategy import PortfolioStrategy, StrategyResult
 
 __all__ = [
     "Archetype",
     "ArchetypeV2",
     "InvestmentBrick",
-    "Strategy",
+    "PortfolioStrategy",
     "StrategyResult",
 ]

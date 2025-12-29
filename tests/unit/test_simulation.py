@@ -1,5 +1,5 @@
 import pytest
-from src.core.simulation import (
+from src.application.services.simulation import (
     IRACalculator,
     MarketHypotheses,
     SimulationEngine,

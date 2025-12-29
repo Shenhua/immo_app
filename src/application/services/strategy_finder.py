@@ -12,9 +12,10 @@ from math import isfinite
 from typing import Any
 
 from src.core.logging import get_logger
-from src.models.brick import InvestmentBrick
-from src.services.allocator import PortfolioAllocator
-from src.services.optimizer import ExhaustiveOptimizer, GeneticOptimizer
+from src.domain.models.brick import InvestmentBrick
+from .allocator import PortfolioAllocator
+from src.domain.models.strategy import PortfolioStrategy
+from .optimizer import ExhaustiveOptimizer, GeneticOptimizer
 
 log = get_logger(__name__)
 
@@ -290,7 +291,7 @@ class StrategyFinder:
             progress_callback: Optional callback function(SearchProgress) for UI updates
         """
         # Dependencies
-        from src.core.simulation import IRACalculator, MarketHypotheses, SimulationEngine, TaxParams
+        from .simulation import IRACalculator, MarketHypotheses, SimulationEngine, TaxParams
 
         # 1. Setup
         ep = EvaluationParams.from_dict(eval_params or {})
@@ -323,7 +324,7 @@ class StrategyFinder:
         allocator = PortfolioAllocator(self.mode_cf)
 
         # Validate bricks before proceeding (fail-fast)
-        from src.services.brick_factory import validate_bricks
+        from .brick_factory import validate_bricks
         validation_warnings = validate_bricks(self.bricks)
         if validation_warnings:
             log.warning("brick_validation_warnings", count=len(validation_warnings),

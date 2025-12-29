@@ -12,9 +12,10 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.core.logging import configure_logging, get_logger
-from src.models.archetype import ArchetypeV2
+from src.domain.models.archetype import ArchetypeV2
 from src.services.brick_factory import FinancingConfig, OperatingConfig, create_investment_bricks
-from src.services.exporter import ResultExporter
+from src.domain.models.brick import InvestmentBrick
+from src.domain.models.strategy import PortfolioStrategy
 from src.services.strategy_finder import StrategyFinder
 
 # Configure logging to console

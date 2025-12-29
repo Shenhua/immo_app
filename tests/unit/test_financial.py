@@ -1,11 +1,12 @@
-"""Unit tests for src.core.financial module."""
+"""Unit tests for src.domain.calculator.financial module."""
 
-from src.core.financial import (
+from src.domain.calculator.financial import (
     calculate_insurance,
     calculate_monthly_payment,
     calculate_remaining_balance,
     calculate_total_monthly_payment,
     generate_amortization_schedule,
+    k_factor,
 )
 
 

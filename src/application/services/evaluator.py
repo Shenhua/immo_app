@@ -8,11 +8,11 @@ from typing import Any
 
 import structlog
 
-from src.core.financial import generate_amortization_schedule
+from src.domain.calculator.financial import generate_amortization_schedule
+from src.domain.calculator.scoring import calculate_balanced_score, calculate_qualitative_score
 from src.core.glossary import calculate_cashflow_metrics, calculate_enrichment_metrics
-from src.core.scoring import calculate_qualitative_score
-from src.core.simulation import SimulationEngine
-from src.services.allocator import PortfolioAllocator
+from .simulation import SimulationEngine
+from .allocator import PortfolioAllocator
 
 log = structlog.get_logger(__name__)
 

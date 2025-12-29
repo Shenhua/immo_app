@@ -1,6 +1,6 @@
-"""Unit tests for src.core.scoring module."""
+"""Unit tests for src.domain.calculator.scoring module."""
 
-from src.core.scoring import (
+from src.domain.calculator.scoring import (
     calculate_balanced_score,
     calculate_dpe_score,
     calculate_property_qualitative_score,

@@ -10,10 +10,11 @@ from typing import Any
 import numpy as np
 import structlog
 
-from src.core.simulation import SimulationEngine
-from src.models.brick import InvestmentBrick
-from src.services.allocator import PortfolioAllocator
-from src.services.evaluator import StrategyEvaluator
+from .simulation import IRACalculator, MarketHypotheses, SimulationEngine, TaxParams
+from src.domain.models.brick import InvestmentBrick
+from src.domain.models.strategy import PortfolioStrategy
+from .allocator import PortfolioAllocator
+from .evaluator import StrategyEvaluator
 
 log = structlog.get_logger()
 
@@ -520,7 +521,7 @@ class ExhaustiveOptimizer:
         """
 
         # Use CombinationGenerator with budget-aware pruning
-        from src.services.strategy_finder import CombinationGenerator
+        from .strategy_finder import CombinationGenerator
 
         combo_gen = CombinationGenerator(max_properties=max_props)
         combos = combo_gen.generate(all_bricks, budget)

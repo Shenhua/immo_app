@@ -3,8 +3,9 @@ from unittest.mock import MagicMock
 
 import pandas as pd
 
-from src.services.optimizer import GeneticOptimizer, Individual
-from src.models.brick import InvestmentBrick
+from src.application.services.optimizer import GeneticOptimizer, Individual
+from src.domain.models.brick import InvestmentBrick
+from src.domain.models.strategy import PortfolioStrategy
 
 
 class TestGeneticOptimizer(unittest.TestCase):

@@ -10,13 +10,13 @@ Tests the complete pipeline with edge cases that span multiple components:
 
 import pytest
 
-from src.services.brick_factory import (
+from src.application.services.brick_factory import (
     FinancingConfig,
     OperatingConfig,
     apply_rent_caps,
     create_investment_bricks,
 )
-from src.services.strategy_finder import StrategyFinder, StrategyScorer
+from src.application.services.strategy_finder import StrategyFinder, StrategyScorer
 from src.ui.app_controller import load_archetypes
 
 
@@ -70,7 +70,7 @@ class TestWeightConsistency:
 
     def test_scorer_weights_match_base_weights(self):
         """StrategyScorer weights should match BASE_WEIGHTS keys."""
-        from src.services.strategy_finder import BASE_WEIGHTS
+        from src.application.services.strategy_finder import BASE_WEIGHTS
 
         scorer = StrategyScorer()
 
@@ -192,8 +192,8 @@ class TestScheduleMismatchHandling:
 
     def test_simulation_rejects_mismatched_schedules(self):
         """Simulation should raise ValueError for schedule/details mismatch."""
-        from src.core.financial import generate_amortization_schedule
-        from src.core.simulation import IRACalculator, MarketHypotheses, SimulationEngine, TaxParams
+        from src.domain.calculator.financial import generate_amortization_schedule
+        from src.application.services.simulation import IRACalculator, MarketHypotheses, SimulationEngine, TaxParams
 
         engine = SimulationEngine(
             market=MarketHypotheses(),

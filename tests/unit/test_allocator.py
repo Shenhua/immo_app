@@ -1,8 +1,8 @@
 
 import pytest
 
-from src.services.allocator import PortfolioAllocator
-from src.models.brick import InvestmentBrick
+from src.application.services.allocator import PortfolioAllocator
+from src.domain.models.brick import InvestmentBrick
 
 
 class MockBrick(dict):

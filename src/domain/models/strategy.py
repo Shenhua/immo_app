@@ -11,7 +11,7 @@ from typing import Any
 from pydantic import BaseModel, Field, computed_field
 
 
-class Strategy(BaseModel):
+class PortfolioStrategy(BaseModel):
     """Investment strategy combining multiple property bricks.
 
     Contains the portfolio composition and aggregated metrics.

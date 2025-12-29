@@ -8,9 +8,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from src.core.financial import calculate_total_monthly_payment
-from src.core.scoring import calculate_property_qualitative_score
-from src.models.brick import InvestmentBrick
+from src.domain.calculator.financial import calculate_total_monthly_payment
+from src.domain.calculator.scoring import calculate_property_qualitative_score
+from src.domain.models.brick import InvestmentBrick
 
 
 @dataclass

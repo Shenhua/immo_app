@@ -9,12 +9,14 @@ Run with: python -m pytest tests/e2e/test_full_pipeline.py -v
 
 import pytest
 
-from src.services.brick_factory import (
+from src.application.services.brick_factory import (
     FinancingConfig,
     OperatingConfig,
     create_investment_bricks,
     validate_bricks,
 )
+from src.application.services.simulation import SimulationEngine
+from src.application.services.strategy_finder import StrategyFinder
 from src.ui.app_controller import load_archetypes
 
 
@@ -97,8 +99,8 @@ class TestFullPipeline:
         self, archetypes, finance_config, operating_config, eval_params
     ):
         """Full strategy search should return valid strategies."""
-        from src.services.brick_factory import create_investment_bricks
-        from src.services.strategy_finder import StrategyFinder
+        from src.application.services.brick_factory import create_investment_bricks
+        from src.application.services.strategy_finder import StrategyFinder
 
         bricks = create_investment_bricks(archetypes, finance_config, operating_config)
 
@@ -129,8 +131,8 @@ class TestFullPipeline:
         self, archetypes, finance_config, operating_config, eval_params
     ):
         """Verify key metrics are correctly calculated (not zero)."""
-        from src.services.brick_factory import create_investment_bricks
-        from src.services.strategy_finder import StrategyFinder
+        from src.application.services.brick_factory import create_investment_bricks
+        from src.application.services.strategy_finder import StrategyFinder
 
         bricks = create_investment_bricks(archetypes, finance_config, operating_config)
 
@@ -197,8 +199,8 @@ class TestMacroUseCases:
 
     def test_small_budget_investor(self, archetypes, base_config):
         """Use case: First-time investor with 30k budget, wants positive CF."""
-        from src.services.brick_factory import create_investment_bricks
-        from src.services.strategy_finder import StrategyFinder
+        from src.application.services.brick_factory import create_investment_bricks
+        from src.application.services.strategy_finder import StrategyFinder
 
         bricks = create_investment_bricks(
             archetypes, base_config["finance"], base_config["operating"]
@@ -225,8 +227,8 @@ class TestMacroUseCases:
 
     def test_patrimoine_builder(self, archetypes, base_config):
         """Use case: Wealth builder with 100k, accepting negative CF for appreciation."""
-        from src.services.brick_factory import create_investment_bricks
-        from src.services.strategy_finder import StrategyFinder
+        from src.application.services.brick_factory import create_investment_bricks
+        from src.application.services.strategy_finder import StrategyFinder
 
         bricks = create_investment_bricks(
             archetypes, base_config["finance"], base_config["operating"]
@@ -255,8 +257,8 @@ class TestMacroUseCases:
 
     def test_cashflow_optimizer(self, archetypes, base_config):
         """Use case: Investor seeking maximum monthly cashflow."""
-        from src.services.brick_factory import create_investment_bricks
-        from src.services.strategy_finder import StrategyFinder
+        from src.application.services.brick_factory import create_investment_bricks
+        from src.application.services.strategy_finder import StrategyFinder
 
         bricks = create_investment_bricks(
             archetypes, base_config["finance"], base_config["operating"]
@@ -281,8 +283,8 @@ class TestMacroUseCases:
 
     def test_different_horizons_affect_results(self, archetypes, base_config):
         """Verify that different horizons produce different metrics."""
-        from src.services.brick_factory import create_investment_bricks
-        from src.services.strategy_finder import StrategyFinder
+        from src.application.services.brick_factory import create_investment_bricks
+        from src.application.services.strategy_finder import StrategyFinder
 
         bricks = create_investment_bricks(
             archetypes, base_config["finance"], base_config["operating"]
@@ -317,7 +319,7 @@ class TestRegressionGuards:
         """Ensure evaluator uses assurance_ann_pct, not assurance_pret_pct."""
         import inspect
 
-        from src.services.evaluator import StrategyEvaluator
+        from src.application.services.evaluator import StrategyEvaluator
 
         source = inspect.getsource(StrategyEvaluator.generate_schedules)
         assert "assurance_ann_pct" in source
@@ -327,7 +329,7 @@ class TestRegressionGuards:
         """Ensure StrategyResult.enrichissement_net uses correct field."""
         import inspect
 
-        from src.models.strategy import StrategyResult
+        from src.domain.models.strategy import StrategyResult
 
         source = inspect.getsource(StrategyResult.enrichissement_net.fget)
         assert "enrichissement_net" in source
@@ -337,17 +339,17 @@ class TestRegressionGuards:
         """Ensure TRI normalization expects percent, not fraction."""
         import inspect
 
-        from src.core.scoring import calculate_balanced_score
+        from src.domain.calculator.scoring import calculate_balanced_score
 
         source = inspect.getsource(calculate_balanced_score)
         # Should divide by 20.0 (for percent), not 0.20 (for fraction)
         assert "/ 20.0" in source or "/20.0" in source
 
     def test_vacancy_uses_tension_not_travaux(self):
-        """Ensure vacancy calculation uses tension or vacance_pct."""
+        """Regression test for vacancy calculation logic."""
         import inspect
 
-        from src.core.scoring import calculate_property_qualitative_score
+        from src.domain.calculator.scoring import calculate_property_qualitative_score
 
         source = inspect.getsource(calculate_property_qualitative_score)
         # Should reference vacance_pct or tension for vacancy

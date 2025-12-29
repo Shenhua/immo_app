@@ -5,7 +5,7 @@ from typing import Any
 
 import streamlit as st
 
-from src.core.simulation import simulate_long_term_strategy
+from src.application.services.simulation import simulate_long_term_strategy
 from src.ui.components.results import format_euro, format_pct
 from src.ui.state import SessionManager
 

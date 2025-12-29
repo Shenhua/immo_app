@@ -9,7 +9,8 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from src.services.evaluator import StrategyEvaluator
+from src.application.services.evaluator import StrategyEvaluator
+from src.application.services.simulation import SimulationEngine
 
 
 @pytest.fixture

@@ -11,12 +11,12 @@ from typing import Any
 
 import pytest
 
-from src.services.brick_factory import (
+from src.application.services.brick_factory import (
     FinancingConfig,
     OperatingConfig,
     create_investment_bricks,
 )
-from src.services.strategy_finder import StrategyFinder
+from src.application.services.strategy_finder import StrategyFinder
 
 # --- Fixtures ---
 

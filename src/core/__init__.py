@@ -8,17 +8,17 @@ from .exceptions import (
     SimulationError,
     StrategyError,
 )
-from .financial import (
+from src.domain.calculator.financial import (
     calculate_insurance,
     calculate_monthly_payment,
     generate_amortization_schedule,
 )
-from .scoring import (
+from src.domain.calculator.scoring import (
     calculate_balanced_score,
     calculate_dpe_score,
     calculate_qualitative_score,
 )
-from .simulation import simulate_long_term_strategy
+from src.application.services.simulation import simulate_long_term_strategy
 
 __all__ = [
     "calculate_monthly_payment",

@@ -15,9 +15,9 @@ import csv
 import os
 from datetime import datetime
 
-from src.core.financial import (
-    calculate_insurance,
+from src.domain.calculator.financial import (
     calculate_monthly_payment,
+    calculate_remaining_balance,
     generate_amortization_schedule,
 )
 from src.core.simulation import (

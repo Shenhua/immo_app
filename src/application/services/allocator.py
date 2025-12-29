@@ -9,8 +9,8 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from src.models.brick import InvestmentBrick
-from src.core.financial import calculate_total_monthly_payment, k_factor
+from src.domain.models.brick import InvestmentBrick
+from src.domain.calculator.financial import calculate_total_monthly_payment, k_factor
 from src.core.logging import get_logger
 
 log = get_logger(__name__)
