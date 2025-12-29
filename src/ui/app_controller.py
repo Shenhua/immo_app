@@ -14,7 +14,7 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 
-from src.domain.calculator.financial import calculate_monthly_payment
+from src.domain.calculator.financial import calculate_monthly_payment, generate_amortization_schedule
 from src.core.logging import get_logger
 from src.application.services.simulation import IRACalculator, MarketHypotheses, SimulationEngine, TaxParams
 from src.domain.models.archetype import ArchetypeV2

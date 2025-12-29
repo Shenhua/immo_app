@@ -125,53 +125,9 @@ def render_sidebar() -> dict[str, Any]:
     }
 
 
-def handle_analysis(params: dict[str, Any], archetypes: list[dict[str, Any]]) -> None:
-    """Handle the analysis button click with progress display.
-
-    Args:
-        params: Sidebar parameters
-        archetypes: Filtered and compliant archetypes
-    """
-    import time
-
-    from src.ui.components.progress_display import render_progress_display
-    from src.ui.progress import SearchProgress, SearchStats
-    from src.ui.state import set_state
-
-    # Track timing
-    start_time = time.time()
-
-    # Track stats during search
-    search_stats_tracker = {
-        "bricks_count": 0,
-        "combos_evaluated": 0,
-        "valid_strategies": 0,
-    }
-
-    # Create a placeholder for progress updates
-    progress_placeholder = st.empty()
-
-    def on_progress(progress: SearchProgress):
-        """Callback to update progress display and track stats."""
-        with progress_placeholder.container():
-            render_progress_display(progress)
-
-        # Track stats
-        if progress.items_total > 0:
-            search_stats_tracker["combos_evaluated"] = progress.items_total
-        if progress.valid_count > 0:
-            search_stats_tracker["valid_strategies"] = progress.valid_count
-
-    # Build configs
-    fin_config = build_financing_config(params["credit_params"])
-    op_config = build_operating_config(
-        params["gestion"],
-        params["vacance"],
-        params["cfe"]
-    )
-
-    # Build eval params
-    eval_params = {
+def build_eval_params(params: dict[str, Any]) -> dict[str, Any]:
+    """Build evaluation parameters dictionary from sidebar params."""
+    return {
         "tmi_pct": params["tmi"],
         "regime_fiscal": params["regime"],
         "frais_vente_pct": params["frais_vente"],
@@ -185,7 +141,70 @@ def handle_analysis(params: dict[str, Any], archetypes: list[dict[str, Any]]) ->
         "use_full_capital": params.get("use_full_capital", False),
     }
 
-    # Run search with progress callback
+
+def save_search_stats(
+    duration: float,
+    tracker: dict[str, int],
+    strategies: list[dict[str, Any]],
+    archetypes_count: int,
+    max_props: int
+) -> None:
+    """Save search statistics to session state."""
+    from src.ui.progress import SearchStats
+    from src.ui.state import set_state
+
+    stats = SearchStats(
+        duration_seconds=duration,
+        bricks_count=archetypes_count * 3,
+        combos_evaluated=tracker["combos_evaluated"],
+        valid_strategies=tracker["valid_strategies"],
+        strategies_after_dedupe=len(strategies),
+        mode="EXHAUSTIVE",
+        max_properties=max_props,
+    )
+    set_state("search_stats", {
+        "timestamp": stats.timestamp,
+        "duration_seconds": stats.duration_seconds,
+        "bricks_count": stats.bricks_count,
+        "combos_generated": stats.combos_generated,
+        "combos_evaluated": stats.combos_evaluated,
+        "valid_strategies": stats.valid_strategies,
+        "strategies_after_dedupe": stats.strategies_after_dedupe,
+        "mode": stats.mode,
+        "max_properties": stats.max_properties,
+    })
+
+
+def handle_analysis(params: dict[str, Any], archetypes: list[dict[str, Any]]) -> None:
+    """Handle the analysis button click with progress display.
+
+    Args:
+        params: Sidebar parameters
+        archetypes: Filtered and compliant archetypes
+    """
+    import time
+
+    from src.ui.components.progress_display import render_progress_display
+    from src.ui.progress import SearchProgress
+
+    start_time = time.time()
+    stats_tracker = {"bricks_count": 0, "combos_evaluated": 0, "valid_strategies": 0}
+    progress_placeholder = st.empty()
+
+    def on_progress(progress: SearchProgress) -> None:
+        with progress_placeholder.container():
+            render_progress_display(progress)
+        if progress.items_total > 0:
+            stats_tracker["combos_evaluated"] = progress.items_total
+        if progress.valid_count > 0:
+            stats_tracker["valid_strategies"] = progress.valid_count
+
+    # Build configs
+    fin_config = build_financing_config(params["credit_params"])
+    op_config = build_operating_config(params["gestion"], params["vacance"], params["cfe"])
+    eval_params = build_eval_params(params)
+
+    # Run search
     strategies = run_strategy_search(
         archetypes=archetypes,
         fin_config=fin_config,
@@ -201,39 +220,17 @@ def handle_analysis(params: dict[str, Any], archetypes: list[dict[str, Any]]) ->
         progress_callback=on_progress,
     )
 
-    # Calculate duration
-    duration = time.time() - start_time
-
-    # Store search stats for persistent display
-    search_stats = SearchStats(
-        duration_seconds=duration,
-        bricks_count=len(archetypes) * 3,  # Approx bricks per archetype
-        combos_evaluated=search_stats_tracker["combos_evaluated"],
-        valid_strategies=search_stats_tracker["valid_strategies"],
-        strategies_after_dedupe=len(strategies),
-        mode="EXHAUSTIVE",
-        max_properties=params.get("max_properties", 3),
+    # Save stats and results
+    save_search_stats(
+        time.time() - start_time,
+        stats_tracker,
+        strategies,
+        len(archetypes),
+        params.get("max_properties", 3)
     )
-    # Store as dict for session state serialization
-    set_state("search_stats", {
-        "timestamp": search_stats.timestamp,
-        "duration_seconds": search_stats.duration_seconds,
-        "bricks_count": search_stats.bricks_count,
-        "combos_generated": search_stats.combos_generated,
-        "combos_evaluated": search_stats.combos_evaluated,
-        "valid_strategies": search_stats.valid_strategies,
-        "strategies_after_dedupe": search_stats.strategies_after_dedupe,
-        "mode": search_stats.mode,
-        "max_properties": search_stats.max_properties,
-    })
-
-    # Clear progress display
     progress_placeholder.empty()
-
-    # Save results
     SessionManager.set_strategies(strategies)
     autosave_results(strategies, {"horizon": params["horizon"], "compliance": params["apply_cap"]})
-
     st.rerun()
 
 
