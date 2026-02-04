@@ -168,36 +168,20 @@ class CombinationGenerator:
         apport_disponible: float,
     ) -> Iterator[tuple[InvestmentBrick, ...]]:
         """Generate all valid combinations using bounded enumeration.
-
-        This uses recursive branch-and-bound to prune infeasible branches early,
-        dramatically reducing the search space for large property counts.
         
         Yields:
             Valid combinations as tuples of InvestmentBrick.
-
-        Key optimizations:
-        - Pre-filter bricks individually exceeding budget
-        - Sort by cost ascending for better pruning
-        - Recursive enumeration that tracks running cost and stops when budget exceeded
-        - Deduplication by nom_bien within combinations
         """
         # Pre-filter unaffordable bricks
         affordable_bricks = [b for b in bricks if b.apport_min <= apport_disponible]
 
-        if len(affordable_bricks) < len(bricks):
-            log.debug("pruning_unaffordable_bricks",
-                     original=len(bricks),
-                     remaining=len(affordable_bricks))
-
         if not affordable_bricks:
-            log.info("no_affordable_bricks", budget=apport_disponible)
             return
 
-        # Sort by cost ASCENDING for better branch-and-bound pruning
-        # (low-cost bricks first means we can add more before hitting budget)
+        # Sort by cost ASCENDING
         sorted_bricks = sorted(affordable_bricks, key=lambda b: b.apport_min)
 
-        def _backtrack(start_idx: int, current_combo: list[InvestmentBrick], current_cost: float):
+        def _backtrack(start_idx: int, current_combo: list[InvestmentBrick], current_cost: float, used_names: set[str]):
             # Base case: we have a valid combo (yield it)
             if current_combo:
                 yield tuple(current_combo)
@@ -214,64 +198,14 @@ class CombinationGenerator:
                 if new_cost > apport_disponible:
                     break  # Since sorted by cost, following bricks will also fail
 
-                # Optimization: Deduplication name check
-                # (Assuming sorted_bricks contain unique items, but strictly 
-                # we don't pick same brick twice in a set - handled by start_idx+1)
-                
-                # Recurse
-                yield from _backtrack(i + 1, current_combo + [brick], new_cost)
-
-        yield from _backtrack(0, [], 0.0)
-
-        def _enumerate(start_idx: int, current_combo: list, current_cost: float, used_names: set):
-            """Recursive bounded enumeration."""
-            # Valid combo if non-empty
-            if current_combo:
-                combos.append(tuple(current_combo))
-
-            # Stop if max properties reached
-            if len(current_combo) >= self.max_properties:
-                return
-
-            # Try adding each remaining brick
-            for i in range(start_idx, len(sorted_bricks)):
-                brick = sorted_bricks[i]
-                brick_cost = brick.apport_min
-                brick_name = brick.nom
-
-                visited_count[0] += 1
-
-                # Pruning 1: Budget exceeded - stop this branch entirely
-                # Since bricks are sorted by cost, all subsequent bricks cost >= this one
-                if current_cost + brick_cost > apport_disponible:
-                    pruned_count[0] += len(sorted_bricks) - i
-                    break  # No point checking more expensive bricks
-
-                # Pruning 2: Skip duplicate property names within combo
-                if brick_name in used_names:
+                # Pruning: No duplicate names
+                if brick.nom in used_names:
                     continue
 
-                # Add brick and recurse
-                current_combo.append(brick)
-                used_names.add(brick_name)
+                # Recurse
+                yield from _backtrack(i + 1, current_combo + [brick], new_cost, used_names | {brick.nom})
 
-                _enumerate(i + 1, current_combo, current_cost + brick_cost, used_names)
-
-                # Backtrack
-                current_combo.pop()
-                used_names.remove(brick_name)
-
-        # Start enumeration
-        _enumerate(0, [], 0.0, set())
-
-        log.info("combos_generated",
-                count=len(combos),
-                max_props=self.max_properties,
-                budget=apport_disponible,
-                visited=visited_count[0],
-                pruned=pruned_count[0])
-
-        return combos
+        yield from _backtrack(0, [], 0.0, set())
 
 
 class StrategyFinder:

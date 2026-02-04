@@ -216,8 +216,8 @@ class TestCalculateFinanceScore:
 
         score = evaluator.calculate_finance_score(bilan, cf_metrics, 100000.0, 100.0)
 
-        # Should be in middle range
-        assert 0.3 < score < 0.7
+        # Should be in good range (> 0.7) as 10% IRR is now close to 12% target
+        assert 0.7 < score < 0.95
 
 
 class TestCalculateQualityScore:

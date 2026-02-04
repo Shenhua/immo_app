@@ -90,6 +90,7 @@ class TestCombinationGenerator:
         combos = gen.generate(bricks, apport_disponible=50000)
 
         # Should have: (A,), (B,), (A, B)
+        combos = list(combos)
         assert len(combos) == 3
 
     def test_respects_budget(self):
@@ -102,6 +103,7 @@ class TestCombinationGenerator:
         combos = gen.generate(bricks, apport_disponible=40000)
 
         # Only single properties fit, not both
+        combos = list(combos)
         assert len(combos) == 2
 
     def test_no_duplicates_same_name(self):
@@ -114,6 +116,7 @@ class TestCombinationGenerator:
         combos = gen.generate(bricks, apport_disponible=50000)
 
         # Should only have single-property combos
+        combos = list(combos)
         assert all(len(c) == 1 for c in combos)
 
 

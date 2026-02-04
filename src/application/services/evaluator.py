@@ -27,10 +27,10 @@ class StrategyEvaluator:
 
     # Default scoring weights (from scoring_constants)
     DEFAULT_WEIGHTS = {
-        "irr": 0.25,
-        "enrich_net": 0.30,
+        "irr": 0.20,
+        "enrich_net": 0.25,
         "dscr": 0.15,
-        "cf_proximity": 0.20,
+        "cf_proximity": 0.30,
         "cap_eff": 0.10
     }
 
@@ -171,15 +171,16 @@ class StrategyEvaluator:
         bilan: dict[str, Any],
         cf_metrics: dict[str, Any],
         apport_total: float,
-        tolerance: float
+        tolerance: float,
+        horizon_years: int = 20
     ) -> float:
         """
         Calculate finance score (0.0 to 1.0) using absolute scales.
 
         Uses constant targets to avoid normalization instability:
-        - TRI target: 20% is excellent
-        - Enrichment target: 2x ROE is good
-        - DSCR target: 1.3 is safe
+        - TRI target: 12% is excellent (Market Reality)
+        - Enrichment target: ROE > 5% compounding per year
+        - DSCR target: 1.15 is safe (Bank Standard)
         - CF target: 0 gap is perfect
 
         Args:
@@ -193,19 +194,24 @@ class StrategyEvaluator:
         """
         w = self.weights
 
-        # 1. TRI (Internal Rate of Return) - target 20%
+        # 1. TRI (Internal Rate of Return) - target 12%
         tri = bilan.get("tri_annuel", 0.0)
-        s_tri = max(0.0, min(1.0, tri / 20.0))
+        s_tri = max(0.0, min(1.0, tri / 12.0))
 
-        # 2. Enrichment (ROE) - target 2x
+        # 2. Enrichment (ROE) - target compounded 5% / year
         enrich = bilan.get("enrichissement_net", 0.0)
         safe_apport = max(1.0, apport_total)
         roe = enrich / safe_apport
-        s_enrich = max(0.0, min(1.0, roe / 2.0))
+        
+        # Target ROE based on horizon (e.g. 1.05^20 ≈ 2.65x)
+        # We look for total Equity Multiple = 1 + ROE
+        # Target Equity Multiple = 1.05 ^ horizon
+        target_roe = (1.05 ** horizon_years) - 1.0
+        s_enrich = max(0.0, min(1.0, roe / target_roe))
 
-        # 3. DSCR - target 1.3
+        # 3. DSCR - target 1.15
         dscr = float(bilan.get("dscr_y1", 0.0) or 0.0)
-        s_dscr = max(0.0, min(1.0, dscr / 1.3))
+        s_dscr = max(0.0, min(1.0, dscr / 1.15))
 
         # 4. Cash Flow Proximity - 0 gap is perfect
         gap = cf_metrics.get("gap", 0.0)
@@ -326,7 +332,7 @@ class StrategyEvaluator:
             result.update(enrich_metrics)
 
             # Calculate scores
-            finance_score = self.calculate_finance_score(bilan, cf_metrics, apport_total, tolerance)
+            finance_score = self.calculate_finance_score(bilan, cf_metrics, apport_total, tolerance, horizon)
             qual_score = self.calculate_quality_score(details)
             combined_score = self.calculate_combined_score(finance_score, qual_score)
 
