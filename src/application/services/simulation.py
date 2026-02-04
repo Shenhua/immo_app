@@ -51,24 +51,59 @@ class TaxParams:
         charges_deductibles: float,
         amortissements: float,
         deficit_reportable: float = 0.0,
-    ) -> tuple[float, float, float]:
+        amort_differes_reportable: float = 0.0,
+    ) -> tuple[float, float, float, float]:
         """Calculate income tax for the year.
 
         Returns:
-            Tuple of (tax_due, new_deficit_reportable, taxable_base)
+            Tuple of (tax_due, new_deficit_reportable, new_amort_differes, taxable_base)
         """
         if self.regime_fiscal == "microbic":
             base_imposable = max(0.0, loyers_bruts * (1.0 - self.micro_bic_abatt_pct / 100.0))
             new_deficit = 0.0
+            new_ard = 0.0
         else:
-            # LMNP réel
-            resultat_brut = loyers_bruts - charges_deductibles - amortissements
-            resultat_apres_report = resultat_brut + deficit_reportable
-            base_imposable = max(0.0, resultat_apres_report)
-            new_deficit = min(0.0, resultat_apres_report)
+            # LMNP réel logic
+            noi = loyers_bruts - charges_deductibles
+            
+            # 1. Deficit Foncier (Charges > Rents)
+            if noi < 0:
+                # Deficit created/increased. Amortization is largely deferred.
+                new_deficit = deficit_reportable + noi
+                new_ard = amort_differes_reportable + amortissements
+                base_imposable = 0.0
+            else:
+                # Positive NOI - absorb deficit first
+                # deficit_reportable is negative
+                res_apres_deficit = noi + deficit_reportable
+                
+                if res_apres_deficit < 0:
+                    # Still in deficit
+                    new_deficit = res_apres_deficit
+                    new_ard = amort_differes_reportable + amortissements
+                    base_imposable = 0.0
+                else:
+                    # Deficit cleared, now attack amortization
+                    new_deficit = 0.0
+                    
+                    # Deduct stock ARD + current amort
+                    # (In LMNP, you can use ARD to reduce profit to 0, but not create deficit)
+                    # We treat (ard + amort) as the total pool of deductive power
+                    total_amort_pool = amort_differes_reportable + amortissements
+                    
+                    res_final = res_apres_deficit - total_amort_pool
+                    
+                    if res_final < 0:
+                        # Profit reduced to 0, remaining amort becomes new ARD
+                        base_imposable = 0.0
+                        new_ard = -res_final
+                    else:
+                        # Profit remaining after full amort deduction
+                        base_imposable = res_final
+                        new_ard = 0.0
 
         impot = base_imposable * (self.tmi_pct / 100.0 + TAUX_PRELEVEMENTS_SOCIAUX / 100.0)
-        return impot, new_deficit, base_imposable
+        return impot, new_deficit, new_ard, base_imposable
 
 
 @dataclass
@@ -156,13 +191,14 @@ class SimulationEngine:
         frais_vente_pct: float = 6.0,
         amort_immo_years: int = 30,
         amort_mobilier_years: int = 10,
+        ratio_terrain_pct: float = 0.0,
     ):
         self.market = market
         self.tax = tax
         self.ira = ira
         self.cfe_par_bien_ann = cfe_par_bien_ann
         self.frais_vente_pct = frais_vente_pct
-        self.frais_vente_pct = frais_vente_pct
+        self.ratio_terrain_pct = max(0.0, min(100.0, ratio_terrain_pct))
         
         if amort_immo_years <= 0:
             raise ValueError("amort_immo_years must be > 0 to avoid division by zero")
@@ -205,16 +241,18 @@ class SimulationEngine:
 
         results: list[YearResult] = []
         deficit_reportable = 0.0
+        ard_reportable = 0.0
         total_impot = 0.0
 
         for year in range(1, horizons_years + 1):
-            result, next_deficit = self._simulate_year(
-                year, projets, schedules, valeur_biens, deficit_reportable
+            result, next_deficit, next_ard = self._simulate_year(
+                year, projets, schedules, valeur_biens, deficit_reportable, ard_reportable
             )
             results.append(result)
 
             total_impot += result.impot_du
             deficit_reportable = next_deficit
+            ard_reportable = next_ard
             valeur_biens = result.valeur_biens
             flux.append(result.cash_flow_net)
 
@@ -233,11 +271,12 @@ class SimulationEngine:
         schedules: list[dict[str, Any]],
         valeur_biens: float,
         deficit_reportable: float,
-    ) -> tuple[YearResult, float]:
+        ard_reportable: float = 0.0,
+    ) -> tuple[YearResult, float, float]:
         """Simulate a single year.
 
         Returns:
-            Tuple of (YearResult, next_year_deficit_reportable)
+            Tuple of (YearResult, next_year_deficit_reportable, next_year_ard)
         """
         # Appreciate property value
         if year > 1:
@@ -283,8 +322,11 @@ class SimulationEngine:
                 interets + assurance + self.cfe_par_bien_ann
             )
 
-            # Amortization (using configurable periods)
-            amort_immo = (p["prix_achat_bien"] + p["budget_travaux"] + p.get("renovation_energetique", 0.0)) / self.amort_immo_years
+            # Amortization (using configurable periods, excluding land value)
+            # Land is not amortizable per French tax law
+            valeur_terrain = p["prix_achat_bien"] * (self.ratio_terrain_pct / 100.0)
+            base_amortissable = (p["prix_achat_bien"] - valeur_terrain) + p["budget_travaux"] + p.get("renovation_energetique", 0.0)
+            amort_immo = base_amortissable / self.amort_immo_years
             amort_mob = p["mobilier"] / self.amort_mobilier_years
             if self.tax.regime_fiscal == "lmnp":
                 amortissements_pf += amort_immo + (amort_mob if self.tax.amort_mobilier else 0.0)
@@ -294,8 +336,9 @@ class SimulationEngine:
             dette_fin += solde_fin
 
         # Tax calculation
-        impot, new_deficit, base_imposable = self.tax.calculate_tax(
-            loyers_bruts_pf, charges_deductibles_pf, amortissements_pf, deficit_reportable
+        impot, new_deficit, new_ard, base_imposable = self.tax.calculate_tax(
+            loyers_bruts_pf, charges_deductibles_pf, amortissements_pf,
+            deficit_reportable, ard_reportable
         )
         cf_ann -= impot
 
@@ -312,7 +355,7 @@ class SimulationEngine:
             loyers_bruts=loyers_bruts_pf,
             charges_deductibles=charges_deductibles_pf,
             amortissements=amortissements_pf,
-        ), new_deficit
+        ), new_deficit, new_ard
 
     def _calculate_liquidation(
         self,

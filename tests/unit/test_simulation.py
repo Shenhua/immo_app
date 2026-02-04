@@ -35,7 +35,7 @@ class TestTaxParams:
         """LMNP real should use amortization deductions."""
         tax = TaxParams(tmi_pct=30.0, regime_fiscal="lmnp")
 
-        impot, deficit, base = tax.calculate_tax(
+        impot, deficit, ard, base = tax.calculate_tax(
             loyers_bruts=10000,
             charges_deductibles=3000,
             amortissements=5000,
@@ -49,7 +49,7 @@ class TestTaxParams:
         """Micro-BIC should use 50% abatement."""
         tax = TaxParams(regime_fiscal="microbic", micro_bic_abatt_pct=50.0)
 
-        impot, deficit, base = tax.calculate_tax(
+        impot, deficit, ard, base = tax.calculate_tax(
             loyers_bruts=10000,
             charges_deductibles=3000,  # ignored in micro-bic
             amortissements=5000,  # ignored in micro-bic

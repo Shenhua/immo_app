@@ -221,10 +221,11 @@ class TestLMNPTaxCalculation:
         Tax = 0
         """
         tax = TaxParams(tmi_pct=30.0, regime_fiscal="lmnp")
-        impot, deficit, base = tax.calculate_tax(10_000, 3_000, 8_000)
+        impot, deficit, ard, base = tax.calculate_tax(10_000, 3_000, 8_000)
 
         assert impot == 0.0, f"Expected 0 tax, got {impot:.2f}"
-        assert deficit < 0, "Should have reportable deficit"
+        assert deficit == 0.0, "Should NOT have reportable deficit (rents > charges)"
+        assert ard > 0, "Should have deferred amortization"
 
     def test_lmnp_tax_with_profit(self):
         """
@@ -238,7 +239,7 @@ class TestLMNPTaxCalculation:
         Tax = 5,000 × (30% + 17.2%) = 2,360€
         """
         tax = TaxParams(tmi_pct=30.0, regime_fiscal="lmnp")
-        impot, deficit, base = tax.calculate_tax(10_000, 2_000, 3_000)
+        impot, deficit, ard, base = tax.calculate_tax(10_000, 2_000, 3_000)
 
         expected_tax = 5_000 * (0.30 + 0.172)
         assert abs(impot - expected_tax) < 0.01, f"Expected {expected_tax:.2f}, got {impot:.2f}"
