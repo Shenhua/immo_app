@@ -121,10 +121,11 @@ def render_objectives_section() -> dict[str, Any]:
              if not is_rentier:
                 cf_cible = st.number_input(
                     "Cash-Flow Cible (/mois)",
-                    min_value=0.0,
-                    value=max(0.0, float(st.session_state.get("cf_cible", 0.0))),
+                    min_value=-2000.0,
+                    max_value=2000.0,
+                    value=float(st.session_state.get("cf_cible", 0.0)),
                     step=50.0,
-                    help="Le cash-flow net minimum que vous visez."
+                    help="Le cash-flow net minimum que vous visez (négatif = effort d'épargne)."
                 )
              else:
                 cf_cible = 0.0
@@ -212,33 +213,34 @@ def render_credit_params_tab() -> dict[str, Any]:
 
     st.markdown("---")
 
-    frais_notaire = st.slider("Frais de notaire (%)", 0.0, 12.0, 8.0, 0.1)
-    assurance = st.slider("Assurance emprunteur (% cap.)", 0.00, 1.00, 0.35, 0.01)
-    frais_pret = st.slider("Frais de prêt (% cap.)", 0.0, 3.0, 1.0, 0.1)
+    with st.expander("⚙️ Options Avancées & Coûts", expanded=False):
+        frais_notaire = st.slider("Frais de notaire (%)", 0.0, 12.0, 8.0, 0.1)
+        assurance = st.slider("Assurance emprunteur (% cap.)", 0.00, 1.00, 0.35, 0.01)
+        frais_pret = st.slider("Frais de prêt (% cap.)", 0.0, 3.0, 1.0, 0.1)
 
-    st.markdown("**Inclusion des coûts dans le financement**")
-    c1, c2, c3, c4 = st.columns(4)
-    inclure_travaux = c1.checkbox("Travaux", value=True)
-    inclure_reno = c2.checkbox("Reno E→D", value=True)
-    inclure_mobilier = c3.checkbox("Mobilier", value=True)
-    financer_mobilier = c4.checkbox("Financé", value=True)
+        st.markdown("**Inclusion des coûts dans le financement**")
+        c1, c2, c3, c4 = st.columns(4)
+        inclure_travaux = c1.checkbox("Travaux", value=True)
+        inclure_reno = c2.checkbox("Reno E→D", value=True)
+        inclure_mobilier = c3.checkbox("Mobilier", value=True)
+        financer_mobilier = c4.checkbox("Financé", value=True)
 
-    st.markdown("**Frais de remboursement anticipés**")
-    apply_ira = st.toggle(
-        "Appliquer les frais (IRA)",
-        value=st.session_state.get("apply_ira", True),
-        help="Indemnité si le prêt est remboursé avant son terme.",
-    )
-    ira_cap = st.number_input(
-        "Plafond % CRD",
-        0.0, 10.0,
-        st.session_state.get("ira_cap_pct", 3.0),
-        0.1,
-        help="Plafond légal sur le capital restant dû.",
-    )
+        st.markdown("**Frais de remboursement anticipés**")
+        apply_ira = st.toggle(
+            "Appliquer les frais (IRA)",
+            value=st.session_state.get("apply_ira", True),
+            help="Indemnité si le prêt est remboursé avant son terme.",
+        )
+        ira_cap = st.number_input(
+            "Plafond % CRD",
+            0.0, 10.0,
+            st.session_state.get("ira_cap_pct", 3.0),
+            0.1,
+            help="Plafond légal sur le capital restant dû.",
+        )
 
-    st.session_state["apply_ira"] = apply_ira
-    st.session_state["ira_cap_pct"] = ira_cap
+        st.session_state["apply_ira"] = apply_ira
+        st.session_state["ira_cap_pct"] = ira_cap
 
     return {
         "taux_credits": {15: taux_15, 20: taux_20, 25: taux_25},

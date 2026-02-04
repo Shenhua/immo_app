@@ -131,7 +131,7 @@ def render_sensitivity_analysis(strategy: dict[str, Any], horizon: int = 25, key
                 else:
                     cols[2].write("—")
 
-            show_impact("CF Mensuel", strategy.get("cash_flow_final", 0), res.get("cash_flow_mensuel", 0), format_euro)
+            show_impact("CF Mensuel", strategy.get("cash_flow_final", 0) / 12.0, res.get("cash_flow_mensuel", 0), format_euro)
             show_impact("TRI", strategy.get("tri_annuel", 0), res.get("tri_annuel", 0), format_pct)
             show_impact("Enrichissement", strategy.get("liquidation_nette", 0), res.get("liquidation_nette", 0), format_euro)
             show_impact("DSCR Y1", strategy.get("dscr_y1", 0), res.get("dscr_y1", 0), lambda x: f"{x:.2f}")
