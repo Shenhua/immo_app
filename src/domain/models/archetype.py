@@ -47,13 +47,19 @@ class ArchetypeV2(BaseModel):
     tension_locative_score_norm: float = Field(default=0.5, ge=0, le=1, description="Market tension score")
     transport_score: float = Field(default=0.5, ge=0, le=1, description="Transport accessibility score")
     liquidite_score: float = Field(default=0.5, ge=0, le=1, description="Resale liquidity score")
-    indice_tension: float = Field(default=0.5, ge=0, le=1, description="Rental demand tension index")
 
     # Timing
     delai_vente_j_median: int = Field(default=60, ge=0, description="Median days to sell")
+    
+    # Additional fields from JSON data
+    vacance_pct: float = Field(default=2.0, ge=0, le=100, description="Vacancy rate percentage")
+    transport_modes: list[str] = Field(default_factory=list, description="Available transport modes")
+    mode_loyer_label: str = Field(default="", description="Human-readable rental mode label")
+    frais_gestion_pct: float | None = Field(None, ge=0, le=100, description="Management fees % (colocation)")
+    facteurs_qualitatifs: dict[str, str] = Field(default_factory=dict, description="Qualitative factors")
 
     model_config = {
-        "extra": "allow",  # Allow additional fields from JSON
+        "extra": "forbid",  # Reject unexpected fields (now that schema matches data)
     }
 
     @field_validator("dpe_initial")

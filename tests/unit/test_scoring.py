@@ -50,7 +50,7 @@ class TestCalculatePropertyQualitativeScore:
     def test_score_range(self):
         """Score should be between 0 and 100."""
         source = {
-            "indice_tension": 0.8,
+            "tension_locative_score_norm": 0.8,
             "transport_score": 0.9,
             "dpe_initial": "B",
             "liquidite_score": 0.8,
@@ -61,7 +61,7 @@ class TestCalculatePropertyQualitativeScore:
     def test_high_quality_property(self):
         """High quality property should score well."""
         source = {
-            "indice_tension": 0.95,
+            "tension_locative_score_norm": 0.95,
             "transport_score": 0.95,
             "dpe_initial": "A",
             "liquidite_score": 0.95,
@@ -72,7 +72,7 @@ class TestCalculatePropertyQualitativeScore:
     def test_low_quality_property(self):
         """Poor quality property should score low."""
         source = {
-            "indice_tension": 0.1,
+            "tension_locative_score_norm": 0.1,
             "transport_score": 0.1,
             "dpe_initial": "G",
             "liquidite_score": 0.1,

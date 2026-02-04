@@ -34,7 +34,7 @@ def random_archetypes() -> list[dict[str, Any]]:
             "charges_m2_an": random.uniform(10, 50),
             "taxe_fonciere_m2_an": random.uniform(5, 25),
             "dpe_initial": random.choice(["A", "C", "D", "E", "F", "G"]),
-            "indice_tension": random.random(),
+            "tension_locative_score_norm": random.random(),
             "transport_score": random.random(),
             "liquidite_score": random.random(),
             "soumis_encadrement": random.choice([True, False]),

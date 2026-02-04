@@ -94,8 +94,10 @@ def create_investment_bricks(
 
         # 4. Operating costs
         # Allow archetype to override global operating config
-        gestion_pct = float(archetype.get("frais_gestion_pct", operating.frais_gestion_pct))
-        vacance_pct = float(archetype.get("vacance_pct", operating.provision_pct))
+        gestion_raw = archetype.get("frais_gestion_pct")
+        gestion_pct = float(gestion_raw if gestion_raw is not None else operating.frais_gestion_pct)
+        vacance_raw = archetype.get("vacance_pct")
+        vacance_pct = float(vacance_raw if vacance_raw is not None else operating.provision_pct)
 
         gest_mth0 = loyer_mth0 * (gestion_pct / 100.0)
         prov_mth0 = loyer_mth0 * (vacance_pct / 100.0)
