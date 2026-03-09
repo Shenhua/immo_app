@@ -69,7 +69,7 @@ def calculate_property_qualitative_score(
     w = weights or DEFAULT_QUAL_WEIGHTS
 
     # Extract features
-    tension = float(source.get("indice_tension", source.get("tension_locative_score_norm", 0.5)))
+    tension = float(source.get("tension_locative_score_norm", source.get("indice_tension", 0.5)))
     transport = float(source.get("transport_score", 0.5))
     dpe = calculate_dpe_score(source.get("dpe_initial", source.get("dpe", "D")))
 

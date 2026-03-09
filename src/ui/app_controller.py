@@ -14,17 +14,16 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 
-from src.domain.calculator.financial import calculate_monthly_payment, generate_amortization_schedule
-from src.core.logging import get_logger
-from src.application.services.simulation import IRACalculator, MarketHypotheses, SimulationEngine, TaxParams
-from src.domain.models.archetype import ArchetypeV2
 from src.application.services.brick_factory import (
     FinancingConfig,
     OperatingConfig,
-    apply_rent_caps,
     create_investment_bricks,
 )
+from src.application.services.simulation import IRACalculator, MarketHypotheses, SimulationEngine, TaxParams
 from src.application.services.strategy_finder import StrategyFinder
+from src.core.logging import get_logger
+from src.domain.calculator.financial import generate_amortization_schedule
+from src.domain.models.archetype import ArchetypeV2
 from src.ui.state import SessionManager
 
 log = get_logger(__name__)
@@ -203,31 +202,33 @@ def run_strategy_search(
 
     log.info("analysis_completed", strategies_found=len(strategies))
 
-    # Phase 19: Automatic Debug Context
-    try:
-        from src.utils.debug import collect_debug_context, save_debug_context
+    # Automatic Debug Context — only when APP_DEBUG=true is set
+    import os
+    if os.getenv("APP_DEBUG", "").lower() in ("1", "true", "yes"):
+        try:
+            from src.utils.debug import collect_debug_context, save_debug_context
 
-        ctx_params = {
-            "apport": apport,
-            "cf_cible": cf_cible,
-            "tolerance": tolerance,
-            "qual_weight": qual_weight,
-            "mode_cf": mode_cf,
-            "horizon_years": horizon_years,
-            "top_n": top_n,
-            "eval_params": eval_params,
-        }
+            ctx_params = {
+                "apport": apport,
+                "cf_cible": cf_cible,
+                "tolerance": tolerance,
+                "qual_weight": qual_weight,
+                "mode_cf": mode_cf,
+                "horizon_years": horizon_years,
+                "top_n": top_n,
+                "eval_params": eval_params,
+            }
 
-        ctx = collect_debug_context(
-            params=ctx_params,
-            strategies=strategies,
-            log_file_path="logs/app.log"
-        )
-        # Use timestamped name
-        save_debug_context(ctx, filepath=f"results/debug_context_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
-        log.info("debug_context_saved")
-    except Exception as e:
-        log.warning("debug_context_save_failed", error=str(e))
+            ctx = collect_debug_context(
+                params=ctx_params,
+                strategies=strategies,
+                log_file_path="logs/app.log"
+            )
+            # Use timestamped name
+            save_debug_context(ctx, filepath=f"results/debug_context_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+            log.info("debug_context_saved")
+        except Exception as e:
+            log.warning("debug_context_save_failed", error=str(e))
 
     return strategies
 
@@ -278,21 +279,28 @@ def simulate_selected_strategy(
             frais_vente_pct=frais_vente,
         )
 
-        schedules = [
-            generate_amortization_schedule(
-                float(p["credit_final"]),
-                float(p["taux_pret"]),
-                int(p["duree_pret"]) * 12,
-                float(p["assurance_ann_pct"]),
-            )
-            for p in strategy["details"]
-        ]
+        schedules = []
+        for p in strategy["details"]:
+            principal = float(p.get("credit_final", p.get("capital_emprunte", p.get("capital_restant", 0))))
+            rate = float(p.get("taux_annuel_pct", p.get("taux_pret", 0.0)))
+            if "duree_credit_mois" in p:
+                duration_months = int(p["duree_credit_mois"])
+            else:
+                duration_months = int(p.get("duree_pret", 20)) * 12
+            insurance = float(p.get("assurance_annuelle_pct", p.get("assurance_ann_pct", 0.0)))
+            schedules.append(generate_amortization_schedule(
+                principal=principal,
+                annual_rate_pct=rate,
+                duration_months=duration_months,
+                annual_insurance_pct=insurance,
+            ))
 
         df_sim, _ = eng.simulate(strategy, horizon, schedules)
         return df_sim
 
     except Exception as e:
-        log.warning("simulation_failed", error=str(e))
+        log.error("simulation_engine_crash", error=str(e), exc_info=True)
+        st.error(f"🚨 **Erreur critique du moteur de simulation:** {str(e)}\n\nVeuillez vérifier vos paramètres ou contacter le support.")
         return None
 
 

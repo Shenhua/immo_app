@@ -122,8 +122,6 @@ def create_investment_bricks(
 
         # 6. Create variants for each loan duration
         base_data = archetype.copy()
-        # Rename 'nom' to 'nom_bien' for internal consistency
-        base_data['nom_bien'] = base_data.pop('nom', 'Bien inconnu')
 
         for duree, taux in finance.credit_rates.items():
             duration_months = int(duree) * 12
@@ -151,23 +149,16 @@ def create_investment_bricks(
 
                 # Loan
                 "capital_emprunte": capital_emprunte,
-                "credit_final": capital_emprunte,  # Alias
                 "duree_credit_mois": duration_months,
                 "taux_annuel_pct": float(taux),
                 "assurance_annuelle_pct": float(finance.assurance_ann_pct),
                 "pmt_principal_interet": p_i,
                 "pmt_assurance": ins,
 
-                # Legacy fields for backward compatibility (allowed by extra="allow")
-                "duree_pret": int(duree),
-                "taux_pret": float(taux),
-                "assurance_ann_pct": float(finance.assurance_ann_pct),
-                "pmt_total": pmt_total,
-
                 # Operating
                 "loyer_mensuel_initial": loyer_mth0,
-                "charges_const_mth0": charges_mth0,
-                "tf_const_mth0": taxe_fonciere_mth0,
+                "charges_mensuelles_initiales": charges_mth0,
+                "taxe_fonciere_mensuelle_initiale": taxe_fonciere_mth0,
                 "frais_gestion_pct": gestion_pct,
                 "provision_pct": vacance_pct,
                 "depenses_mensuelles_hors_credit_initial": depenses_mth0,
@@ -175,10 +166,6 @@ def create_investment_bricks(
                 # Qualitative score
                 "qual_score_bien": qual_score,
             }
-
-            # Map 'nom_bien' back to 'nom' for the model if needed
-            if 'nom_bien' in brick_dict and 'nom' not in brick_dict:
-                brick_dict['nom'] = brick_dict['nom_bien']
 
             bricks.append(InvestmentBrick.model_validate(brick_dict))
 
@@ -217,12 +204,12 @@ def apply_rent_caps(archetypes: list[dict[str, Any]], apply_cap: bool = True) ->
 
 # Required fields for brick validation
 REQUIRED_BRICK_FIELDS = [
-    ("nom_bien", "Property name"),
+    ("nom", "Property name"),
     ("prix_achat_bien", "Purchase price"),
     ("loyer_mensuel_initial", "Monthly rent"),
-    ("taux_pret", "Loan rate"),
-    ("duree_pret", "Loan duration"),
-    ("assurance_ann_pct", "Insurance rate"),
+    ("taux_annuel_pct", "Loan rate"),
+    ("duree_credit_mois", "Loan duration"),
+    ("assurance_annuelle_pct", "Insurance rate"),
     ("cout_total", "Total cost"),
 ]
 
@@ -251,7 +238,7 @@ def validate_brick(brick: Union[dict[str, Any], InvestmentBrick], strict: bool =
         brick_data = brick.model_dump()
     else:
         brick_data = brick
-    brick_name = brick_data.get("nom_bien") or brick_data.get("nom", "Unknown")
+    brick_name = brick_data.get("nom", "Unknown")
 
     for field, description in REQUIRED_BRICK_FIELDS:
         value = brick_data.get(field)
@@ -262,7 +249,7 @@ def validate_brick(brick: Union[dict[str, Any], InvestmentBrick], strict: bool =
                 raise BrickValidationError(msg)
         elif isinstance(value, (int, float)) and value <= 0:
             # Check for zero/negative values on financial fields
-            if field in ("taux_pret", "duree_pret", "prix_achat_bien", "cout_total"):
+            if field in ("taux_annuel_pct", "duree_credit_mois", "prix_achat_bien", "cout_total"):
                 msg = f"Brick '{brick_name}': Invalid {description} ({field}={value})"
                 warnings.append(msg)
                 if strict:

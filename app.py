@@ -13,9 +13,9 @@ import streamlit as st
 # Add src to path if not present (for running from root)
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+from src.application.services.brick_factory import apply_rent_caps
 from src.core.logging import get_logger
 from src.ui.app_controller import (
-    apply_rent_caps,
     autosave_results,
     build_financing_config,
     build_operating_config,

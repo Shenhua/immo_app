@@ -144,7 +144,7 @@ def render_strategy_card(
         if is_selected and show_details:
              btn_label = "🔼 Masquer"
 
-        if st.button(btn_label, key=f"btn_details_{index}", use_container_width=True):
+        if st.button(btn_label, key=f"btn_details_{index}", width="stretch"):
             clicked = True
         else:
             clicked = False
@@ -169,7 +169,7 @@ def render_strategy_details(strategy: dict[str, Any], horizon: int = 25) -> None
     st.markdown("### 🏠 Détails des biens")
 
     for i, bien in enumerate(details, 1):
-        with st.expander(f"**{bien.get('nom_bien', f'Bien {i}')}** - {bien.get('ville', '?')}"):
+        with st.expander(f"**{bien.get('nom', f'Bien {i}')}** - {bien.get('ville', '?')}"):
             col1, col2, col3 = st.columns(3)
 
             with col1:
@@ -187,9 +187,9 @@ def render_strategy_details(strategy: dict[str, Any], horizon: int = 25) -> None
             with col2:
                 st.markdown("**Financement**")
                 st.write(f"Apport: {format_euro(bien.get('apport_min', 0))}")
-                st.write(f"Crédit: {format_euro(bien.get('credit_final', 0))}")
-                st.write(f"Durée: {bien.get('duree_pret', 0)} ans")
-                st.write(f"Taux: {bien.get('taux_pret', 0):.2f}%")
+                st.write(f"Crédit: {format_euro(bien.get('capital_emprunte', 0))}")
+                st.write(f"Durée: {bien.get('duree_credit_mois', 0) // 12} ans")
+                st.write(f"Taux: {bien.get('taux_annuel_pct', 0):.2f}%")
 
             with col3:
                 st.markdown("**Flux Mensuels (Moy)**")

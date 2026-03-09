@@ -42,6 +42,8 @@ class InvestmentBrick(BaseModel):
     loyer_m2: float = Field(default=0.0, ge=0, description="Rent per m² in €")
     loyer_m2_max: float | None = Field(None, description="Rent cap per m²")
     loyer_mensuel_initial: float = Field(default=0.0, ge=0, description="Initial monthly rent in €")
+    charges_mensuelles_initiales: float = Field(default=0.0, ge=0, description="Initial monthly charges in €")
+    taxe_fonciere_mensuelle_initiale: float = Field(default=0.0, ge=0, description="Initial monthly property tax in €")
     depenses_mensuelles_hors_credit_initial: float = Field(default=0.0, description="Monthly expenses ex-loan in €")
 
     # Qualitative
@@ -51,7 +53,7 @@ class InvestmentBrick(BaseModel):
     qual_score_bien: float | None = Field(None, description="Qualitative score 0-100")
 
     # Market indicators
-    indice_tension: float = Field(default=0.5, description="Market tension")
+    tension_locative_score_norm: float = Field(default=0.5, description="Market tension")
     transport_score: float = Field(default=0.5, description="Transport score")
     liquidite_score: float = Field(default=0.5, description="Liquidity score")
 
@@ -86,52 +88,3 @@ class InvestmentBrick(BaseModel):
             - self.depenses_mensuelles_hors_credit_initial
             - self.pmt_total
         )
-
-    def __getitem__(self, key: str) -> Any:
-        """Legacy dict-style access for backward compatibility."""
-        mapping = {
-            "nom_bien": "nom",
-            "taux_pret": "taux_annuel_pct",
-            "assurance_ann_pct": "assurance_annuelle_pct",
-            "cout_total_bien": "cout_total",
-            "capital_emprunte": "capital_emprunte",
-            "apport_add_bien": "apport_add_bien",
-            "duree_pret": "duree_credit_mois",
-            "cf_proximity": "cf_proximity", # For sorting tests
-        }
-        
-        # Resolve key
-        actual_key = mapping.get(key, key)
-        
-        # Check attributes first
-        if hasattr(self, actual_key):
-            val = getattr(self, actual_key)
-            # Special case for duration: return years if legacy key 'duree_pret' is used
-            if key == "duree_pret" and isinstance(val, int):
-                return val // 12
-            return val
-        
-        # Fallback to model_extra
-        if self.model_extra and actual_key in self.model_extra:
-            return self.model_extra[actual_key]
-            
-        raise KeyError(f"Key '{key}' (mapped to '{actual_key}') not found in InvestmentBrick")
-
-    def __contains__(self, key: str) -> bool:
-        """Support 'in' operator for legacy keys."""
-        mapping = {
-            "nom_bien": "nom",
-            "taux_pret": "taux_annuel_pct",
-            "assurance_ann_pct": "assurance_annuelle_pct",
-            "cout_total_bien": "cout_total",
-            "duree_pret": "duree_credit_mois",
-        }
-        actual_key = mapping.get(key, key)
-        return hasattr(self, actual_key) or (self.model_extra and actual_key in self.model_extra)
-
-    def get(self, key: str, default: Any = None) -> Any:
-        """Legacy dict-style get for backward compatibility."""
-        try:
-            return self[key]
-        except KeyError:
-            return default

@@ -527,7 +527,7 @@ class StrategyFinder:
             details = s.get("details", [])
             # Details are InvestmentBrick objects or dicts
             sig = tuple(sorted(
-                (d.nom if hasattr(d, "nom") else d.get("nom_bien", d.get("nom", "")))
+                (d.nom if hasattr(d, "nom") else d.get("nom", ""))
                 for d in details
             ))
             if sig not in grouped:
