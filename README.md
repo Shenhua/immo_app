@@ -15,7 +15,7 @@ streamlit run app.py
 ## Features
 
 - **Strategy Search**: Find optimal property combinations matching your investment criteria
-- **Financial Simulation**: 25-year projections with IRR, DSCR, and cash flow analysis
+- **Financial Simulation**: 25-year projections with IRR, DSCR scores, and cash flow analysis
 - **Qualitative Scoring**: Rate properties on location, transport, DPE, and market tension
 - **Comparison View**: Side-by-side strategy comparison with interactive charts
 - **JSON Export**: Save simulation results for further analysis
