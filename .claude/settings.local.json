@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat /Users/mperrier/app_immo/.github/workflows/*.yml)",
+      "Bash(/Users/mperrier/app_immo/env/bin/python -c \"import pydantic; print\\(pydantic.__version__\\)\")",
+      "Bash(/Users/mperrier/app_immo/env/bin/pip list)",
+      "Bash(pkill -f \"streamlit run app.py\")",
+      "Bash(/Users/mperrier/app_immo/env/bin/pip install pydantic)",
+      "Bash(/Users/mperrier/app_immo/env/bin/pip install \"pydantic>=2.0.0\" \"pydantic-settings>=2.0.0\" \"structlog>=23.0.0\")",
+      "Bash(/Users/mperrier/app_immo/env/bin/streamlit run app.py)",
+      "Bash(/Users/mperrier/app_immo/env/bin/python -c \"import streamlit; print\\(streamlit.__version__\\)\")"
+    ]
+  }
+}
