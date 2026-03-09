@@ -99,17 +99,31 @@ def render_sensitivity_analysis(strategy: dict[str, Any], horizon: int = 25, key
     st.caption("Simulez des variations de marché pour tester la robustesse de cette stratégie.")
 
     col_input, col_res = st.columns([0.4, 0.6])
+    
+    # Session state key for persisting results across reruns
+    res_key = f"sens_res_{key}"
 
     with col_input:
-        st.markdown("**Paramètres**")
-        d_loyer = st.slider("Loyer", -30, 30, 0, 5, format="%+d%%", key=f"sens_rent_{key}")
-        d_vacance = st.slider("Vacance (pts)", -5, 15, 0, 1, format="%+d pt", key=f"sens_vac_{key}")
-        d_travaux = st.slider("Budget Travaux", -20, 50, 0, 10, format="%+d%%", key=f"sens_works_{key}")
+        with st.form(key=f"sens_form_{key}"):
+            st.markdown("**Paramètres**")
+            d_loyer = st.slider("Loyer", -30, 30, 0, 5, format="%+d%%", key=f"sens_rent_{key}")
+            d_vacance = st.slider("Vacance (pts)", -5, 15, 0, 1, format="%+d pt", key=f"sens_vac_{key}")
+            d_travaux = st.slider("Budget Travaux", -20, 50, 0, 10, format="%+d%%", key=f"sens_works_{key}")
+            submit = st.form_submit_button("Calculer l'impact")
 
-    # Recalculate on fly
-    if d_loyer != 0 or d_vacance != 0 or d_travaux != 0:
-        res = run_sensitivity_simulation(strategy, d_loyer, d_vacance, d_travaux, horizon)
+    # Only run calculation when the user explicitly clicks the form submit
+    if submit:
+        if d_loyer != 0 or d_vacance != 0 or d_travaux != 0:
+            with st.spinner("Calcul de la sensibilité..."):
+                res = run_sensitivity_simulation(strategy, d_loyer, d_vacance, d_travaux, horizon)
+                st.session_state[res_key] = res
+        else:
+            st.session_state[res_key] = {}
 
+    # Retrieve from session state to persist display when interating with other widgets
+    res = st.session_state.get(res_key, {})
+
+    if res:
         # Display comparison
         with col_res:
             st.markdown("**Impact Projeté**")
@@ -118,9 +132,6 @@ def render_sensitivity_analysis(strategy: dict[str, Any], horizon: int = 25, key
             def show_impact(label, original, new, fmt_func):
                 delta = new - original
                 color = "green" if delta >= 0 else "red"
-                # Invert color for cost/risk metrics? None here.
-                # Actually DSCR lower is bad (red). Cashflow lower is bad (red).
-                # So green if positive is correct.
 
                 cols = st.columns([0.4, 0.3, 0.3])
                 cols[0].write(label)
@@ -138,4 +149,4 @@ def render_sensitivity_analysis(strategy: dict[str, Any], horizon: int = 25, key
 
     else:
         with col_res:
-            st.info("👈 Modifiez les curseurs pour voir l'impact.")
+            st.info("👈 Modifiez les curseurs et cliquez sur 'Calculer l'impact'.")

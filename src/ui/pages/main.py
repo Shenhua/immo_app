@@ -206,7 +206,7 @@ def render_strategy_list(
         # Interactive Table
         selection = st.dataframe(
             styler, # Pass styler instead of raw df
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
             column_config=column_config,
             on_select="rerun",

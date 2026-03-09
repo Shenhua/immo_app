@@ -64,7 +64,7 @@ class GeneticOptimizer:
         allocator: Optional[PortfolioAllocator] = None,
         simulator: Optional[SimulationEngine] = None,
         scorer: Optional[Any] = None,
-        seed: int = 42
+        seed: Optional[int] = None
     ):
         """Initialize the Genetic Optimizer.
 
@@ -78,7 +78,7 @@ class GeneticOptimizer:
             allocator: PortfolioAllocator for capital allocation
             simulator: SimulationEngine for financial projections
             scorer: StrategyScorer for fitness calculation
-            seed: Random seed for reproducibility (default: 42)
+            seed: Random seed for reproducibility (default: None for true random)
         """
         self.pop_size = population_size
         self.generations = generations
