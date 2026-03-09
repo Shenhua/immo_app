@@ -50,17 +50,46 @@ class TaxParams:
         loyers_bruts: float,
         charges_deductibles: float,
         amortissements: float,
-        deficit_reportable: float = 0.0,
+        deficits_reportables: list[float] | None = None,
         amort_differes_reportable: float = 0.0,
-    ) -> tuple[float, float, float, float]:
+    ) -> tuple[float, list[float], float, float]:
         """Calculate income tax for the year.
 
         Returns:
-            Tuple of (tax_due, new_deficit_reportable, new_amort_differes, taxable_base)
+            Tuple of (tax_due, new_deficits_reportables, new_amort_differes, taxable_base)
         """
+        if isinstance(deficits_reportables, (float, int)):
+            deficits_reportables = [float(deficits_reportables)] if deficits_reportables != 0 else []
+        elif deficits_reportables is None:
+            deficits_reportables = []
+        
+        deficits = list(deficits_reportables)[:10]
+
         if self.regime_fiscal == "microbic":
             base_imposable = max(0.0, loyers_bruts * (1.0 - self.micro_bic_abatt_pct / 100.0))
-            new_deficit = 0.0
+            new_deficits = []
+            new_ard = 0.0
+        elif self.regime_fiscal == "sci_is":
+            noi = loyers_bruts - charges_deductibles - amortissements
+            if noi < 0:
+                new_deficits = [noi] + deficits
+                base_imposable = 0.0
+            else:
+                res_apres_deficit = noi
+                new_deficits = deficits.copy()
+                for i in reversed(range(len(new_deficits))):
+                    old_def = new_deficits[i]
+                    if old_def == 0:
+                        continue
+                    if res_apres_deficit + old_def >= 0:
+                        res_apres_deficit += old_def
+                        new_deficits[i] = 0.0
+                    else:
+                        new_deficits[i] += res_apres_deficit
+                        res_apres_deficit = 0.0
+                        break
+                new_deficits = [0.0] + new_deficits
+                base_imposable = res_apres_deficit
             new_ard = 0.0
         else:
             # LMNP réel logic
@@ -69,26 +98,36 @@ class TaxParams:
             # 1. Deficit Foncier (Charges > Rents)
             if noi < 0:
                 # Deficit created/increased. Amortization is largely deferred.
-                new_deficit = deficit_reportable + noi
+                new_deficits = [noi] + deficits
                 new_ard = amort_differes_reportable + amortissements
                 base_imposable = 0.0
             else:
                 # Positive NOI - absorb deficit first
-                # deficit_reportable is negative
-                res_apres_deficit = noi + deficit_reportable
+                res_apres_deficit = noi
+                new_deficits = deficits.copy()
                 
-                if res_apres_deficit < 0:
-                    # Still in deficit
-                    new_deficit = res_apres_deficit
-                    new_ard = amort_differes_reportable + amortissements
+                # Absorb oldest first (end of list)
+                for i in reversed(range(len(new_deficits))):
+                    old_def = new_deficits[i]
+                    if old_def == 0:
+                        continue
+                        
+                    if res_apres_deficit + old_def >= 0:
+                        res_apres_deficit += old_def
+                        new_deficits[i] = 0.0
+                    else:
+                        new_deficits[i] += res_apres_deficit
+                        res_apres_deficit = 0.0
+                        break
+                
+                new_deficits = [0.0] + new_deficits
+                
+                if res_apres_deficit == 0:
+                    # Still in deficit or exactly 0
                     base_imposable = 0.0
+                    new_ard = amort_differes_reportable + amortissements
                 else:
                     # Deficit cleared, now attack amortization
-                    new_deficit = 0.0
-                    
-                    # Deduct stock ARD + current amort
-                    # (In LMNP, you can use ARD to reduce profit to 0, but not create deficit)
-                    # We treat (ard + amort) as the total pool of deductive power
                     total_amort_pool = amort_differes_reportable + amortissements
                     
                     res_final = res_apres_deficit - total_amort_pool
@@ -102,8 +141,19 @@ class TaxParams:
                         base_imposable = res_final
                         new_ard = 0.0
 
-        impot = base_imposable * (self.tmi_pct / 100.0 + TAUX_PRELEVEMENTS_SOCIAUX / 100.0)
-        return impot, new_deficit, new_ard, base_imposable
+        if self.regime_fiscal == "sci_is":
+            # IS Tax calculation (no TMI, no CSG)
+            # 15% up to 42,500€, 25% above
+            if base_imposable <= 42500.0:
+                impot = base_imposable * 0.15
+            else:
+                impot = (42500.0 * 0.15) + ((base_imposable - 42500.0) * 0.25)
+            # IS defaults carry forward indefinitely, so no array truncation
+        else:
+            new_deficits = new_deficits[:10]
+            impot = base_imposable * (self.tmi_pct / 100.0 + TAUX_PRELEVEMENTS_SOCIAUX / 100.0)
+            
+        return impot, new_deficits, new_ard, base_imposable
 
 
 @dataclass
@@ -125,14 +175,14 @@ class IRACalculator:
 
         ira_total = 0.0
         for i, p in enumerate(projets):
-            duree_pret = int(p.get("duree_pret", 0))
+            duree_pret = int(p.get("duree_credit_mois", 0)) // 12
             if horizon_years < duree_pret:
                 sch = schedules[i]
                 nmois = int(sch.get("nmois", 0))
                 mH = min(horizon_years * 12, nmois)
 
-                crd_H = float(sch["balances"][mH - 1]) if mH > 0 else float(p.get("credit_final", 0.0))
-                monthly_rate = (float(p.get("taux_pret", 0.0)) / 100.0) / 12.0
+                crd_H = float(sch["balances"][mH - 1]) if mH > 0 else float(p.get("capital_emprunte", 0.0))
+                monthly_rate = (float(p.get("taux_annuel_pct", 0.0)) / 100.0) / 12.0
 
                 cap_pct_fee = (self.ira_cap_pct / 100.0) * crd_H
                 six_months_interest = 6.0 * monthly_rate * crd_H
@@ -191,14 +241,14 @@ class SimulationEngine:
         frais_vente_pct: float = 6.0,
         amort_immo_years: int = 30,
         amort_mobilier_years: int = 10,
-        ratio_terrain_pct: float = 0.0,
+        ratio_terrain_pct: float | None = None,
     ):
         self.market = market
         self.tax = tax
         self.ira = ira
         self.cfe_par_bien_ann = cfe_par_bien_ann
         self.frais_vente_pct = frais_vente_pct
-        self.ratio_terrain_pct = max(0.0, min(100.0, ratio_terrain_pct))
+        self.ratio_terrain_pct = max(0.0, min(100.0, ratio_terrain_pct)) if ratio_terrain_pct is not None else None
         
         if amort_immo_years <= 0:
             raise ValueError("amort_immo_years must be > 0 to avoid division by zero")
@@ -240,25 +290,25 @@ class SimulationEngine:
         flux = [-float(strategy["apport_total"])]
 
         results: list[YearResult] = []
-        deficit_reportable = 0.0
+        deficits_reportables: list[float] = []
         ard_reportable = 0.0
         total_impot = 0.0
 
         for year in range(1, horizons_years + 1):
-            result, next_deficit, next_ard = self._simulate_year(
-                year, projets, schedules, valeur_biens, deficit_reportable, ard_reportable
+            result, next_deficits, next_ard = self._simulate_year(
+                year, projets, schedules, valeur_biens, deficits_reportables, ard_reportable
             )
             results.append(result)
 
             total_impot += result.impot_du
-            deficit_reportable = next_deficit
+            deficits_reportables = next_deficits
             ard_reportable = next_ard
             valeur_biens = result.valeur_biens
             flux.append(result.cash_flow_net)
 
         # Final liquidation
         bilan = self._calculate_liquidation(
-            results, projets, schedules, horizons_years, flux
+            results, projets, schedules, horizons_years, flux, deficits_reportables
         )
 
         df = pd.DataFrame([r.to_dict() for r in results])
@@ -270,14 +320,16 @@ class SimulationEngine:
         projets: list[dict[str, Any]],
         schedules: list[dict[str, Any]],
         valeur_biens: float,
-        deficit_reportable: float,
+        deficits_reportables: list[float] | float,
         ard_reportable: float = 0.0,
-    ) -> tuple[YearResult, float, float]:
+    ) -> tuple[YearResult, list[float], float]:
         """Simulate a single year.
 
         Returns:
-            Tuple of (YearResult, next_year_deficit_reportable, next_year_ard)
+            Tuple of (YearResult, next_year_deficits_reportables, next_year_ard)
         """
+        if isinstance(deficits_reportables, (float, int)):
+            deficits_reportables = [float(deficits_reportables)] if deficits_reportables != 0 else []
         # Appreciate property value
         if year > 1:
             valeur_biens *= (1.0 + self.market.appreciation_bien_pct / 100.0)
@@ -290,7 +342,7 @@ class SimulationEngine:
             # Update rents and charges
             if year == 1:
                 p["loyer_mth_courant"] = p["loyer_mensuel_initial"]
-                p["charges_fix_mth_courant"] = p["charges_const_mth0"] + p["tf_const_mth0"]
+                p["charges_fix_mth_courant"] = p.get("charges_mensuelles_initiales", 0.0) + p.get("taxe_fonciere_mensuelle_initiale", 0.0)
             else:
                 p["loyer_mth_courant"] *= (1.0 + self.market.revalo_loyer_pct / 100.0)
                 p["charges_fix_mth_courant"] *= (1.0 + self.market.inflation_charges_pct / 100.0)
@@ -313,7 +365,7 @@ class SimulationEngine:
             solde_fin = (
                 sch["balances"][end - 1] if months > 0
                 else sch["balances"][-1] if sch["nmois"] > 0 and year * 12 > sch["nmois"]
-                else p["credit_final"] if sch["nmois"] == 0 else 0.0
+                else p["capital_emprunte"] if sch["nmois"] == 0 else 0.0
             )
 
             loyers_bruts_pf += loyer_ann
@@ -324,7 +376,14 @@ class SimulationEngine:
 
             # Amortization (using configurable periods, excluding land value)
             # Land is not amortizable per French tax law
-            valeur_terrain = p["prix_achat_bien"] * (self.ratio_terrain_pct / 100.0)
+            if self.ratio_terrain_pct is not None:
+                ratio = self.ratio_terrain_pct
+            else:
+                # Calculate realistic land ratio based on location tension (15-25%)
+                tension = float(p.get("tension_locative_score_norm", 0.5))
+                ratio = 15.0 + (tension * 10.0)
+                
+            valeur_terrain = p["prix_achat_bien"] * (ratio / 100.0)
             base_amortissable = (p["prix_achat_bien"] - valeur_terrain) + p["budget_travaux"] + p.get("renovation_energetique", 0.0)
             amort_immo = base_amortissable / self.amort_immo_years
             amort_mob = p["mobilier"] / self.amort_mobilier_years
@@ -336,9 +395,9 @@ class SimulationEngine:
             dette_fin += solde_fin
 
         # Tax calculation
-        impot, new_deficit, new_ard, base_imposable = self.tax.calculate_tax(
+        impot, new_deficits, new_ard, base_imposable = self.tax.calculate_tax(
             loyers_bruts_pf, charges_deductibles_pf, amortissements_pf,
-            deficit_reportable, ard_reportable
+            deficits_reportables, ard_reportable
         )
         cf_ann -= impot
 
@@ -355,7 +414,7 @@ class SimulationEngine:
             loyers_bruts=loyers_bruts_pf,
             charges_deductibles=charges_deductibles_pf,
             amortissements=amortissements_pf,
-        ), new_deficit, new_ard
+        ), new_deficits, new_ard
 
     def _calculate_liquidation(
         self,
@@ -364,6 +423,7 @@ class SimulationEngine:
         schedules: list[dict[str, Any]],
         horizon: int,
         flux: list[float],
+        final_deficits: list[float],
     ) -> dict[str, Any]:
         """Calculate final liquidation and IRR."""
         if not results:
@@ -381,8 +441,23 @@ class SimulationEngine:
         cout_travaux = sum(p["budget_travaux"] + p.get("renovation_energetique", 0.0) for p in projets)
         prix_corrige = prix_acquisition + frais_acquisition + cout_travaux
 
-        plus_value = max(0, valeur_biens - prix_corrige)
-        impot_pv = self._calculate_capital_gains_tax(horizon, plus_value)
+        if self.tax.regime_fiscal == "sci_is":
+            # Corporate capital gains tax
+            # VNC = Prix d'achat + Frais + Travaux - Amortissements cumulés
+            amortissements_cumules = sum(r.amortissements for r in results)
+            vnc = max(0.0, prix_corrige - amortissements_cumules)
+            plus_value_is = max(0.0, valeur_biens - vnc)
+            
+            remaining_deficit = abs(sum(final_deficits))
+            taxable_pv = max(0.0, plus_value_is - remaining_deficit)
+            
+            if taxable_pv <= 42500.0:
+                impot_pv = taxable_pv * 0.15
+            else:
+                impot_pv = (42500.0 * 0.15) + ((taxable_pv - 42500.0) * 0.25)
+        else:
+            plus_value = max(0.0, valeur_biens - prix_corrige)
+            impot_pv = self._calculate_capital_gains_tax(horizon, plus_value)
 
         # IRA
         ira_total = self.ira.calculate(projets, schedules, horizon)
@@ -500,15 +575,16 @@ def simulate_long_term_strategy(
         ira=ira,
         cfe_par_bien_ann=tax_dict.get("cfe_par_bien_ann", 150.0),
         frais_vente_pct=tax_dict.get("frais_vente_pct", 6.0),
+        ratio_terrain_pct=tax_dict.get("ratio_terrain_pct", None),
     )
 
     # Generate schedules using modular function
     schedules = [
         generate_amortization_schedule(
-            float(p["credit_final"]),
-            float(p["taux_pret"]),
-            int(p["duree_pret"]) * 12,  # Convert years to months
-            float(p["assurance_ann_pct"])
+            float(p["capital_emprunte"]),
+            float(p["taux_annuel_pct"]),
+            int(p["duree_credit_mois"]),
+            float(p["assurance_annuelle_pct"])
         )
         for p in strategy["details"]
     ]

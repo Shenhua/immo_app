@@ -345,5 +345,5 @@ class StrategyEvaluator:
             return is_valid, result
 
         except Exception as e:
-            log.warning("evaluation_failed", error=str(e))
+            log.warning("evaluation_failed", error=str(e), traceback=traceback.format_exc())
             return False, {"error": str(e)}
