@@ -77,14 +77,14 @@ class TestFullPipeline:
 
         # Check required fields exist
         for brick in bricks:
-            assert "nom_bien" in brick
-            assert "prix_achat_bien" in brick
-            assert "loyer_mensuel_initial" in brick
-            assert "taux_pret" in brick
-            assert "duree_pret" in brick
-            assert "assurance_ann_pct" in brick
-            assert "cout_total" in brick
-            assert brick["assurance_ann_pct"] > 0, "Insurance should not be zero"
+            assert hasattr(brick, "nom")
+            assert hasattr(brick, "prix_achat_bien")
+            assert hasattr(brick, "loyer_mensuel_initial")
+            assert hasattr(brick, "taux_annuel_pct")
+            assert hasattr(brick, "duree_credit_mois")
+            assert hasattr(brick, "assurance_annuelle_pct")
+            assert hasattr(brick, "cout_total")
+            assert brick.assurance_annuelle_pct > 0, "Insurance should not be zero"
 
     def test_brick_validation_passes(self, archetypes, finance_config, operating_config):
         """Validate that created bricks pass validation."""

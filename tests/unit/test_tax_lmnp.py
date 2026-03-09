@@ -35,4 +35,4 @@ def test_lmnp_amortization_cannot_create_deficit():
     assert base == 0.0, "Taxable base should be 0"
     
     # This assertion is expected to FAIL currently
-    assert new_deficit == 0.0, f"Amortization should not create reportable deficit. Got {new_deficit}, expected 0.0"
+    assert sum(new_deficit) == 0.0, f"Amortization should not create reportable deficit. Got {new_deficit}, expected sum 0.0"

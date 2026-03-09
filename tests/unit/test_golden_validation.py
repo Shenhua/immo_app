@@ -145,19 +145,19 @@ class TestGoldenSimulation:
             "apport_total": 10_000,
             "details": [
                 {
-                    "nom_bien": "Test Property",
+                    "nom": "Test Property",
                     "prix_achat_bien": 100_000,
                     "budget_travaux": 5_000,
                     "mobilier": 3_000,
                     "renovation_energetique": 0,
                     "frais_notaire": 7_500,
-                    "credit_final": 100_000,
-                    "taux_pret": 3.6,
-                    "duree_pret": 25,
-                    "assurance_ann_pct": 0.35,
+                    "capital_emprunte": 100_000,
+                    "taux_annuel_pct": 3.6,
+                    "duree_credit_mois": 25 * 12,
+                    "assurance_annuelle_pct": 0.35,
                     "loyer_mensuel_initial": 600,
-                    "charges_const_mth0": 80,
-                    "tf_const_mth0": 60,
+                    "charges_mensuelles_initiales": 80,
+                    "taxe_fonciere_mensuelle_initiale": 60,
                     "frais_gestion_pct": 5.0,
                     "provision_pct": 3.0,
                 }
@@ -224,7 +224,7 @@ class TestLMNPTaxCalculation:
         impot, deficit, ard, base = tax.calculate_tax(10_000, 3_000, 8_000)
 
         assert impot == 0.0, f"Expected 0 tax, got {impot:.2f}"
-        assert deficit == 0.0, "Should NOT have reportable deficit (rents > charges)"
+        assert sum(deficit) == 0.0, "Should NOT have reportable deficit (rents > charges)"
         assert ard > 0, "Should have deferred amortization"
 
     def test_lmnp_tax_with_profit(self):
@@ -254,9 +254,9 @@ class TestIRACalculation:
 
         # Create a simple project with known remaining balance
         projets = [{
-            "credit_final": 100_000,
-            "taux_pret": 3.6,
-            "duree_pret": 25,
+            "capital_emprunte": 100_000,
+            "taux_annuel_pct": 3.6,
+            "duree_credit_mois": 25 * 12,
         }]
 
         schedules = [

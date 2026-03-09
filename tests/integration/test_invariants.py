@@ -75,8 +75,8 @@ class TestScientificInvariants:
         bricks_better = create_investment_bricks([better_apt], fin, op)
 
         # CF for same loan duration (e.g., 25 years)
-        cf_base = next(b["loyer_mensuel_initial"] for b in bricks_base if b["duree_pret"] == 25)
-        cf_better = next(b["loyer_mensuel_initial"] for b in bricks_better if b["duree_pret"] == 25)
+        cf_base = next(b.loyer_mensuel_initial for b in bricks_base if b.duree_credit_mois == 25 * 12)
+        cf_better = next(b.loyer_mensuel_initial for b in bricks_better if b.duree_credit_mois == 25 * 12)
 
         assert cf_better > cf_base, "Higher rent did not increase revenue"
 
@@ -92,7 +92,7 @@ class TestScientificInvariants:
         bricks_low = create_investment_bricks([apt], fin_low, op)
         bricks_high = create_investment_bricks([apt], fin_high, op)
 
-        assert bricks_high[0]["pmt_total"] > bricks_low[0]["pmt_total"], "Higher rate did not increase payment"
+        assert bricks_high[0].pmt_total > bricks_low[0].pmt_total, "Higher rate did not increase payment"
 
 
 class TestDataDiversity:
@@ -103,7 +103,7 @@ class TestDataDiversity:
         fin, op = default_configs
         bricks = create_investment_bricks(random_archetypes, fin, op)
 
-        scores = [b["qual_score_bien"] for b in bricks]
+        scores = [b.qual_score_bien for b in bricks]
 
         # Calculate entropy or just variance
         unique_vals = set(scores)
@@ -123,7 +123,7 @@ class TestDataDiversity:
             strategies.append({
                 "details": [b],
                 "finance_score": random.random(), # Mock for now, normally computed
-                "qual_score": b["qual_score_bien"]
+                "qual_score": getattr(b, "qual_score_bien", 50.0)
             })
 
         # Real finder would compute these
@@ -146,7 +146,7 @@ class TestRankingIntegrity:
         for b in bricks:
             strategies.append({
                 "details": [b],
-                "nom_strategy": b["nom_bien"],
+                "nom_strategy": b.nom,
                 "cf_proximity": random.random(), # Mock
                 "dscr_norm": random.random(),
                 "finance_score": random.random(),

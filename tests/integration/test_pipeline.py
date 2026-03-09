@@ -94,10 +94,10 @@ class TestStrategyPipeline:
 
         # Check brick structure
         first_brick = briques[0]
-        assert "nom_bien" in first_brick
-        assert "cout_total" in first_brick
-        assert "pmt_total" in first_brick
-        assert first_brick["cout_total"] > 0
+        assert hasattr(first_brick, "nom")
+        assert hasattr(first_brick, "cout_total")
+        assert hasattr(first_brick, "pmt_total")
+        assert first_brick.cout_total > 0
 
     def test_archetype_validation(self, sample_archetypes):
         """Test archetype validation via Pydantic model."""
