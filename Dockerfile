@@ -20,11 +20,18 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
+# Run as an unprivileged user; logs/ and results/ must be writable by it
+RUN useradd --create-home --uid 1000 app \
+    && mkdir -p /app/logs /app/results \
+    && chown -R app:app /app/logs /app/results
+USER app
+
 # Expose Streamlit port
 EXPOSE 8502
 
 # Healthcheck
-HEALTHCHECK CMD curl --fail http://localhost:8502/_stcore/health || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl --fail http://localhost:8502/_stcore/health || exit 1
 
 # Entrypoint
 ENTRYPOINT ["streamlit", "run", "app.py", "--server.port=8502", "--server.address=0.0.0.0"]

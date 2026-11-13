@@ -7,6 +7,15 @@ services:
     volumes:
       - ./results:/app/results
       - ./data:/app/data
+    env_file:
+      - path: .env
+        required: false  # .env is untracked; compose v2.24+ long syntax
     environment:
       - STREAMLIT_SERVER_HEADLESS=true
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8502/_stcore/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
     restart: unless-stopped
