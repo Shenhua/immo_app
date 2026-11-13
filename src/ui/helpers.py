@@ -29,14 +29,14 @@ def format_pct(value: float, decimals: int = 1) -> str:
     """Format a number as percentage.
 
     Args:
-        value: Value to format (as percentage, not decimal)
+        value: Value to format (as percentage, not decimal); None or NaN (failed IRR) gives "n/a"
         decimals: Number of decimal places
 
     Returns:
         Formatted string like "3.5 %"
     """
-    if value is None:
-        return "—"
+    if value is None or value != value:
+        return "n/a"
     return f"{value:.{decimals}f} %"
 
 

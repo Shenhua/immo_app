@@ -34,6 +34,11 @@ log = get_logger(__name__)
 
 
 
+def _tri_or_worst(tri: float | None) -> float:
+    """IRR for comparisons: a failed IRR (None) is the worst value, not 0 %."""
+    return float("-inf") if tri is None else float(tri)
+
+
 @dataclass
 class EvaluationParams:
     """Parameters for strategy evaluation."""
@@ -145,7 +150,8 @@ class StrategyScorer:
 
         # Extract raw metrics
         enrich = [s.get("enrich_net", 0.0) for s in strategies]
-        irr = [s.get("tri_annuel", 0.0) for s in strategies]
+        # A failed IRR (None) is non-finite, so it normalizes to 0 (worst), never to a 0 % return
+        irr = [float("nan") if s.get("tri_annuel", 0.0) is None else s.get("tri_annuel", 0.0) for s in strategies]
         cap_eff = [s.get("cap_eff", 0.0) for s in strategies]
         dscr = [1.5 if s.get("dscr_y1") is None else max(0.0, float(s.get("dscr_y1", 0.0))) for s in strategies]
         cf_dist = [cf_penalty(s.get("cash_flow_final", 0.0), cash_flow_cible, self.mode_cf) for s in strategies]
@@ -599,12 +605,12 @@ class StrategyFinder:
             dominated = False
             c_cost = cand.get("apport_total", 0)
             c_cf = cand.get("cash_flow_final", 0)
-            c_tri = cand.get("tri_annuel", 0)
+            c_tri = _tri_or_worst(cand.get("tri_annuel", 0))
 
             for exist in keep:
                 e_cost = exist.get("apport_total", 0)
                 e_cf = exist.get("cash_flow_final", 0)
-                e_tri = exist.get("tri_annuel", 0)
+                e_tri = _tri_or_worst(exist.get("tri_annuel", 0))
 
                 # Check if 'exist' dominates 'cand'
                 # Exist costs less/equal AND has better/equal CF AND better/equal TRI

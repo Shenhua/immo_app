@@ -191,8 +191,9 @@ class StrategyEvaluator:
         w = self.weights
 
         # 1. TRI (Internal Rate of Return) - target 12%
+        # A failed IRR (None) scores 0 here and is flagged in evaluate(); it is never read as 0 %.
         tri = bilan.get("tri_annuel", 0.0)
-        s_tri = max(0.0, min(1.0, tri / 12.0))
+        s_tri = 0.0 if tri is None else max(0.0, min(1.0, tri / 12.0))
 
         # 2. Enrichment (ROE) - target compounded 5% / year
         enrich = bilan.get("enrichissement_net", 0.0)
@@ -315,6 +316,8 @@ class StrategyEvaluator:
                 "enrich_net": bilan.get("enrichissement_net", 0.0),
                 "tri_annuel": bilan.get("tri_annuel", 0.0),
                 "tri_global": bilan.get("tri_annuel", 0.0),
+                "tri_warning": bilan.get("tri_warning"),
+                "irr_failed": bilan.get("tri_annuel", 0.0) is None,
                 "dscr_y1": bilan.get("dscr_y1", 0.0),
 
                 # CF metrics
@@ -335,6 +338,9 @@ class StrategyEvaluator:
             result["finance_score"] = finance_score
             result["qual_score"] = qual_score
             result["fitness"] = max(0.01, combined_score * 100)
+            if result["irr_failed"]:
+                # Ranked last with a visible flag (UI shows "n/a")
+                result["fitness"] = 0.01
 
             is_valid = cf_metrics.get("is_acceptable", False)
 

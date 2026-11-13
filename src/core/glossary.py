@@ -123,9 +123,9 @@ def calculate_enrichment_metrics(
        What you get in your pocket if you sell everything at Horizon.
        (Sale Price - Transaction Costs - Remaining Debt - Exit Tax)
 
-    2. Enrichment Net:
-       Liquidation Nette - Initial Capital (Apport)
-       (Pure profit over the period)
+    2. Enrichment Net (wealth, TAX_SPEC 5):
+       Liquidation Nette + sum of after-tax yearly cash flows - Initial Capital (Apport)
+       (Pure profit over the period, including the cash flow received or funded year by year)
 
     3. TRI (Internal Rate of Return):
        Already in bilan['tri_global'], but here we confirm standard definition.
@@ -136,12 +136,9 @@ def calculate_enrichment_metrics(
     # ensures we have a canonical named interface for them.
 
     liq_nette = float(bilan.get("liquidation_nette", 0.0))
-    float(bilan.get("enrichissement_net", 0.0))
-
-    # Recalculate enrichment to be safe (Liquidation - Apport)
-    # The bilan version might subtract inflation adjusted apport?
-    # Standard: Nominal Enrichment = Liquidation - Nominal Apport
-    enrich_standard = liq_nette - apport_initial
+    # The simulation owns the wealth figure (it has the yearly cash flows); never recompute it as
+    # liquidation - apport, which would drop the cash flows. Fallback only for a bilan without it.
+    enrich_standard = float(bilan.get("enrichissement_net", liq_nette - apport_initial))
 
     return {
         "liquidation_nette": liq_nette,
