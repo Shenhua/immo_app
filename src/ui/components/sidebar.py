@@ -9,44 +9,19 @@ from typing import Any
 
 import streamlit as st
 
-# Preset financial profiles
-FINANCIAL_PRESETS = {
-    "Équilibré (défaut)": {
-        "enrich_net": 0.30,
-        "irr": 0.25,
-        "cap_eff": 0.20,
-        "dscr": 0.15,
-        "cf_proximity": 0.10,
-    },
-    "Cash-flow d'abord": {
-        "enrich_net": 0.10,
-        "irr": 0.10,
-        "cap_eff": 0.10,
-        "dscr": 0.20,
-        "cf_proximity": 0.50,
-    },
-    "Rendement / IRR": {
-        "enrich_net": 0.15,
-        "irr": 0.50,
-        "cap_eff": 0.30,
-        "dscr": 0.05,
-        "cf_proximity": 0.00,
-    },
-    "Sécurité (DSCR)": {
-        "enrich_net": 0.05,
-        "irr": 0.15,
-        "cap_eff": 0.10,
-        "dscr": 0.50,
-        "cf_proximity": 0.20,
-    },
-    "Patrimoine LT": {
-        "enrich_net": 0.60,
-        "irr": 0.15,
-        "cap_eff": 0.20,
-        "dscr": 0.03,
-        "cf_proximity": 0.02,
-    },
+from src.core.defaults import (
+    DEFAULT_PRESET,
+    FINANCING,
+    MARKET,
+    PRESETS,
+    SEARCH,
+)
+
+# Preset financial profiles, keyed by display label. Weights come from src/core/defaults.py.
+FINANCIAL_PRESETS: dict[str, dict[str, float]] = {
+    pid.label: weights.as_dict() for pid, weights in PRESETS.items()
 }
+DEFAULT_PRESET_LABEL = DEFAULT_PRESET.label
 
 
 def render_objectives_section() -> dict[str, Any]:
@@ -83,7 +58,7 @@ def render_objectives_section() -> dict[str, Any]:
         elif "Empire" in strategy_mode:
             target_preset = "Patrimoine LT"
         elif "Classique" in strategy_mode:
-            target_preset = "Équilibré (défaut)"
+            target_preset = DEFAULT_PRESET_LABEL
 
         if target_preset and target_preset in FINANCIAL_PRESETS:
              st.session_state.finance_preset = target_preset
@@ -91,7 +66,7 @@ def render_objectives_section() -> dict[str, Any]:
              # Notify user via toast (Streamlit 1.30+) or just let them see the change
              # st.toast(f"Profil financier ajusté : {target_preset}")
 
-    max_props = 3
+    max_props = SEARCH.max_properties_classique
     use_full_capital = False
 
     # Logic flags
@@ -99,7 +74,7 @@ def render_objectives_section() -> dict[str, Any]:
     is_empire = "Empire" in strategy_mode
 
     if is_empire:
-        max_props = 5
+        max_props = SEARCH.max_properties_empire
     elif is_rentier:
         use_full_capital = True
 
@@ -108,7 +83,7 @@ def render_objectives_section() -> dict[str, Any]:
         apport = st.number_input(
             "Apport Total Disponible (€)",
             min_value=0,
-            value=st.session_state.get("apport", 50000),
+            value=st.session_state.get("apport", SEARCH.apport),
             step=5000,
             format="%d",
             help="Capital total que vous êtes prêt à investir (frais de notaire + apport bancaire)."
@@ -123,7 +98,7 @@ def render_objectives_section() -> dict[str, Any]:
                     "Cash-Flow Cible (/mois)",
                     min_value=-2000.0,
                     max_value=2000.0,
-                    value=float(st.session_state.get("cf_cible", 0.0)),
+                    value=float(st.session_state.get("cf_cible", SEARCH.cf_cible)),
                     step=50.0,
                     help="Le cash-flow net minimum que vous visez (négatif = effort d'épargne)."
                 )
@@ -136,12 +111,12 @@ def render_objectives_section() -> dict[str, Any]:
             if not is_rentier:
                 tolerance = st.number_input(
                     "Tolérance (€)",
-                    value=100,
+                    value=SEARCH.tolerance,
                     step=10,
                     help="Marge d'erreur acceptable autour de votre cible.",
                 )
             else:
-                tolerance = 100.0 # Default value, unused
+                tolerance = SEARCH.tolerance  # unused in Rentier mode
 
         # Precise Targeting:
         # - Rentier: Forced to False (Min Mode / Maximize)
@@ -160,9 +135,9 @@ def render_objectives_section() -> dict[str, Any]:
 
         # Initialize horizon_ans if not set
         if "horizon_ans" not in st.session_state:
-            st.session_state.horizon_ans = 25
+            st.session_state.horizon_ans = SEARCH.horizon_ans
 
-        curr_h = st.session_state.get("horizon_ans", 25)
+        curr_h = st.session_state.get("horizon_ans", SEARCH.horizon_ans)
         horizon = st.slider(
             f"Horizon d'investissement ({curr_h} ans)",
             10, 30,
@@ -179,7 +154,9 @@ def render_objectives_section() -> dict[str, Any]:
         col1.markdown('<div style="font-size: 1.5em; text-align: center;">💰</div>', unsafe_allow_html=True)
         priorite_pct = col2.slider(
             "Priorité",
-            0, 100, 30, 5,
+            0, 100,
+            value=SEARCH.priorite_pct,
+            step=5,
             format="%d%%",
             label_visibility="collapsed",
         )
@@ -207,35 +184,35 @@ def render_credit_params_tab() -> dict[str, Any]:
         Dictionary of credit parameters.
     """
     c1, c2, c3 = st.columns(3)
-    taux_15 = c1.number_input("15 ans (%)", value=3.5, format="%.2f")
-    taux_20 = c2.number_input("20 ans (%)", value=3.6, format="%.2f")
-    taux_25 = c3.number_input("25 ans (%)", value=3.8, format="%.2f")
+    taux_15 = c1.number_input("15 ans (%)", value=FINANCING.taux_15_pct, format="%.2f")
+    taux_20 = c2.number_input("20 ans (%)", value=FINANCING.taux_20_pct, format="%.2f")
+    taux_25 = c3.number_input("25 ans (%)", value=FINANCING.taux_25_pct, format="%.2f")
 
     st.markdown("---")
 
     with st.expander("⚙️ Options Avancées & Coûts", expanded=False):
-        frais_notaire = st.slider("Frais de notaire (%)", 0.0, 12.0, 8.0, 0.1)
-        assurance = st.slider("Assurance emprunteur (% cap.)", 0.00, 1.00, 0.35, 0.01)
-        frais_pret = st.slider("Frais de prêt (% cap.)", 0.0, 3.0, 1.0, 0.1)
+        frais_notaire = st.slider("Frais de notaire (%)", 0.0, 12.0, value=FINANCING.frais_notaire_pct, step=0.1)
+        assurance = st.slider("Assurance emprunteur (% cap.)", 0.00, 1.00, value=FINANCING.assurance_ann_pct, step=0.01)
+        frais_pret = st.slider("Frais de prêt (% cap.)", 0.0, 3.0, value=FINANCING.frais_pret_pct, step=0.1)
 
         st.markdown("**Inclusion des coûts dans le financement**")
         c1, c2, c3, c4 = st.columns(4)
-        inclure_travaux = c1.checkbox("Travaux", value=True)
-        inclure_reno = c2.checkbox("Reno E→D", value=True)
-        inclure_mobilier = c3.checkbox("Mobilier", value=True)
-        financer_mobilier = c4.checkbox("Financé", value=True)
+        inclure_travaux = c1.checkbox("Travaux", value=FINANCING.inclure_travaux)
+        inclure_reno = c2.checkbox("Reno E→D", value=FINANCING.inclure_reno_ener)
+        inclure_mobilier = c3.checkbox("Mobilier", value=FINANCING.inclure_mobilier)
+        financer_mobilier = c4.checkbox("Financé", value=FINANCING.financer_mobilier)
 
         st.markdown("**Frais de remboursement anticipés**")
         apply_ira = st.toggle(
             "Appliquer les frais (IRA)",
-            value=st.session_state.get("apply_ira", True),
+            value=st.session_state.get("apply_ira", FINANCING.apply_ira),
             help="Indemnité si le prêt est remboursé avant son terme.",
         )
         ira_cap = st.number_input(
             "Plafond % CRD",
             0.0, 10.0,
-            st.session_state.get("ira_cap_pct", 3.0),
-            0.1,
+            value=st.session_state.get("ira_cap_pct", FINANCING.ira_cap_pct),
+            step=0.1,
             help="Plafond légal sur le capital restant dû.",
         )
 
@@ -267,11 +244,11 @@ def render_market_hypotheses() -> dict[str, float]:
 
         # Initialize session state defaults
         if "appreciation_bien_pct" not in st.session_state:
-            st.session_state.appreciation_bien_pct = 2.0
+            st.session_state.appreciation_bien_pct = MARKET.appreciation_bien_pct
         if "revalo_loyer_pct" not in st.session_state:
-            st.session_state.revalo_loyer_pct = 1.5
+            st.session_state.revalo_loyer_pct = MARKET.revalo_loyer_pct
         if "inflation_charges_pct" not in st.session_state:
-            st.session_state.inflation_charges_pct = 2.0
+            st.session_state.inflation_charges_pct = MARKET.inflation_charges_pct
 
         appreciation = st.slider(
             "Appréciation annuelle biens (%)",
@@ -318,9 +295,9 @@ def render_scoring_preset() -> tuple[str, dict[str, float]]:
 
         # Initialize session state with robust checks
         if "finance_preset" not in st.session_state or st.session_state.finance_preset is None:
-            st.session_state.finance_preset = "Équilibré (défaut)"
+            st.session_state.finance_preset = DEFAULT_PRESET_LABEL
         if "finance_custom" not in st.session_state or st.session_state.finance_custom is None:
-            st.session_state.finance_custom = FINANCIAL_PRESETS["Équilibré (défaut)"].copy()
+            st.session_state.finance_custom = FINANCIAL_PRESETS[DEFAULT_PRESET_LABEL].copy()
 
         col_p, col_c = st.columns([2, 1])
         with col_p:

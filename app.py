@@ -18,6 +18,7 @@ from src.application.services.brick_factory import (
     build_financing_config,
     build_operating_config,
 )
+from src.core.defaults import OPERATING, SEARCH, TAX
 from src.core.logging import get_logger
 from src.ui.app_controller import (
     autosave_results,
@@ -65,14 +66,14 @@ def render_sidebar() -> dict[str, Any]:
 
         # Operating Costs (Exploitation)
         with st.expander("📉 Frais & Charges", expanded=False):
-            cfe = st.number_input("CFE (€/an)", 0, 2000, 150, 50)
-            gestion = st.slider("Gestion (%)", 0.0, 15.0, 5.0, 0.5)
-            vacance = st.slider("Vacance/Imp. (%)", 0.0, 10.0, 3.0, 0.5)
-            frais_vente = st.slider("Frais Revente (%)", 0.0, 10.0, 6.0, 0.5)
+            cfe = st.number_input("CFE (€/an)", 0, 2000, value=int(OPERATING.cfe_par_bien_ann), step=50)
+            gestion = st.slider("Gestion (%)", 0.0, 15.0, value=OPERATING.gestion_pct, step=0.5)
+            vacance = st.slider("Vacance/Imp. (%)", 0.0, 10.0, value=OPERATING.vacance_pct, step=0.5)
+            frais_vente = st.slider("Frais Revente (%)", 0.0, 10.0, value=TAX.frais_vente_pct, step=0.5)
 
         # Tax
         with st.expander("⚖️ Fiscalité", expanded=False):
-            tmi = st.slider("TMI (%)", 0, 45, 30, 1)
+            tmi = st.slider("TMI (%)", 0, 45, value=int(TAX.tmi_pct), step=1)
             # Only implemented regimes are offered (SCI IS returns with T23).
             regime_label = st.selectbox("Régime", ["LMNP", "Micro-BIC"], index=0)
             regime = "microbic" if regime_label == "Micro-BIC" else "lmnp"
@@ -96,7 +97,7 @@ def render_sidebar() -> dict[str, Any]:
         with st.expander("⚙️ Avancé", expanded=False):
             top_n = st.slider(
                 "Nombre max de résultats",
-                min_value=10, max_value=500, value=50, step=10,
+                min_value=10, max_value=500, value=SEARCH.top_n, step=10,
                 help="Limite le nombre de stratégies affichées après optimisation."
             )
 

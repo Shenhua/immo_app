@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from src.core.defaults import SEARCH
+
 # Default weights for qualitative scoring
 DEFAULT_QUAL_WEIGHTS = {
     "tension": 0.25,       # Market tension (high = low vacancy)
@@ -163,7 +165,7 @@ def calculate_balanced_score(
     dscr: float,
     qual_score: float,
     *,
-    qualite_weight: float = 0.25,
+    qualite_weight: float = SEARCH.qualite_weight,
 ) -> float:
     """Calculate balanced strategy score.
 

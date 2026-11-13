@@ -13,6 +13,7 @@ from typing import Any
 import numpy_financial as npf
 import pandas as pd
 
+from src.core.defaults import FINANCING, MARKET, OPERATING, TAX
 from src.core.exceptions import SimulationError
 
 # Tax constants
@@ -23,16 +24,16 @@ TAUX_PRELEVEMENTS_SOCIAUX = 17.2
 class MarketHypotheses:
     """Market growth assumptions for simulation."""
 
-    appreciation_bien_pct: float = 2.0
-    revalo_loyer_pct: float = 1.5
-    inflation_charges_pct: float = 2.0
+    appreciation_bien_pct: float = MARKET.appreciation_bien_pct
+    revalo_loyer_pct: float = MARKET.revalo_loyer_pct
+    inflation_charges_pct: float = MARKET.inflation_charges_pct
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> MarketHypotheses:
         return cls(
-            appreciation_bien_pct=d.get("appreciation_bien_pct", 2.0),
-            revalo_loyer_pct=d.get("revalo_loyer_pct", 1.5),
-            inflation_charges_pct=d.get("inflation_charges_pct", 2.0),
+            appreciation_bien_pct=d.get("appreciation_bien_pct", MARKET.appreciation_bien_pct),
+            revalo_loyer_pct=d.get("revalo_loyer_pct", MARKET.revalo_loyer_pct),
+            inflation_charges_pct=d.get("inflation_charges_pct", MARKET.inflation_charges_pct),
         )
 
 
@@ -40,10 +41,10 @@ class MarketHypotheses:
 class TaxParams:
     """Tax calculation parameters."""
 
-    tmi_pct: float = 30.0
-    regime_fiscal: str = "lmnp"  # lmnp or microbic
+    tmi_pct: float = TAX.tmi_pct
+    regime_fiscal: str = TAX.regime_fiscal  # lmnp or microbic
     amort_mobilier: bool = True
-    micro_bic_abatt_pct: float = 50.0  # Default 50%, can be 71% for classé
+    micro_bic_abatt_pct: float = TAX.micro_bic_abatt_pct  # Default 50%, can be 71% for classé
 
 
     def calculate_tax(
@@ -188,8 +189,8 @@ class SimulationEngine:
         market: MarketHypotheses,
         tax: TaxParams,
         ira: IRACalculator,
-        cfe_par_bien_ann: float = 500.0,
-        frais_vente_pct: float = 6.0,
+        cfe_par_bien_ann: float = OPERATING.cfe_par_bien_ann,
+        frais_vente_pct: float = TAX.frais_vente_pct,
         amort_immo_years: int = 30,
         amort_mobilier_years: int = 10,
         ratio_terrain_pct: float = 0.0,
@@ -482,22 +483,22 @@ def simulate_long_term_strategy(
 
     tax_dict = tax_params or {}
     tax = TaxParams(
-        tmi_pct=tax_dict.get("tmi_pct", 30.0),
-        regime_fiscal=tax_dict.get("regime_fiscal", "lmnp"),
-        micro_bic_abatt_pct=tax_dict.get("micro_bic_abatt_pct", 50.0),
+        tmi_pct=tax_dict.get("tmi_pct", TAX.tmi_pct),
+        regime_fiscal=tax_dict.get("regime_fiscal", TAX.regime_fiscal),
+        micro_bic_abatt_pct=tax_dict.get("micro_bic_abatt_pct", TAX.micro_bic_abatt_pct),
     )
 
     ira = IRACalculator(
-        apply_ira=tax_dict.get("apply_ira", True),
-        ira_cap_pct=tax_dict.get("ira_cap_pct", 3.0),
+        apply_ira=tax_dict.get("apply_ira", FINANCING.apply_ira),
+        ira_cap_pct=tax_dict.get("ira_cap_pct", FINANCING.ira_cap_pct),
     )
 
     engine = SimulationEngine(
         market=market,
         tax=tax,
         ira=ira,
-        cfe_par_bien_ann=tax_dict.get("cfe_par_bien_ann", 150.0),
-        frais_vente_pct=tax_dict.get("frais_vente_pct", 6.0),
+        cfe_par_bien_ann=tax_dict.get("cfe_par_bien_ann", OPERATING.cfe_par_bien_ann),
+        frais_vente_pct=tax_dict.get("frais_vente_pct", TAX.frais_vente_pct),
     )
 
     # Generate schedules using modular function
