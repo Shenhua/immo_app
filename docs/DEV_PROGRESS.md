@@ -35,7 +35,7 @@ Legend: todo · running · done · blocked · skipped
 | T12 layering cleanup | Haiku | done | 323b1c4 | also fixed `import app` crash | |
 | T10 central defaults | Sonnet | done | d9e7440 | | |
 | T11 RunContext | Sonnet | done | 8bd0deb | | |
-| T20 tax spec + golden | Opus | running | | needs user approval |
+| T20 tax spec + golden | Opus | done | 7e1b60c | **awaiting user approval of §11 points** | | needs user approval |
 | T22 amortization + land | Sonnet | todo | | |
 | T21 plus-value | Sonnet | todo | | |
 | T24 wealth/IRR/CFE | Sonnet | todo | | |
@@ -108,6 +108,15 @@ Legend: todo · running · done · blocked · skipped
   - The data file is now `data/archetypes_2026_v1.json` (the old one is kept); sources are in `docs/DATA_SOURCES.md`.
   - Taxe foncière, charges and most `loyer_m2_max` caps are still unverified.
   - T21 and T22 must add their new fields to the **2026** file.
+- After T20:
+  - `docs/TAX_SPEC.md` (§10 lists the code-vs-spec diffs per task) and `tests/golden/{cases.yaml,reference_calc.py}` (9 cases C1–C9; check them with `--check`).
+  - The golden tests need `pyyaml`. It is installed in the venv, but T22 must add it to the dev deps.
+  - Spec decisions:
+    - one regime per category (furnished / unfurnished) per household, not per property;
+    - exit value uses price × (1+g)^H, not ^(H−1);
+    - PS 18.6% on LMNP income, 17.2% on revenus fonciers and plus-values;
+    - micro-BIC ceiling 83,600 €;
+    - 21,400 € déficit foncier cap until 2027.
 - `ruff format` not applied (45 files would be reformatted). Optional later; skip it to avoid merge churn.
 
 ## Log
@@ -119,3 +128,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-13: T11 merged, 247 tests. T40 launched (T20 still running).
 - 2026-11-13: T40 merged, 254 tests. T26b launched.
 - 2026-11-13: T26b merged. T30 launched (T20 still running).
+- 2026-11-13: T20 merged. Waiting for the user to decide on the TAX_SPEC §11 points before T21–T25.
