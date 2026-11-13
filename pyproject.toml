@@ -24,7 +24,7 @@ classifiers = [
 dependencies = [
     "streamlit>=1.28.0,<3.0.0",
     "pandas>=2.0.0,<3.0.0",
-    "numpy>=1.24.0,<3.0.0",
+    "numpy>=1.26,<3",
     "numpy-financial>=1.0.0,<2.0.0",
     "plotly>=5.15.0,<6.0.0",
     "pydantic>=2.0.0,<3.0.0",
@@ -40,9 +40,6 @@ dev = [
     "mypy>=1.0.0",
     "pandas-stubs",
 ]
-
-[project.scripts]
-app-immo = "app:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -104,10 +101,6 @@ disallow_untyped_defs = false  # Enable gradually per-module
 check_untyped_defs = true
 strict_optional = true
 no_implicit_optional = true
-
-[[tool.mypy.overrides]]
-module = "src.models.*"
-disallow_untyped_defs = true  # Models should be fully typed
 
 [[tool.mypy.overrides]]
 module = "src.core.*"

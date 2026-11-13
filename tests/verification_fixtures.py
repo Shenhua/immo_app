@@ -15,7 +15,7 @@ import csv
 import os
 from datetime import datetime
 
-from src.core.simulation import (
+from src.application.services.simulation import (
     IRACalculator,
     MarketHypotheses,
     SimulationEngine,

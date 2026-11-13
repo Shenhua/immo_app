@@ -11,11 +11,11 @@ import sys
 # Ensure src is in path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from src.application.services.brick_factory import FinancingConfig, OperatingConfig, create_investment_bricks
 from src.application.services.exporter import ResultExporter
+from src.application.services.strategy_finder import StrategyFinder
 from src.core.logging import configure_logging, get_logger
 from src.domain.models.archetype import ArchetypeV2
-from src.services.brick_factory import FinancingConfig, OperatingConfig, create_investment_bricks
-from src.services.strategy_finder import StrategyFinder
 
 # Configure logging to console
 configure_logging(json_output=False)
