@@ -13,12 +13,14 @@ import streamlit as st
 # Add src to path if not present (for running from root)
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from src.core.logging import get_logger
-from src.ui.app_controller import (
+from src.application.services.brick_factory import (
     apply_rent_caps,
-    autosave_results,
     build_financing_config,
     build_operating_config,
+)
+from src.core.logging import get_logger
+from src.ui.app_controller import (
+    autosave_results,
     load_archetypes,
     run_strategy_search,
     simulate_selected_strategy,
@@ -150,7 +152,7 @@ def save_search_stats(
     max_props: int
 ) -> None:
     """Save search statistics to session state."""
-    from src.ui.progress import SearchStats
+    from src.application.progress import SearchStats
     from src.ui.state import set_state
 
     stats = SearchStats(
@@ -184,8 +186,8 @@ def handle_analysis(params: dict[str, Any], archetypes: list[dict[str, Any]]) ->
     """
     import time
 
+    from src.application.progress import SearchProgress
     from src.ui.components.progress_display import render_progress_display
-    from src.ui.progress import SearchProgress
 
     start_time = time.time()
     stats_tracker = {"bricks_count": 0, "combos_evaluated": 0, "valid_strategies": 0}

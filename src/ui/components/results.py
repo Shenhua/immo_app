@@ -7,6 +7,8 @@ from typing import Any
 
 import streamlit as st
 
+from src.ui.helpers import format_euro, format_pct, get_taxonomy_badge
+
 
 def get_cf_color(value: float, target: float) -> str:
     """Calculate color based on deviation from target."""
@@ -22,32 +24,6 @@ def get_cf_color(value: float, target: float) -> str:
         return "#fd7e14"
     else:
         return "#dc3545"
-
-def format_euro(value: float, decimals: int = 0) -> str:
-    """Format a number as Euro currency."""
-    if value is None:
-        return "—"
-    if decimals == 0:
-        return f"{int(round(value)):,}".replace(",", " ") + " €"
-    return f"{value:,.{decimals}f}".replace(",", " ") + " €"
-
-
-def format_pct(value: float, decimals: int = 1) -> str:
-    """Format a number as percentage."""
-    if value is None:
-        return "—"
-    return f"{value:.{decimals}f} %"
-
-
-def get_taxonomy_badge(taxonomy: str) -> tuple:
-    """Get badge info for strategy taxonomy."""
-    badges = {
-        "Optimisé": ("🚀", "Optimisé", "#28a745"),
-        "Patrimonial": ("🏛️", "Patrimonial", "#17a2b8"),
-        "Mix": ("⚖️", "Mix", "#ffc107"),
-    }
-    return badges.get(taxonomy, ("🔀", taxonomy or "—", "#6c757d"))
-
 
 def get_star_rating(score: float, max_stars: int = 5) -> str:
     """Convert 0-100 score to star rating string."""

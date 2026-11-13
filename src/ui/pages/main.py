@@ -289,8 +289,8 @@ def render_main_page(
     render_header()
 
     # Render persistent search info zone (Phase 22)
+    from src.application.progress import SearchStats
     from src.ui.components.progress_display import render_search_info_zone
-    from src.ui.progress import SearchStats
     search_stats = get_state("search_stats", None)
     if search_stats is not None:
         # Convert dict back to SearchStats if needed

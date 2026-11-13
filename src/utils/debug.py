@@ -61,7 +61,7 @@ def collect_debug_context(
     # 2. Derived Configs (Logic Check)
     # Re-construct configs to see if translation from UI -> Domain was correct
     try:
-        from src.ui.app_controller import build_financing_config, build_operating_config
+        from src.application.services.brick_factory import build_financing_config, build_operating_config
         if params:
              # We try to rebuild them to show the AI what the domain layer 'sees'
              # This helps spot issued in the build_config functions themselves
@@ -83,8 +83,9 @@ def collect_debug_context(
         context["data_snapshot"]["archetypes_count"] = len(raw)
         context["data_snapshot"]["sample_archetype"] = raw[0] if raw else None
         # Statistics
-        prices = [b.get("prix_achat", 0) for b in raw]
-        rents = [b.get("loyer_CC", 0) for b in raw]
+        # Real archetype keys: price = prix_m2 * surface, monthly rent = loyer_m2 * surface (charges excluded)
+        prices = [b.get("prix_m2", 0) * b.get("surface", 0) for b in raw]
+        rents = [b.get("loyer_m2", 0) * b.get("surface", 0) for b in raw]
         context["data_snapshot"]["stats"] = {
             "min_price": min(prices) if prices else 0,
             "max_price": max(prices) if prices else 0,

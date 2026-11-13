@@ -8,9 +8,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from src.core.logging import get_logger
 from src.domain.calculator.financial import calculate_total_monthly_payment
 from src.domain.calculator.scoring import calculate_property_qualitative_score
 from src.domain.models.brick import InvestmentBrick
+
+log = get_logger(__name__)
 
 
 @dataclass
@@ -287,3 +290,44 @@ def validate_bricks(bricks: list[dict[str, Any] | InvestmentBrick], strict: bool
     return all_warnings
 
 
+# Moved from src/ui/app_controller.py so that utils/debug.py no longer imports the UI layer.
+def build_financing_config(credit_params: dict[str, Any]) -> FinancingConfig:
+    """Build FinancingConfig from credit parameters.
+
+    Args:
+        credit_params: Dict from sidebar credit tab
+
+    Returns:
+        FinancingConfig instance
+    """
+    config = FinancingConfig(
+        credit_rates=credit_params["taux_credits"],
+        frais_notaire_pct=credit_params["frais_notaire_pct"],
+        apport_min_pct=0.0,  # Legacy: project cost full loan for calculation base
+        assurance_ann_pct=credit_params["assurance_ann_pct"],
+        frais_pret_pct=credit_params["frais_pret_pct"],
+        inclure_travaux=credit_params["inclure_travaux"],
+        inclure_reno_ener=credit_params["inclure_reno_ener"],
+        inclure_mobilier=credit_params["inclure_mobilier"],
+        financer_mobilier=credit_params["financer_mobilier"],
+    )
+    log.info("financing_config_built", rates=config.credit_rates)
+    return config
+
+
+def build_operating_config(gestion: float, vacance: float, cfe: float) -> OperatingConfig:
+    """Build OperatingConfig from sidebar values.
+
+    Args:
+        gestion: Management fee percentage
+        vacance: Vacancy/unpaid provision percentage
+        cfe: Annual CFE per property
+
+    Returns:
+        OperatingConfig instance
+    """
+    return OperatingConfig(
+        frais_gestion_pct=gestion,
+        provision_pct=vacance,
+        cfe_par_bien_ann=cfe,
+    )
