@@ -47,6 +47,7 @@ class EvaluationParams:
     regime_fiscal: str = TAX.regime_fiscal
     tmi_pct: float = TAX.tmi_pct
     frais_vente_pct: float = TAX.frais_vente_pct
+    ratio_terrain_pct: float | None = None  # None: each brick keeps its archetype value
     cfe_par_bien_ann: float = OPERATING.cfe_par_bien_ann
     apply_ira: bool = FINANCING.apply_ira
     ira_cap_pct: float = FINANCING.ira_cap_pct
@@ -65,6 +66,7 @@ class EvaluationParams:
             regime_fiscal=d.get("regime_fiscal", TAX.regime_fiscal),
             tmi_pct=d.get("tmi_pct", TAX.tmi_pct),
             frais_vente_pct=d.get("frais_vente_pct", TAX.frais_vente_pct),
+            ratio_terrain_pct=d.get("ratio_terrain_pct"),
             cfe_par_bien_ann=d.get("cfe_par_bien_ann", OPERATING.cfe_par_bien_ann),
             apply_ira=d.get("apply_ira", FINANCING.apply_ira),
             ira_cap_pct=d.get("ira_cap_pct", FINANCING.ira_cap_pct),
@@ -296,6 +298,7 @@ class StrategyFinder:
             ira=ira,
             cfe_par_bien_ann=ep.cfe_par_bien_ann,
             frais_vente_pct=ep.frais_vente_pct,
+            ratio_terrain_pct=TAX.ratio_terrain_pct if ep.ratio_terrain_pct is None else ep.ratio_terrain_pct,
         )
 
         allocator = PortfolioAllocator(self.mode_cf)

@@ -62,6 +62,8 @@ class RunContext(BaseModel):
     # Tax
     regime_fiscal: str = TAX.regime_fiscal
     tmi_pct: float = TAX.tmi_pct
+    # Land share override (%). None = use each archetype's own ratio_terrain_pct.
+    ratio_terrain_pct: float | None = None
 
     # Market
     appreciation_bien_pct: float = MARKET.appreciation_bien_pct
@@ -103,6 +105,7 @@ class RunContext(BaseModel):
             financer_mobilier=credit["financer_mobilier"],
             apply_ira=credit["apply_ira"],
             ira_cap_pct=credit["ira_cap_pct"],
+            ratio_terrain_pct=credit.get("ratio_terrain_pct"),
             cfe_par_bien_ann=params["cfe"],
             gestion_pct=params["gestion"],
             vacance_pct=params["vacance"],
@@ -150,6 +153,7 @@ class RunContext(BaseModel):
             "financer_mobilier": self.financer_mobilier,
             "apply_ira": self.apply_ira,
             "ira_cap_pct": self.ira_cap_pct,
+            "ratio_terrain_pct": self.ratio_terrain_pct,
         }
 
     def to_eval_params(self) -> dict[str, Any]:
@@ -158,6 +162,7 @@ class RunContext(BaseModel):
             "tmi_pct": self.tmi_pct,
             "regime_fiscal": self.regime_fiscal,
             "frais_vente_pct": self.frais_vente_pct,
+            "ratio_terrain_pct": self.ratio_terrain_pct,
             "apply_ira": self.apply_ira,
             "ira_cap_pct": self.ira_cap_pct,
             "cfe_par_bien_ann": self.cfe_par_bien_ann,
@@ -177,4 +182,5 @@ class RunContext(BaseModel):
             "ira_cap_pct": self.ira_cap_pct,
             "cfe_par_bien_ann": self.cfe_par_bien_ann,
             "frais_vente_pct": self.frais_vente_pct,
+            "ratio_terrain_pct": self.ratio_terrain_pct,
         }

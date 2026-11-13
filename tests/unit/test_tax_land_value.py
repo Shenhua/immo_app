@@ -49,10 +49,8 @@ class TestLandValueExclusion:
         schedules = [generate_amortization_schedule(90000, 3.6, 300, 0.35)]
         df, bilan = engine.simulate(strategy, 3, schedules)
 
-        # Expected Amortization Year 1 = (100k + 10k) / 30 years = 3,666.67
-        # + Furniture 5k / 10 years = 500
-        # Total = 4,166.67 annually
-        expected_amort = (110000 / 30) + (5000 / 10)
+        # TAX_SPEC 4.1: building = (price + notary fees) / 30; works own component / 15; furniture / 10
+        expected_amort = (108000 / 30) + (10000 / 15) + (5000 / 10)
 
         # Amortissements are displayed as negative in DataFrame
         actual_amort = abs(df.iloc[0]["Amortissements"])
@@ -60,7 +58,7 @@ class TestLandValueExclusion:
             f"Expected {expected_amort:.2f}, got {actual_amort:.2f}"
 
     def test_land_ratio_excludes_terrain_from_base(self):
-        """With ratio_terrain_pct=20, should exclude 20k from 100k property."""
+        """With ratio_terrain_pct=20, the land share of price + notary fees is excluded."""
         engine = SimulationEngine(
             market=MarketHypotheses(),
             tax=TaxParams(regime_fiscal="lmnp"),
@@ -91,11 +89,9 @@ class TestLandValueExclusion:
         schedules = [generate_amortization_schedule(90000, 3.6, 300, 0.35)]
         df, bilan = engine.simulate(strategy, 3, schedules)
 
-        # Land = 100k * 20% = 20k (NOT amortizable)
-        # Building = 100k - 20k = 80k (amortizable)
-        # Base = 80k + 10k works = 90k
-        # Amort/year = 90k / 30 = 3,000 + (5k furniture / 10) = 3,500
-        expected_amort = (90000 / 30) + (5000 / 10)
+        # Land = (100k price + 8k notary fees) * 20% is NOT amortizable (TAX_SPEC 4.1)
+        # Building = 108k * 80% = 86.4k / 30; works 10k / 15; furniture 5k / 10
+        expected_amort = (108000 * 0.8 / 30) + (10000 / 15) + (5000 / 10)
 
         # Amortissements are displayed as negative in DataFrame
         actual_amort = abs(df.iloc[0]["Amortissements"])

@@ -69,6 +69,10 @@ class TaxDefaults:
     tmi_pct: float = 30.0
     micro_bic_abatt_pct: float = 50.0
     frais_vente_pct: float = 6.0
+    # Land share of the purchase price (not amortizable). TAX_SPEC 4.1: 15 % by default, never 0.
+    ratio_terrain_pct: float = 15.0
+    # Works are their own amortization component (TAX_SPEC 4.1, 15 years, range 10-15).
+    amort_works_years: int = 15
 
 
 @dataclass(frozen=True)

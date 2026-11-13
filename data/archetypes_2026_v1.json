@@ -30,7 +30,8 @@
     ],
     "delai_vente_j_median": 66,
     "liquidite_score": 0.72,
-    "mode_loyer_label": "Meuble Etudiant"
+    "mode_loyer_label": "Meuble Etudiant",
+    "ratio_terrain_pct": 20.0
   },
   {
     "nom": "T2 Charme (Lyon - Croix-Rousse)",
@@ -63,7 +64,8 @@
     ],
     "delai_vente_j_median": 66,
     "liquidite_score": 0.72,
-    "mode_loyer_label": "Meuble Classique"
+    "mode_loyer_label": "Meuble Classique",
+    "ratio_terrain_pct": 20.0
   },
   {
     "nom": "T3 Familial (Lyon - Monplaisir)",
@@ -96,7 +98,8 @@
     ],
     "delai_vente_j_median": 66,
     "liquidite_score": 0.72,
-    "mode_loyer_label": "Nu Classique"
+    "mode_loyer_label": "Nu Classique",
+    "ratio_terrain_pct": 20.0
   },
   {
     "nom": "T4 pour Colocation (Lyon - Villeurbanne)",
@@ -130,7 +133,8 @@
     ],
     "delai_vente_j_median": 66,
     "liquidite_score": 0.72,
-    "mode_loyer_label": "Colocation Meublee"
+    "mode_loyer_label": "Colocation Meublee",
+    "ratio_terrain_pct": 20.0
   },
   {
     "nom": "Studio Étudiant (Grenoble - Île Verte)",
@@ -162,7 +166,8 @@
     ],
     "delai_vente_j_median": 85,
     "liquidite_score": 0.79,
-    "mode_loyer_label": "Meuble Etudiant"
+    "mode_loyer_label": "Meuble Etudiant",
+    "ratio_terrain_pct": 15.0
   },
   {
     "nom": "T2 (Grenoble - Caserne de Bonne)",
@@ -194,7 +199,8 @@
     ],
     "delai_vente_j_median": 80,
     "liquidite_score": 0.82,
-    "mode_loyer_label": "Meuble Classique"
+    "mode_loyer_label": "Meuble Classique",
+    "ratio_terrain_pct": 15.0
   },
   {
     "nom": "T5 Colocation (Grenoble - Berriat)",
@@ -227,7 +233,8 @@
     ],
     "delai_vente_j_median": 95,
     "liquidite_score": 0.73,
-    "mode_loyer_label": "Colocation Meublee"
+    "mode_loyer_label": "Colocation Meublee",
+    "ratio_terrain_pct": 15.0
   },
   {
     "nom": "T3 Nu (Grenoble - Teisseire)",
@@ -258,7 +265,8 @@
     ],
     "delai_vente_j_median": 105,
     "liquidite_score": 0.67,
-    "mode_loyer_label": "Nu Classique"
+    "mode_loyer_label": "Nu Classique",
+    "ratio_terrain_pct": 15.0
   },
   {
     "nom": "Studio Étudiant (Saint‑Martin‑d’Hères - Campus)",
@@ -290,7 +298,8 @@
     ],
     "delai_vente_j_median": 90,
     "liquidite_score": 0.76,
-    "mode_loyer_label": "Meuble Etudiant"
+    "mode_loyer_label": "Meuble Etudiant",
+    "ratio_terrain_pct": 15.0
   },
   {
     "nom": "T3 Nu (Saint‑Martin‑d’Hères - Paul Mistral Est)",
@@ -322,7 +331,8 @@
     ],
     "delai_vente_j_median": 100,
     "liquidite_score": 0.7,
-    "mode_loyer_label": "Nu Classique"
+    "mode_loyer_label": "Nu Classique",
+    "ratio_terrain_pct": 15.0
   },
   {
     "nom": "T2 (Échirolles - Comboire)",
@@ -354,7 +364,8 @@
     ],
     "delai_vente_j_median": 110,
     "liquidite_score": 0.64,
-    "mode_loyer_label": "Meuble Classique"
+    "mode_loyer_label": "Meuble Classique",
+    "ratio_terrain_pct": 15.0
   },
   {
     "nom": "T4 Colocation (Fontaine - La Poya)",
@@ -387,7 +398,8 @@
     ],
     "delai_vente_j_median": 105,
     "liquidite_score": 0.67,
-    "mode_loyer_label": "Colocation Meublee"
+    "mode_loyer_label": "Colocation Meublee",
+    "ratio_terrain_pct": 15.0
   },
   {
     "nom": "T2 (Meylan - Inovallée)",
@@ -418,7 +430,8 @@
     ],
     "delai_vente_j_median": 95,
     "liquidite_score": 0.73,
-    "mode_loyer_label": "Meuble Classique"
+    "mode_loyer_label": "Meuble Classique",
+    "ratio_terrain_pct": 15.0
   },
   {
     "nom": "Studio Étudiant (Chambéry - Jacob)",
@@ -448,7 +461,8 @@
     ],
     "delai_vente_j_median": 59,
     "liquidite_score": 0.81,
-    "mode_loyer_label": "Meuble Etudiant"
+    "mode_loyer_label": "Meuble Etudiant",
+    "ratio_terrain_pct": 15.0
   },
   {
     "nom": "T2 Centre Historique (Chambéry)",
@@ -478,7 +492,8 @@
     ],
     "delai_vente_j_median": 59,
     "liquidite_score": 0.81,
-    "mode_loyer_label": "Meuble Classique"
+    "mode_loyer_label": "Meuble Classique",
+    "ratio_terrain_pct": 15.0
   },
   {
     "nom": "Studio Vieille Ville (Annecy - Lac)",
@@ -510,7 +525,8 @@
     ],
     "delai_vente_j_median": 50,
     "liquidite_score": 0.85,
-    "mode_loyer_label": "Meuble Etudiant"
+    "mode_loyer_label": "Meuble Etudiant",
+    "ratio_terrain_pct": 20.0
   },
   {
     "nom": "T2 Moderne (Annecy - Galeries)",
@@ -540,7 +556,8 @@
     ],
     "delai_vente_j_median": 55,
     "liquidite_score": 0.8,
-    "mode_loyer_label": "Meuble Classique"
+    "mode_loyer_label": "Meuble Classique",
+    "ratio_terrain_pct": 20.0
   },
   {
     "nom": "T3 Résidentiel (Annecy - Parmelan)",
@@ -570,6 +587,7 @@
     ],
     "delai_vente_j_median": 60,
     "liquidite_score": 0.75,
-    "mode_loyer_label": "Nu Classique"
+    "mode_loyer_label": "Nu Classique",
+    "ratio_terrain_pct": 20.0
   }
 ]

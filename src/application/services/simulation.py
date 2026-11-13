@@ -193,7 +193,8 @@ class SimulationEngine:
         frais_vente_pct: float = TAX.frais_vente_pct,
         amort_immo_years: int = 30,
         amort_mobilier_years: int = 10,
-        ratio_terrain_pct: float = 0.0,
+        ratio_terrain_pct: float = TAX.ratio_terrain_pct,
+        amort_works_years: int = TAX.amort_works_years,
     ):
         self.market = market
         self.tax = tax
@@ -207,7 +208,11 @@ class SimulationEngine:
         if amort_mobilier_years <= 0:
             raise ValueError("amort_mobilier_years must be > 0 to avoid division by zero")
 
+        if amort_works_years <= 0:
+            raise ValueError("amort_works_years must be > 0 to avoid division by zero")
+
         self.amort_immo_years = amort_immo_years
+        self.amort_works_years = amort_works_years
         self.amort_mobilier_years = amort_mobilier_years
 
     def simulate(
@@ -324,14 +329,18 @@ class SimulationEngine:
                 interets + assurance + self.cfe_par_bien_ann
             )
 
-            # Amortization (using configurable periods, excluding land value)
-            # Land is not amortizable per French tax law
-            valeur_terrain = p["prix_achat_bien"] * (self.ratio_terrain_pct / 100.0)
-            base_amortissable = (p["prix_achat_bien"] - valeur_terrain) + p["budget_travaux"] + p.get("renovation_energetique", 0.0)
-            amort_immo = base_amortissable / self.amort_immo_years
-            amort_mob = p["mobilier"] / self.amort_mobilier_years
+            # Amortization by component, straight-line, each stopping after its own duration
+            # (TAX_SPEC 4.1; CGI 39 C; BOI-BIC-AMT-20-40-10-20). Land is never amortized.
+            # Notary fees are capitalized with the purchase price and split pro rata land/building.
+            ratio_terrain = p.get("ratio_terrain_pct")
+            ratio_terrain = self.ratio_terrain_pct if ratio_terrain is None else max(0.0, min(100.0, float(ratio_terrain)))
+            base_batiment = (p["prix_achat_bien"] + p.get("frais_notaire", 0.0)) * (1.0 - ratio_terrain / 100.0)
+            base_travaux = p["budget_travaux"] + p.get("renovation_energetique", 0.0)
+            amort_immo = base_batiment / self.amort_immo_years if year <= self.amort_immo_years else 0.0
+            amort_trav = base_travaux / self.amort_works_years if year <= self.amort_works_years else 0.0
+            amort_mob = p["mobilier"] / self.amort_mobilier_years if year <= self.amort_mobilier_years else 0.0
             if self.tax.regime_fiscal == "lmnp":
-                amortissements_pf += amort_immo + (amort_mob if self.tax.amort_mobilier else 0.0)
+                amortissements_pf += amort_immo + amort_trav + (amort_mob if self.tax.amort_mobilier else 0.0)
 
             cf_ann += loyer_ann - (charges_fixes_ann + gest_ann + prov_ann) - debt_service - self.cfe_par_bien_ann
             interets_assurance_ann += interets + assurance
@@ -460,6 +469,10 @@ class SimulationEngine:
         return impot_ir + impot_ps
 
 
+def _ratio_terrain_or_default(value: float | None) -> float:
+    return TAX.ratio_terrain_pct if value is None else float(value)
+
+
 # Convenience function for backward compatibility
 def simulate_long_term_strategy(
     strategy: dict[str, Any],
@@ -499,6 +512,7 @@ def simulate_long_term_strategy(
         ira=ira,
         cfe_par_bien_ann=tax_dict.get("cfe_par_bien_ann", OPERATING.cfe_par_bien_ann),
         frais_vente_pct=tax_dict.get("frais_vente_pct", TAX.frais_vente_pct),
+        ratio_terrain_pct=_ratio_terrain_or_default(tax_dict.get("ratio_terrain_pct")),
     )
 
     # Generate schedules using modular function

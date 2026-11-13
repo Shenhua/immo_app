@@ -15,6 +15,7 @@ from src.core.defaults import (
     MARKET,
     PRESETS,
     SEARCH,
+    TAX,
 )
 
 # Preset financial profiles, keyed by display label. Weights come from src/core/defaults.py.
@@ -202,6 +203,22 @@ def render_credit_params_tab() -> dict[str, Any]:
         inclure_mobilier = c3.checkbox("Mobilier", value=FINANCING.inclure_mobilier)
         financer_mobilier = c4.checkbox("Financé", value=FINANCING.financer_mobilier)
 
+        st.markdown("**Part terrain (non amortissable)**")
+        override_terrain = st.toggle(
+            "Imposer la part terrain",
+            value=False,
+            help="Désactivé : la part de chaque archétype est utilisée (15 % par défaut, 20 % à Lyon et Annecy).",
+        )
+        ratio_terrain = st.number_input(
+            "Part terrain %",
+            min_value=0.0,
+            max_value=60.0,
+            value=TAX.ratio_terrain_pct,
+            step=1.0,
+            disabled=not override_terrain,
+            help="Part du prix (frais de notaire inclus) qui représente le terrain : elle n'est pas amortie en LMNP réel.",
+        )
+
         st.markdown("**Frais de remboursement anticipés**")
         apply_ira = st.toggle(
             "Appliquer les frais (IRA)",
@@ -230,6 +247,7 @@ def render_credit_params_tab() -> dict[str, Any]:
         "financer_mobilier": financer_mobilier,
         "apply_ira": apply_ira,
         "ira_cap_pct": ira_cap,
+        "ratio_terrain_pct": float(ratio_terrain) if override_terrain else None,
     }
 
 
