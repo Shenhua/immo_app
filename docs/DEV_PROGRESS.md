@@ -30,12 +30,12 @@ Legend: todo · running · done · blocked · skipped
 | T02 repo hygiene | Haiku | running | | batch with T03, T04 |
 | T03 packaging | Haiku | running | | |
 | T04 CI and Docker | Haiku | running | | |
-| T05 hide broken options | Haiku | running | | batch with T06, T12 |
-| T06 disk side effects | Haiku | running | | |
-| T12 layering cleanup | Haiku | running | | |
+| T05 hide broken options | Haiku | done | 24fdf9b (merge 1ba95b1) | batch with T06, T12 |
+| T06 disk side effects | Haiku | done | fbed6a5 | |
+| T12 layering cleanup | Haiku | done | 323b1c4 | also fixed `import app` crash | |
 | T10 central defaults | Sonnet | todo | | |
 | T11 RunContext | Sonnet | todo | | |
-| T20 tax spec + golden | Opus | todo | | needs user approval |
+| T20 tax spec + golden | Opus | running | | needs user approval |
 | T22 amortization + land | Sonnet | todo | | |
 | T21 plus-value | Sonnet | todo | | |
 | T24 wealth/IRR/CFE | Sonnet | todo | | |
@@ -73,8 +73,16 @@ Legend: todo · running · done · blocked · skipped
 - After T01: `tests/verification_fixtures.py` and `tests/verification_scenarios.py` import modules that no longer exist (`src.core.simulation`, `src.services.*`). Assigned to T02: fix the paths, or delete them if they duplicate the golden tests.
 - After T01: `src/core/__init__.py` imports from the application layer (isort moved it first). T12 must remove it.
 - After T01: `test_audit_remediation.py::test_combinatorial_explosion_safety` doesn't test what its name says. Revisit in T50.
+- After T05/T06/T12:
+  - `progress.py` now lives in `src/application/progress.py`.
+  - `build_financing_config` and `build_operating_config` moved to `brick_factory`.
+  - The formatters live in `ui/helpers.py`.
+  - T10 must move `APP_AUTOSAVE` / `APP_RESULTS_DIR` (now read in `app_controller.py`) into `defaults.py`.
+  - T34 must restore Rentier (dead `is_rentier` branches remain in the sidebar).
+  - The regime selectbox offers only LMNP and Micro-BIC.
 - `ruff format` not applied (45 files would be reformatted). Optional later; skip it to avoid merge churn.
 
 ## Log
 - 2026-11-13: Plan written, `develop` branch created, venv set up. Starting W1.
 - 2026-11-13: T01 merged (0e3ed0f). Starting W2.
+- 2026-11-13: T05/T06/T12 merged (1ba95b1), 233 tests. T20 launched while T02-T04 still run.
