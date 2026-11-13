@@ -28,6 +28,11 @@ from src.ui.state import SessionManager
 
 log = get_logger(__name__)
 
+# Disk side effects are opt-in. Env vars are read once, here.
+# FOLLOW-UP (T10): move these into src/core/defaults.py.
+AUTOSAVE_ENABLED: bool = os.environ.get("APP_AUTOSAVE", "0") == "1"
+RESULTS_DIR: str = os.environ.get("APP_RESULTS_DIR", "results")
+
 
 def load_archetypes_from_disk(data_path: str) -> list[dict[str, Any]]:
     """Load archetype data from JSON file.
@@ -202,31 +207,33 @@ def run_strategy_search(
 
     log.info("analysis_completed", strategies_found=len(strategies))
 
-    # Phase 19: Automatic Debug Context
-    try:
-        from src.utils.debug import collect_debug_context, save_debug_context
+    # Phase 19: Automatic Debug Context (disk write, opt-in via APP_AUTOSAVE=1)
+    if AUTOSAVE_ENABLED:
+        try:
+            from src.utils.debug import collect_debug_context, save_debug_context
 
-        ctx_params = {
-            "apport": apport,
-            "cf_cible": cf_cible,
-            "tolerance": tolerance,
-            "qual_weight": qual_weight,
-            "mode_cf": mode_cf,
-            "horizon_years": horizon_years,
-            "top_n": top_n,
-            "eval_params": eval_params,
-        }
+            ctx_params = {
+                "apport": apport,
+                "cf_cible": cf_cible,
+                "tolerance": tolerance,
+                "qual_weight": qual_weight,
+                "mode_cf": mode_cf,
+                "horizon_years": horizon_years,
+                "top_n": top_n,
+                "eval_params": eval_params,
+            }
 
-        ctx = collect_debug_context(
-            params=ctx_params,
-            strategies=strategies,
-            log_file_path="logs/app.log"
-        )
-        # Use timestamped name
-        save_debug_context(ctx, filepath=f"results/debug_context_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
-        log.info("debug_context_saved")
-    except Exception as e:
-        log.warning("debug_context_save_failed", error=str(e))
+            ctx = collect_debug_context(
+                params=ctx_params,
+                strategies=strategies,
+                log_file_path="logs/app.log"
+            )
+            # Use timestamped name
+            debug_path = os.path.join(RESULTS_DIR, f"debug_context_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+            save_debug_context(ctx, filepath=debug_path)
+            log.info("debug_context_saved")
+        except Exception as e:
+            log.warning("debug_context_save_failed", error=str(e))
 
     return strategies
 
@@ -299,15 +306,17 @@ def autosave_results(
     strategies: list[dict[str, Any]],
     metadata: dict[str, Any],
 ) -> None:
-    """Auto-save results to disk.
+    """Auto-save results to disk. No-op unless APP_AUTOSAVE=1.
 
     Args:
         strategies: Strategies to save
         metadata: Additional metadata
     """
+    if not AUTOSAVE_ENABLED:
+        return
     try:
         from src.application.services.exporter import ResultExporter
-        exporter = ResultExporter()
+        exporter = ResultExporter(RESULTS_DIR)
         exporter.save_results(strategies, metadata=metadata)
     except Exception as e:
         log.warning("autosave_failed", error=str(e))
