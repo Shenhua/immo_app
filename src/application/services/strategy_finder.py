@@ -22,6 +22,7 @@ from src.core.defaults import (
     TAX,
     PresetId,
 )
+from src.core.glossary import cf_penalty
 from src.core.logging import get_logger
 from src.domain.models.brick import InvestmentBrick
 
@@ -75,7 +76,13 @@ class EvaluationParams:
 class StrategyScorer:
     """Scores strategies based on financial and qualitative metrics."""
 
-    def __init__(self, qualite_weight: float = SEARCH.qualite_weight, weights: dict[str, float] | None = None):
+    def __init__(
+        self,
+        qualite_weight: float = SEARCH.qualite_weight,
+        weights: dict[str, float] | None = None,
+        mode_cf: str = "target",
+    ):
+        self.mode_cf = mode_cf
         self.qualite_weight = max(0.0, min(1.0, qualite_weight))
         self.weights = self._normalize_weights(weights or BASE_WEIGHTS)
 
@@ -137,8 +144,9 @@ class StrategyScorer:
         irr = [s.get("tri_annuel", 0.0) for s in strategies]
         cap_eff = [s.get("cap_eff", 0.0) for s in strategies]
         dscr = [1.5 if s.get("dscr_y1") is None else max(0.0, float(s.get("dscr_y1", 0.0))) for s in strategies]
-        cf_dist = [abs(s.get("cash_flow_final", 0.0) - cash_flow_cible) for s in strategies]
-        # CF proximity: closer to target = higher score (use 500€ as reasonable max distance)
+        cf_dist = [cf_penalty(s.get("cash_flow_final", 0.0), cash_flow_cible, self.mode_cf) for s in strategies]
+        # CF proximity: mode-aware (min: only a deficit is penalised; target: abs gap)
+        # smaller penalty = higher score (use 500€ as reasonable max distance)
         max_cf_dist = 500.0
         cf_prox = [max(0.0, 1.0 - (d / max_cf_dist)) for d in cf_dist]
 
@@ -238,7 +246,7 @@ class StrategyFinder:
         self.solver_mode: str = ""
 
         self.combo_generator = CombinationGenerator(max_properties=max_properties)
-        self.scorer = StrategyScorer(qualite_weight=qualite_weight)
+        self.scorer = StrategyScorer(qualite_weight=qualite_weight, mode_cf=mode_cf)
 
     def find_strategies(
         self,

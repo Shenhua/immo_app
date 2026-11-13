@@ -105,7 +105,7 @@ class TestFullPipeline:
         finder = StrategyFinder(
             bricks=bricks,
             apport_disponible=50000.0,
-            cash_flow_cible=0.0,
+            cash_flow_cible=-500.0,  # min mode has no tolerance below target (T30)
             tolerance=500.0,
             mode_cf="min",
             qualite_weight=0.25,
@@ -136,7 +136,7 @@ class TestFullPipeline:
         finder = StrategyFinder(
             bricks=bricks,
             apport_disponible=50000.0,
-            cash_flow_cible=0.0,
+            cash_flow_cible=-500.0,  # min mode has no tolerance below target (T30)
             tolerance=500.0,
             mode_cf="min",
             qualite_weight=0.25,

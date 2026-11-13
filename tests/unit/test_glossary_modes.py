@@ -28,13 +28,13 @@ def test_glossary_min_mode():
 
 def test_glossary_min_mode_below_target():
     # Setup: Min 100, Tolerance 10
-    # CF 95 -> Gap 5 (within tolerance) -> Accepted
+    # CF 95 -> Gap 5, below target: rejected (no tolerance below target in min mode)
     df = pd.DataFrame([{"Cash-Flow Net d'Impôt": 95 * 12}])
 
     metrics = calculate_cashflow_metrics(df, target_cf=100.0, tolerance=10.0, mode_cf="min")
 
     assert metrics["gap"] == 5.0
-    assert metrics["is_acceptable"] is True
+    assert metrics["is_acceptable"] is False
 
 def test_glossary_min_mode_too_low():
     # Setup: Min 100, Tolerance 10

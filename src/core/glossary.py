@@ -6,6 +6,30 @@ from typing import TypedDict
 
 import pandas as pd
 
+MIN_MODES = frozenset({"min", "≥"})
+
+
+def cf_penalty(cf: float, target: float, mode_cf: str = "target") -> float:
+    """Distance to the cash-flow target (EUR/month), mode-aware.
+
+    - "min": one-sided, ``max(0, target - cf)``. A surplus is never penalised.
+    - "target" (precise): ``abs(cf - target)``.
+    """
+    if mode_cf in MIN_MODES:
+        return max(0.0, target - cf)
+    return abs(cf - target)
+
+
+def cf_accepts(cf: float, target: float, tol: float, mode_cf: str = "target") -> bool:
+    """Single source of truth for cash-flow acceptance.
+
+    - "min": accept iff ``cf >= target`` (no tolerance below the target).
+    - "target" (precise): accept iff ``abs(cf - target) <= tol``.
+    """
+    if mode_cf in MIN_MODES:
+        return bool(cf >= target)
+    return bool(abs(cf - target) <= tol)
+
 
 class CashflowMetrics(TypedDict):
     cf_year_1_monthly: float
@@ -47,19 +71,10 @@ def calculate_cashflow_metrics(
 
     # Acceptance Logic (Phase 16 Check)
     # Mode "target": Absolute precision (abs diff)
-    # Mode "min": One-sided (only penalize if BELOW target)
+    # Mode "min": One-sided, accept iff cf >= target (no tolerance below)
 
-    if mode_cf == "min":
-        # One-sided gap: 0 if we are ABOVE target (good), positive if BELOW (bad)
-        gap_y1 = max(0.0, target_cf - cf_y1_monthly)
-
-        # Accept if we are above (target - tolerance)
-        # i.e., gap is small enough
-        is_acceptable = gap_y1 <= tolerance
-    else:
-        # Target mode (default): Absolute gap
-        gap_y1 = abs(cf_y1_monthly - target_cf)
-        is_acceptable = gap_y1 <= tolerance
+    gap_y1 = cf_penalty(cf_y1_monthly, target_cf, mode_cf)
+    is_acceptable = cf_accepts(cf_y1_monthly, target_cf, tolerance, mode_cf)
 
     return {
         "cf_year_1_monthly": float(cf_y1_monthly),
