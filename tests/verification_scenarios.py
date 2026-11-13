@@ -23,7 +23,7 @@ log = get_logger("scenario_runner")
 
 
 def load_archetypes():
-    with open("data/archetypes_recale_2025_v2.json") as f:
+    with open("data/archetypes_2026_v1.json") as f:
         return [ArchetypeV2(**a).model_dump() for a in json.load(f)]
 
 
