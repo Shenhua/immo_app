@@ -6,7 +6,7 @@ Provides year-by-year projections and final liquidation calculations.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from math import isfinite
 from typing import Any
 
@@ -15,6 +15,7 @@ import pandas as pd
 
 from src.core.defaults import FINANCING, MARKET, OPERATING, TAX
 from src.core.exceptions import SimulationError
+from src.domain.tax.plus_value import PlusValueBreakdown, compute_plus_value, sum_breakdowns
 
 # Tax constants
 TAUX_PRELEVEMENTS_SOCIAUX = 17.2
@@ -160,6 +161,8 @@ class YearResult:
     loyers_bruts: float
     charges_deductibles: float
     amortissements: float
+    # Building + works amortization booked this year, per property (the rest of ``amortissements`` is furniture).
+    amort_imm_par_bien: list[float] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -195,6 +198,7 @@ class SimulationEngine:
         amort_mobilier_years: int = 10,
         ratio_terrain_pct: float = TAX.ratio_terrain_pct,
         amort_works_years: int = TAX.amort_works_years,
+        nb_owners: int = TAX.nb_owners,
     ):
         self.market = market
         self.tax = tax
@@ -202,6 +206,9 @@ class SimulationEngine:
         self.cfe_par_bien_ann = cfe_par_bien_ann
         self.frais_vente_pct = frais_vente_pct
         self.ratio_terrain_pct = max(0.0, min(100.0, ratio_terrain_pct))
+        if nb_owners not in (1, 2):
+            raise ValueError("nb_owners must be 1 or 2")
+        self.nb_owners = nb_owners
 
         if amort_immo_years <= 0:
             raise ValueError("amort_immo_years must be > 0 to avoid division by zero")
@@ -244,6 +251,10 @@ class SimulationEngine:
             )
 
         valeur_biens = sum(p["prix_achat_bien"] for p in projets)
+        # Amortization actually deducted, building/works pool vs furniture pool (TAX_SPEC 3.4, 11.3).
+        ard_imm = ard_mob = 0.0
+        cum_ded_imm = 0.0
+        cum_booked_imm = [0.0] * len(projets)
         flux = [-float(strategy["apport_total"])]
 
         results: list[YearResult] = []
@@ -257,6 +268,18 @@ class SimulationEngine:
             )
             results.append(result)
 
+            cur_imm = sum(result.amort_imm_par_bien)
+            cur_mob = max(0.0, result.amortissements - cur_imm)
+            pool_imm, pool_mob = cur_imm + ard_imm, cur_mob + ard_mob
+            pool = pool_imm + pool_mob
+            deducted = max(0.0, min(pool, pool - next_ard))
+            share_imm = pool_imm / pool if pool > 0 else 0.0
+            ded_imm = deducted * share_imm
+            ard_imm, ard_mob = pool_imm - ded_imm, pool_mob - (deducted - ded_imm)
+            cum_ded_imm += ded_imm
+            for i, a in enumerate(result.amort_imm_par_bien):
+                cum_booked_imm[i] += a
+
             total_impot += result.impot_du
             deficit_reportable = next_deficit
             ard_reportable = next_ard
@@ -265,7 +288,8 @@ class SimulationEngine:
 
         # Final liquidation
         bilan = self._calculate_liquidation(
-            results, projets, schedules, horizons_years, flux
+            results, projets, schedules, horizons_years, flux,
+            cum_ded_imm=cum_ded_imm, cum_booked_imm=cum_booked_imm,
         )
 
         df = pd.DataFrame([r.to_dict() for r in results])
@@ -285,13 +309,13 @@ class SimulationEngine:
         Returns:
             Tuple of (YearResult, next_year_deficit_reportable, next_year_ard)
         """
-        # Appreciate property value
-        if year > 1:
-            valeur_biens *= (1.0 + self.market.appreciation_bien_pct / 100.0)
+        # Market value at the end of year y = price x (1 + g)^y (TAX_SPEC 1.7)
+        valeur_biens *= (1.0 + self.market.appreciation_bien_pct / 100.0)
 
         cf_ann, dette_fin = 0.0, 0.0
         capital_rembourse_ann, interets_assurance_ann = 0.0, 0.0
         loyers_bruts_pf, charges_deductibles_pf, amortissements_pf = 0.0, 0.0, 0.0
+        amort_imm_par_bien: list[float] = []
 
         for i, p in enumerate(projets):
             # Update rents and charges
@@ -339,6 +363,7 @@ class SimulationEngine:
             amort_immo = base_batiment / self.amort_immo_years if year <= self.amort_immo_years else 0.0
             amort_trav = base_travaux / self.amort_works_years if year <= self.amort_works_years else 0.0
             amort_mob = p["mobilier"] / self.amort_mobilier_years if year <= self.amort_mobilier_years else 0.0
+            amort_imm_par_bien.append(amort_immo + amort_trav if self.tax.regime_fiscal == "lmnp" else 0.0)
             if self.tax.regime_fiscal == "lmnp":
                 amortissements_pf += amort_immo + amort_trav + (amort_mob if self.tax.amort_mobilier else 0.0)
 
@@ -366,6 +391,7 @@ class SimulationEngine:
             loyers_bruts=loyers_bruts_pf,
             charges_deductibles=charges_deductibles_pf,
             amortissements=amortissements_pf,
+            amort_imm_par_bien=amort_imm_par_bien,
         ), new_deficit, new_ard
 
     def _calculate_liquidation(
@@ -375,6 +401,8 @@ class SimulationEngine:
         schedules: list[dict[str, Any]],
         horizon: int,
         flux: list[float],
+        cum_ded_imm: float = 0.0,
+        cum_booked_imm: list[float] | None = None,
     ) -> dict[str, Any]:
         """Calculate final liquidation and IRR."""
         if not results:
@@ -386,14 +414,32 @@ class SimulationEngine:
 
         frais_vente = valeur_biens * (self.frais_vente_pct / 100.0)
 
-        # Capital gains tax
-        prix_acquisition = sum(p["prix_achat_bien"] for p in projets)
-        frais_acquisition = sum(p["frais_notaire"] for p in projets)
-        cout_travaux = sum(p["budget_travaux"] + p.get("renovation_energetique", 0.0) for p in projets)
-        prix_corrige = prix_acquisition + frais_acquisition + cout_travaux
-
-        plus_value = max(0, valeur_biens - prix_corrige)
-        impot_pv = self._calculate_capital_gains_tax(horizon, plus_value)
+        # Plus-value of individuals, per property, floored at 0, no netting (TAX_SPEC 3, 1.10).
+        # The deducted amortization is shared between properties pro rata of the amortization each booked.
+        booked = cum_booked_imm or [0.0] * len(projets)
+        total_booked = sum(booked)
+        g = 1.0 + self.market.appreciation_bien_pct / 100.0
+        is_lmnp = self.tax.regime_fiscal == "lmnp"
+        par_bien: list[PlusValueBreakdown] = []
+        for i, p in enumerate(projets):
+            sale_price = p["prix_achat_bien"] * g**horizon
+            share = booked[i] / total_booked if total_booked > 0 else 0.0
+            par_bien.append(
+                compute_plus_value(
+                    price=p["prix_achat_bien"],
+                    notary_fees=p.get("frais_notaire", 0.0),
+                    works=p["budget_travaux"] + p.get("renovation_energetique", 0.0),
+                    sale_price=sale_price,
+                    sale_fees=sale_price * self.frais_vente_pct / 100.0,
+                    years_held=horizon,
+                    amortization_deducted_imm=cum_ded_imm * share,
+                    # CGI 150 VB III: LMNP reel only; residences-services are exempt (TAX_SPEC 3.4)
+                    amortization_addback_applies=is_lmnp and not bool(p.get("residence_services", False)),
+                    nb_owners=self.nb_owners,
+                )
+            )
+        pv_total = sum_breakdowns(par_bien)
+        impot_pv = pv_total.total_tax
 
         # IRA
         ira_total = self.ira.calculate(projets, schedules, horizon)
@@ -437,36 +483,13 @@ class SimulationEngine:
             "enrichissement_net": enrichissement_net,
             "ira_total": ira_total,
             "dscr_y1": dscr_y1,
+            "impot_pv": impot_pv,
+            "plus_value": pv_total.to_dict(),
+            "plus_value_par_bien": [
+                {"nom": p.get("nom_bien", p.get("nom", f"bien_{i + 1}")), **b.to_dict()}
+                for i, (p, b) in enumerate(zip(projets, par_bien, strict=True))
+            ],
         }
-
-    def _calculate_capital_gains_tax(self, years_held: int, plus_value: float) -> float:
-        """Calculate capital gains tax with abatements."""
-        if plus_value <= 0 or years_held <= 5:
-            return plus_value * (0.19 + TAUX_PRELEVEMENTS_SOCIAUX / 100.0) if years_held <= 5 else 0.0
-
-        # IR abatement
-        abatt_ir = 0.0
-        if years_held >= 6:
-            abatt_ir = min(66.0, 6.0 * (min(years_held, 21) - 5))
-        if years_held >= 22:
-            abatt_ir = 100.0
-
-        base_ir = plus_value * (1 - abatt_ir / 100.0)
-        impot_ir = base_ir * 0.19
-
-        # PS abatement
-        abatt_ps = 0.0
-        if years_held >= 6:
-            abatt_ps = min(26.4, 1.65 * (min(years_held, 21) - 5))
-        if years_held >= 22:
-            abatt_ps += 1.60
-        if years_held > 22:
-            abatt_ps += min(100.0 - abatt_ps, 9.0 * (min(years_held, 30) - 22))
-
-        base_ps = plus_value * (1 - min(100, abatt_ps) / 100.0)
-        impot_ps = base_ps * (TAUX_PRELEVEMENTS_SOCIAUX / 100.0)
-
-        return impot_ir + impot_ps
 
 
 def _ratio_terrain_or_default(value: float | None) -> float:
@@ -513,6 +536,7 @@ def simulate_long_term_strategy(
         cfe_par_bien_ann=tax_dict.get("cfe_par_bien_ann", OPERATING.cfe_par_bien_ann),
         frais_vente_pct=tax_dict.get("frais_vente_pct", TAX.frais_vente_pct),
         ratio_terrain_pct=_ratio_terrain_or_default(tax_dict.get("ratio_terrain_pct")),
+        nb_owners=int(tax_dict.get("nb_owners", TAX.nb_owners)),
     )
 
     # Generate schedules using modular function

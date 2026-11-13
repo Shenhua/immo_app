@@ -74,25 +74,21 @@ KNOWN_GAPS: dict[str, str] = {
     "C3_*/cumulative_cash_flow_after_tax": "T24",
     "C3_*/total_tax_on_income": "T24",
     # Plus-value on exit, not modelled as in the spec (allowances, add-back, surtax, flat rates).
-    "*/exit.sale_fees": "T21",
-    "*/exit.acquisition_fees_retained": "T21",
-    "*/exit.works_majoration": "T21",
-    "*/exit.amortization_addback": "T21",
-    "*/exit.corrected_acquisition_price": "T21",
-    "*/exit.net_sale_price": "T21",
-    "*/exit.plus_value_brute": "T21",
-    "*/exit.abattement_*": "T21",
-    "*/exit.base_*": "T21",
-    "*/exit.ir_pv": "T21",
-    "*/exit.ps_pv": "T21",
-    "*/exit.surtax": "T21",
     "*/exit.deficit_recapture": "T23",
-    "*/exit.net_exit_proceeds": "T21",
+    # LMNP add-back depends on the amortization actually deducted, which the CFE in year 1 (T24) lowers by 300 EUR
+    # in C1 and C9 (engine charges CFE from year 1, spec: from year 2). Everything downstream moves with it.
+    "C[19]_*/exit.amortization_addback": "T24",
+    "C[19]_*/exit.corrected_acquisition_price": "T24",
+    "C[19]_*/exit.plus_value_brute": "T24",
+    "C[19]_*/exit.base_*": "T24",
+    "C[19]_*/exit.ir_pv": "T24",
+    "C[19]_*/exit.ps_pv": "T24",
+    "C9_*/exit.surtax": "T24",
+    "C[19]_*/exit.net_exit_proceeds": "T24",
     # Sale price: engine appreciates from year 2, i.e. price x (1+g)^(H-1) (TAX_SPEC 10, item 21).
-    "*/exit.sale_price": "T21",
     # Wealth, IRR and the cash flows that depend on the tax rates (T24 / T23).
     "*/wealth": "T24",
-    "*/irr_pct": "T24",
+    "C[1349]_*/irr_pct": "T24",
 }
 
 
@@ -177,6 +173,9 @@ def _run_engine(case: dict[str, Any]) -> dict[str, float]:
     out["exit.crd"] = float(last["Dette"])
     out["exit.ira"] = float(bilan["ira_total"])
     out["exit.net_exit_proceeds"] = float(bilan["liquidation_nette"])
+    out["exit.sale_fees"] = float(bilan["plus_value"]["sale_fees"])
+    for key, val in bilan["plus_value"].items():
+        out[f"exit.{key}"] = float(val)
     out["total_tax_on_income"] = float(df["Impôt Dû"].sum())
     out["cumulative_cash_flow_after_tax"] = float(df["Cash-Flow Net d'Impôt"].sum())
     out["wealth"] = float(bilan["enrichissement_net"])

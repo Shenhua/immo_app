@@ -45,6 +45,11 @@ class ArchetypeV2(BaseModel):
         default=TAX.ratio_terrain_pct, ge=0, le=100, description="Land share of the price in % (not amortizable)"
     )
 
+    # Tax: residence-services exemption from the LMNP amortization add-back at sale (TAX_SPEC 3.4)
+    residence_services: bool = Field(
+        default=False, description="Student/senior/disabled residence with services (no amortization add-back)"
+    )
+
     # Status
     meuble: bool = Field(default=False, description="Is furnished")
     soumis_encadrement: bool = Field(default=False, description="Subject to rent control")
