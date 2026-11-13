@@ -6,12 +6,12 @@ with type-safe accessors and default values.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from typing import Any, TypeVar
 
 import streamlit as st
 
-from src.core.defaults import DEFAULT_PRESET, FINANCING, MARKET, OPERATING, SEARCH, TAX
+from src.application.run_context import RunContext
+from src.core.defaults import DEFAULT_PRESET, FINANCING, MARKET, SEARCH
 
 T = TypeVar("T")
 
@@ -54,93 +54,13 @@ def init_state(defaults: dict[str, Any]) -> None:
             st.session_state[key] = value
 
 
-@dataclass
-class BaseParams:
-    """Base simulation parameters from sidebar."""
-
-    apport_disponible: float = SEARCH.apport
-    cash_flow_cible: float = SEARCH.cf_cible
-    tolerance: float = SEARCH.tolerance
-    mode_cf: str = "target"
-    qualite_weight: float = SEARCH.qualite_weight
-    horizon_ans: int = SEARCH.horizon_ans
-
-    # Credit
-    taux_credits: dict[int, float] = field(default_factory=lambda: FINANCING.taux_credits)
-    frais_notaire_pct: float = FINANCING.frais_notaire_pct
-    assurance_ann_pct: float = FINANCING.assurance_ann_pct
-    frais_pret_pct: float = FINANCING.frais_pret_pct
-
-    # Costs inclusion
-    inclure_travaux: bool = FINANCING.inclure_travaux
-    inclure_reno_ener: bool = FINANCING.inclure_reno_ener
-    inclure_mobilier: bool = FINANCING.inclure_mobilier
-    financer_mobilier: bool = FINANCING.financer_mobilier
-
-    # IRA
-    apply_ira: bool = FINANCING.apply_ira
-    ira_cap_pct: float = FINANCING.ira_cap_pct
-
-    # Fiscal
-    frais_gestion_pct: float = OPERATING.gestion_pct
-    provision_pct: float = OPERATING.provision_pct
-    cfe_par_bien_ann: float = OPERATING.cfe_par_bien_ann
-    regime_fiscal: str = TAX.regime_fiscal
-    tmi_pct: float = TAX.tmi_pct
-    micro_bic_abatt_pct: float = TAX.micro_bic_abatt_pct
-    frais_vente_pct: float = TAX.frais_vente_pct
-
-    # Market
-    appreciation: float = MARKET.appreciation_bien_pct
-    revalo: float = MARKET.revalo_loyer_pct
-    inflation: float = MARKET.inflation_charges_pct
-
-    @classmethod
-    def from_session_state(cls) -> BaseParams:
-        """Create BaseParams from current session state."""
-        return cls(
-            apport_disponible=get_state("apport_disponible", SEARCH.apport),
-            cash_flow_cible=get_state("cash_flow_cible", SEARCH.cf_cible),
-            tolerance=get_state("tolerance", SEARCH.tolerance),
-            mode_cf=get_state("mode_cf", "target"),
-            qualite_weight=get_state("qualite_weight", SEARCH.qualite_weight),
-            horizon_ans=get_state("horizon_ans", SEARCH.horizon_ans),
-            taux_credits=get_state("taux_credits", FINANCING.taux_credits),
-            frais_notaire_pct=get_state("frais_notaire_pct", FINANCING.frais_notaire_pct),
-            assurance_ann_pct=get_state("assurance_ann_pct", FINANCING.assurance_ann_pct),
-            apply_ira=get_state("apply_ira", FINANCING.apply_ira),
-            ira_cap_pct=get_state("ira_cap_pct", FINANCING.ira_cap_pct),
-            regime_fiscal=get_state("regime_fiscal", TAX.regime_fiscal),
-            tmi_pct=get_state("tmi_pct", TAX.tmi_pct),
-            appreciation=get_state("appreciation", MARKET.appreciation_bien_pct),
-            revalo=get_state("revalo", MARKET.revalo_loyer_pct),
-            inflation=get_state("inflation", MARKET.inflation_charges_pct),
-        )
-
-    def to_eval_params(self) -> dict[str, Any]:
-        """Convert to eval_params dict for strategy finder."""
-        return {
-            "duree_simulation_ans": self.horizon_ans,
-            "hypotheses_marche": {
-                "appreciation_bien_pct": self.appreciation,
-                "revalo_loyer_pct": self.revalo,
-                "inflation_charges_pct": self.inflation,
-            },
-            "regime_fiscal": self.regime_fiscal,
-            "tmi_pct": self.tmi_pct,
-            "frais_vente_pct": self.frais_vente_pct,
-            "cfe_par_bien_ann": self.cfe_par_bien_ann,
-            "apply_ira": self.apply_ira,
-            "ira_cap_pct": self.ira_cap_pct,
-        }
-
-
 class SessionManager:
     """Manages all session state for the app."""
 
     # Default state values
     DEFAULTS = {
         "strategies": [],
+        "run_context": None,
         "selected_strategy_idx": 0,
         "show_comparison": False,
         "analysis_run": False,
@@ -214,14 +134,14 @@ class SessionManager:
 
 
     @classmethod
-    def get_base_params(cls) -> BaseParams:
-        """Get current base parameters."""
-        return BaseParams.from_session_state()
+    def get_run_context(cls) -> RunContext | None:
+        """RunContext of the last analysis (None before the first run)."""
+        return st.session_state.get("run_context")
 
     @classmethod
-    def get_horizon(cls) -> int:
-        """Get current horizon in years."""
-        return get_state("horizon_ans", SEARCH.horizon_ans)
+    def set_run_context(cls, ctx: RunContext | None) -> None:
+        """Store the RunContext next to the results it produced."""
+        st.session_state["run_context"] = ctx
 
     @classmethod
     def set_horizon(cls, horizon: int) -> None:

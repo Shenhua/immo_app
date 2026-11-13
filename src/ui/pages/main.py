@@ -10,6 +10,7 @@ from typing import Any
 
 import streamlit as st
 
+from src.application.run_context import RunContext
 from src.ui.components.charts import (
     render_cashflow_chart,
     render_comparison_charts,
@@ -26,7 +27,7 @@ from src.ui.components.results import (
     render_strategy_details,
 )
 from src.ui.components.sensitivity import render_sensitivity_analysis
-from src.ui.state import SessionManager, get_state, set_state
+from src.ui.state import get_state, set_state
 
 
 def render_header() -> None:
@@ -56,19 +57,20 @@ def render_no_results() -> None:
 
 def render_strategy_list(
     strategies: list[dict[str, Any]],
-    horizon: int = 25,
+    ctx: RunContext,
     df_sim: Any | None = None,
 ) -> int:
     """Render list of strategy cards using expander pattern.
 
     Args:
         strategies: List of strategies
-        horizon: Simulation horizon
+        ctx: Parameters of the run that produced the strategies
         df_sim: Simulation data for selected strategy (needed for expansion)
 
     Returns:
         Selected strategy index
     """
+    horizon = ctx.horizon_ans
     selected_idx = get_state("selected_strategy_idx", 0)
     show_details = get_state("show_details", False)
 
@@ -112,7 +114,7 @@ def render_strategy_list(
             with tab3:
                 render_strategy_radar(current_strat, key=f"strat_radar_{selected_idx}")
             with tab4:
-                render_sensitivity_analysis(current_strat, horizon, key=f"strat_sens_{selected_idx}")
+                render_sensitivity_analysis(current_strat, ctx, key=f"strat_sens_{selected_idx}")
 
         # Render the Card for the Selected Strategy
         # We force 'show_details' to be True if it was triggered by a table click?
@@ -128,6 +130,7 @@ def render_strategy_list(
             current_strat,
             index=selected_idx + 1,
             horizon=horizon,
+            cf_cible=ctx.cf_cible,
             is_selected=True, # Always selected in the Stage
             show_details=show_details,
             expanded_content=expanded_fn
@@ -246,35 +249,37 @@ def render_comparison_panel(strategies: list[dict[str, Any]], horizon: int = 25)
 
 def render_main_content(
     strategies: list[dict[str, Any]],
+    ctx: RunContext | None,
     df_sim: Any | None = None,
-    horizon: int = 25,
     show_comparison: bool = False,
 ) -> None:
     """Render the main content area.
 
     Args:
         strategies: Available strategies
+        ctx: Parameters of the run that produced the strategies
         df_sim: Simulation data for selected strategy
-        horizon: Simulation horizon
         show_comparison: Whether to show comparison view
     """
-    if not strategies:
+    if not strategies or ctx is None:
         render_no_results()
         return
 
     st.success(f"✅ {len(strategies)} stratégie(s) trouvée(s)")
 
     if show_comparison:
-        render_comparison_panel(strategies, horizon)
+        render_comparison_panel(strategies, ctx.horizon_ans)
     else:
         # Render list AND details in one go
-        render_strategy_list(strategies, horizon, df_sim)
+        render_strategy_list(strategies, ctx, df_sim)
 
 
 def render_main_page(
     archetypes: list[dict[str, Any]],
     strategies: list[dict[str, Any]] | None = None,
     df_sim: Any | None = None,
+    ctx: RunContext | None = None,
+    stale: bool = False,
 ) -> None:
     """Render the complete main page.
 
@@ -285,8 +290,13 @@ def render_main_page(
         archetypes: Available archetypes
         strategies: Found strategies (or None if not yet searched)
         df_sim: Simulation data
+        ctx: Parameters of the run that produced ``strategies``
+        stale: True when the sidebar no longer matches ``ctx``
     """
     render_header()
+
+    if stale:
+        st.warning("Paramètres modifiés — relancer l'analyse. Les résultats affichés correspondent à l'analyse précédente.")
 
     # Render persistent search info zone (Phase 22)
     from src.application.progress import SearchStats
@@ -299,7 +309,6 @@ def render_main_page(
         render_search_info_zone(search_stats, expanded=False)
 
     # Get current state
-    horizon = SessionManager.get_horizon()
     show_comparison = get_state("show_comparison", False)
 
     # View Mode Toggle
@@ -320,4 +329,4 @@ def render_main_page(
     if strategies is None:
         st.info("👈 Configurez vos paramètres dans la barre latérale puis lancez l'analyse.")
     else:
-        render_main_content(strategies, df_sim, horizon, show_comparison)
+        render_main_content(strategies, ctx, df_sim, show_comparison)

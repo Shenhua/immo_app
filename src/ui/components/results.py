@@ -43,6 +43,7 @@ def render_strategy_card(
     strategy: dict[str, Any],
     index: int,
     horizon: int = 25,
+    cf_cible: float = 0.0,
     is_selected: bool = False,
     show_details: bool = False,
     expanded_content: Callable[[], None] | None = None,
@@ -53,6 +54,7 @@ def render_strategy_card(
         strategy: Strategy dictionary
         index: Strategy index (1-based for display)
         horizon: Simulation horizon in years
+        cf_cible: Cash-flow target of the run (RunContext), used to colour the cash-flow
         is_selected: Whether this card is currently selected
         show_details: Whether details are currently shown
         expanded_content: Optional function to render content inside the card when expanded
@@ -94,9 +96,7 @@ def render_strategy_card(
         with c2:
             cf = strategy.get("cash_flow_final", 0)
 
-            # Retrieve target from session state (or default to -100 if missing)
-            target = st.session_state.get("cf_cible", -100)
-            color_cf = get_cf_color(cf, target)
+            color_cf = get_cf_color(cf, cf_cible)
 
             st.markdown("<div style='font-size: 0.9em; color: gray;'>Cash-flow</div>", unsafe_allow_html=True)
             st.markdown(f"<div style='font-size: 2.5em; font-weight: bold; color: {color_cf};'>{format_euro(cf)}</div>", unsafe_allow_html=True)
