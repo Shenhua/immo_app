@@ -42,9 +42,9 @@ Legend: todo · running · done · blocked · skipped
 | T23 tax regime engine | Opus | todo | | after T20 approved |
 | T25 scoring fixes | Sonnet | todo | | |
 | T26a realistic assumptions | Sonnet | todo | | after T23 |
-| T26b data recalibration | Sonnet | running | | web research |
+| T26b data recalibration | Sonnet | done | ee96023 | TF/charges/caps unverified | | web research |
 | Gate P2 review | Opus | todo | | |
-| T30 CF mode ranking | Sonnet | todo | | |
+| T30 CF mode ranking | Sonnet | running | | |
 | T31 search rewrite | Opus | todo | | |
 | T32 absolute scoring + Pareto | Sonnet | todo | | |
 | T33 near misses | Sonnet | todo | | |
@@ -104,6 +104,10 @@ Legend: todo · running · done · blocked · skipped
   - For T43: the help text on the type filter should say that an empty selection means "all".
   - UX question for the user: rename "CF Mensuel" to "CF Mensuel (an 1, avant impôt)"?
   - `StrategyFinder.solver_mode` now exists (T31 should keep it accurate).
+- After T26b:
+  - The data file is now `data/archetypes_2026_v1.json` (the old one is kept); sources are in `docs/DATA_SOURCES.md`.
+  - Taxe foncière, charges and most `loyer_m2_max` caps are still unverified.
+  - T21 and T22 must add their new fields to the **2026** file.
 - `ruff format` not applied (45 files would be reformatted). Optional later; skip it to avoid merge churn.
 
 ## Log
@@ -114,3 +118,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-13: T10 merged, 246 tests. T11 launched.
 - 2026-11-13: T11 merged, 247 tests. T40 launched (T20 still running).
 - 2026-11-13: T40 merged, 254 tests. T26b launched.
+- 2026-11-13: T26b merged. T30 launched (T20 still running).
