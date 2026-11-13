@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field, field_validator
 
+from src.core.defaults import TAX
+
 
 class ArchetypeV2(BaseModel):
     """Validated archetype model for v2 JSON data format.
@@ -37,6 +39,11 @@ class ArchetypeV2(BaseModel):
     budget_travaux: float = Field(default=0.0, ge=0, description="Renovation budget in €")
     renovation_energetique_cout: float = Field(default=0.0, ge=0, description="Energy renovation cost in €")
     valeur_mobilier: float = Field(default=0.0, ge=0, description="Furniture value in €")
+
+    # Tax: land share of the price, not amortizable (TAX_SPEC 4.1)
+    ratio_terrain_pct: float = Field(
+        default=TAX.ratio_terrain_pct, ge=0, le=100, description="Land share of the price in % (not amortizable)"
+    )
 
     # Status
     meuble: bool = Field(default=False, description="Is furnished")

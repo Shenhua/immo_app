@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from src.core.defaults import FINANCING, OPERATING
+from src.core.defaults import FINANCING, OPERATING, TAX
 from src.core.logging import get_logger
 from src.domain.calculator.financial import calculate_total_monthly_payment
 from src.domain.calculator.scoring import calculate_property_qualitative_score
@@ -29,6 +29,7 @@ class FinancingConfig:
     inclure_reno_ener: bool = FINANCING.inclure_reno_ener
     inclure_mobilier: bool = FINANCING.inclure_mobilier
     financer_mobilier: bool = FINANCING.financer_mobilier
+    ratio_terrain_pct: float | None = None  # override of the archetype land share (%); None = keep archetype's
 
 
 @dataclass
@@ -79,6 +80,13 @@ def create_investment_bricks(
         reno = reno_cout if finance.inclure_reno_ener and dpe in ["E", "F", "G"] else 0.0
 
         mobilier = archetype.get("valeur_mobilier", 0.0) if finance.inclure_mobilier else 0.0
+
+        # Land share (not amortizable): sidebar override > archetype value > default (TAX_SPEC 4.1)
+        ratio_terrain = finance.ratio_terrain_pct
+        if ratio_terrain is None:
+            ratio_terrain = archetype.get("ratio_terrain_pct")
+        if ratio_terrain is None:
+            ratio_terrain = TAX.ratio_terrain_pct
 
         frais_notaire = prix_achat * (finance.frais_notaire_pct / 100.0)
 
@@ -150,6 +158,7 @@ def create_investment_bricks(
                 "budget_travaux": travaux,
                 "renovation_energetique": reno,
                 "mobilier": mobilier,
+                "ratio_terrain_pct": float(ratio_terrain),
                 "cout_total": cout_total_projet,
                 "apport_min": apport_min,
 
@@ -311,6 +320,7 @@ def build_financing_config(credit_params: dict[str, Any]) -> FinancingConfig:
         inclure_reno_ener=credit_params["inclure_reno_ener"],
         inclure_mobilier=credit_params["inclure_mobilier"],
         financer_mobilier=credit_params["financer_mobilier"],
+        ratio_terrain_pct=credit_params.get("ratio_terrain_pct"),
     )
     log.info("financing_config_built", rates=config.credit_rates)
     return config
