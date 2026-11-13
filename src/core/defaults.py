@@ -65,7 +65,14 @@ class OperatingDefaults:
 class TaxDefaults:
     """Tax and exit defaults."""
 
+    # Regime per income category for the whole foyer (TAX_SPEC 8): furnished properties use
+    # ``regime_fiscal`` ("lmnp" = LMNP reel | "microbic"), unfurnished ones use ``regime_foncier``
+    # ("reel" | "micro"). ``sci_is`` puts every property in one SCI at IS and overrides both.
     regime_fiscal: str = "lmnp"
+    regime_foncier: str = "reel"
+    sci_is: bool = False
+    # SCI IS: profits are capitalised, PFU once on the liquidation boni at exit (TAX_SPEC 4.6, 11b).
+    sci_distribute_at_exit: bool = True
     tmi_pct: float = 30.0
     micro_bic_abatt_pct: float = 50.0
     frais_vente_pct: float = 6.0
@@ -93,10 +100,46 @@ class SearchDefaults:
     top_n: int = 50
 
 
+@dataclass(frozen=True)
+class TaxRates:
+    """2026 tax rates and thresholds, frozen for the whole horizon (TAX_SPEC 1.2, 2). Sources in TAX_SPEC 12."""
+
+    # Prélèvements sociaux per income category (LFSS 2026, loi 2025-1403 art. 12; TAX_SPEC 2, 11.1).
+    ps_bic_pct: float = 18.6  # LMNP / micro-BIC income (CSS L136-6, CSG 10.6 % from 2025 income)
+    ps_foncier_pct: float = 17.2  # revenus fonciers (CSG kept at 9.2 %, L136-8 IV)
+    ps_plus_value_pct: float = 17.2  # real-estate plus-values of individuals (L136-7 I 2°)
+    # PFU on dividends / boni de liquidation: 12.8 % IR (CGI 200 A) + 18.6 % PS (L136-7, from 2026).
+    pfu_ir_pct: float = 12.8
+    pfu_ps_pct: float = 18.6
+    # Micro-BIC (CGI 50-0; loi Le Meur 2024-1039; service-public F32744).
+    micro_bic_ceiling: float = 83_600.0  # long-term or classified tourist letting, 2026 income [TAX_SPEC 11.7]
+    micro_bic_ceiling_non_classe: float = 15_000.0  # non-classified tourist letting (30 % allowance)
+    micro_bic_min_abattement: float = 305.0
+    # Micro-foncier (CGI 32; service-public F1991).
+    micro_foncier_abattement_pct: float = 30.0
+    micro_foncier_ceiling: float = 15_000.0
+    # Déficit foncier on global income (CGI 156 I 3°; F1991).
+    deficit_foncier_global_cap: float = 10_700.0
+    deficit_foncier_energy_extra_cap: float = 10_700.0  # energy works paid up to 31/12/2027 [TAX_SPEC 11.6]
+    deficit_foncier_energy_last_year: int = 2027
+    deficit_recapture_years: int = 3  # letting must go on until 31/12 of N + 3 (CGI 156 I 3°)
+    # BIC non-pro (CGI 156 I 1° ter) and foncier deficits (CGI 156 I 3°) carry forward 10 years.
+    deficit_carry_years: int = 10
+    # IS (CGI 219 I b; PME conditions assumed) [TAX_SPEC 11.12].
+    is_reduced_pct: float = 15.0
+    is_reduced_limit: float = 42_500.0
+    is_normal_pct: float = 25.0
+    # LMP status warning (CGI 155 IV): furnished receipts above this amount.
+    lmp_receipts_threshold: float = 23_000.0
+    # Simulation year 1 is calendar year 2026 (TAX_SPEC 4.5).
+    first_calendar_year: int = 2026
+
+
 MARKET = MarketDefaults()
 FINANCING = FinancingDefaults()
 OPERATING = OperatingDefaults()
 TAX = TaxDefaults()
+TAX_RATES = TaxRates()
 SEARCH = SearchDefaults()
 
 
