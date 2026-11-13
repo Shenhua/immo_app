@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from src.core.defaults import MAX_EXTRA_APPORT_PCT
+from src.core.glossary import cf_accepts
 from src.core.logging import get_logger
 from src.domain.calculator.financial import calculate_total_monthly_payment, k_factor
 from src.domain.models.brick import InvestmentBrick
@@ -294,9 +295,7 @@ class PortfolioAllocator:
         return success, details, cf0, total_apport_final
 
     def _accept_cf(self, cf_observe: float, cf_cible: float, tol: float) -> bool:
-        if self.mode_cf == "min" or self.mode_cf == "≥":
-             return bool(cf_observe >= (cf_cible - tol))
-        return bool(abs(cf_observe - cf_cible) <= tol)
+        return cf_accepts(cf_observe, cf_cible, tol, self.mode_cf)
 
     def _calc_need(self, cf_observe: float, cf_cible: float, tol: float) -> float:
         if self.mode_cf == "min" or self.mode_cf == "≥":
