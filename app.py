@@ -71,9 +71,9 @@ def render_sidebar() -> dict[str, Any]:
         # Tax
         with st.expander("⚖️ Fiscalité", expanded=False):
             tmi = st.slider("TMI (%)", 0, 45, 30, 1)
-            regime = st.selectbox("Régime", ["LMNP", "SCI IS"], index=0).lower().replace(" ", "")
-            if "lmnp" in regime:
-                regime = "lmnp"
+            # Only implemented regimes are offered (SCI IS returns with T23).
+            regime_label = st.selectbox("Régime", ["LMNP", "Micro-BIC"], index=0)
+            regime = "microbic" if regime_label == "Micro-BIC" else "lmnp"
 
         # Property Filters
         raw_archetypes = load_archetypes()
