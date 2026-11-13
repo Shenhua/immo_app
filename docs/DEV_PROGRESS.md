@@ -37,8 +37,8 @@ Legend: todo · running · done · blocked · skipped
 | T11 RunContext | Sonnet | done | 8bd0deb | | |
 | T20 tax spec + golden | Opus | done | 7e1b60c | approved by the user (TAX_SPEC §11b) | | needs user approval |
 | T22 amortization + land | Sonnet | done | 583d109 | + golden harness | | |
-| T21 plus-value | Sonnet | running | | |
-| T24 wealth/IRR/CFE | Sonnet | todo | | |
+| T21 plus-value | Sonnet | done | c1cb93f | | |
+| T24 wealth/IRR/CFE | Sonnet | running | | |
 | T23 tax regime engine | Opus | todo | | after T20 approved |
 | T25 scoring fixes | Sonnet | todo | | |
 | T26a realistic assumptions | Sonnet | todo | | after T23 |
@@ -130,6 +130,11 @@ Legend: todo · running · done · blocked · skipped
   - The golden harness is `tests/golden/test_golden.py`. `KNOWN_GAPS` holds fnmatch patterns mapped to task ids, applied as `xfail(strict=True)`. **Each Phase 2 task must remove its entries.**
   - The adapter passes rent net of vacancy.
   - Amortization is by component: building over 30 y (notary fees capitalized, land excluded), works over 15 y, furniture over 10 y.
+- After T21:
+  - `src/domain/tax/plus_value.py` is the plus-value module. Its breakdown is in the output keys `plus_value` and `plus_value_par_bien`.
+  - Exit value is price × (1+g)^H.
+  - `nb_owners` and `residence_services` are plumbed through.
+  - The C1/C9 exit gaps were retagged T24 (cause: CFE in year 1).
 - `ruff format` not applied (45 files would be reformatted). Optional later; skip it to avoid merge churn.
 
 ## Log
@@ -144,3 +149,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-13: T20 merged. Waiting for the user to decide on the TAX_SPEC §11 points before T21–T25.
 - 2026-11-13: The user approved the spec (§11b). T30 merged, 275 tests. T22 launched (Phase 2 sequence: T22 → T21 → T24 → T23 → T25).
 - 2026-11-13: T22 merged (435 passed, 476 xfail). T21 launched.
+- 2026-11-13: T21 merged (539 passed, 395 xfail). T24 launched.
