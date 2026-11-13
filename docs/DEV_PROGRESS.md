@@ -38,8 +38,8 @@ Legend: todo · running · done · blocked · skipped
 | T20 tax spec + golden | Opus | done | 7e1b60c | approved by the user (TAX_SPEC §11b) | | needs user approval |
 | T22 amortization + land | Sonnet | done | 583d109 | + golden harness | | |
 | T21 plus-value | Sonnet | done | c1cb93f | | |
-| T24 wealth/IRR/CFE | Sonnet | running | | |
-| T23 tax regime engine | Opus | todo | | after T20 approved |
+| T24 wealth/IRR/CFE | Sonnet | done | 0eaa978 | | |
+| T23 tax regime engine | Opus | running | | after T20 approved |
 | T25 scoring fixes | Sonnet | todo | | |
 | T26a realistic assumptions | Sonnet | todo | | after T23 |
 | T26b data recalibration | Sonnet | done | ee96023 | TF/charges/caps unverified | | web research |
@@ -135,6 +135,13 @@ Legend: todo · running · done · blocked · skipped
   - Exit value is price × (1+g)^H.
   - `nb_owners` and `residence_services` are plumbed through.
   - The C1/C9 exit gaps were retagged T24 (cause: CFE in year 1).
+- After T24:
+  - `enrichissement_net` now includes Σ after-tax CF.
+  - A failed IRR is `None`: it formats as "n/a" and ranks last.
+  - CFE: 300 €, furnished only, year-1 and ≤5k€ receipts exemptions, indexed.
+  - `_is_furnished` is in `simulation.py`.
+  - **For T41 / UI:** the "Enrichissement" KPI in results.py, sensitivity and charts shows `liquidation_nette`, not `enrichissement_net`, so the label doesn't match the metric. Charts and tables pass a None IRR into DataFrames.
+  - For T25: `cap_eff` still double-counts wealth.
 - `ruff format` not applied (45 files would be reformatted). Optional later; skip it to avoid merge churn.
 
 ## Log
@@ -150,3 +157,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-13: The user approved the spec (§11b). T30 merged, 275 tests. T22 launched (Phase 2 sequence: T22 → T21 → T24 → T23 → T25).
 - 2026-11-13: T22 merged (435 passed, 476 xfail). T21 launched.
 - 2026-11-13: T21 merged (539 passed, 395 xfail). T24 launched.
+- 2026-11-13: T24 merged (593 passed, 346 xfail). T23 launched (Opus).
