@@ -198,9 +198,9 @@ class TestGoldenSimulation:
         # Value calculation: starts at 105,000 (100k + 5k works)
         # BUT works are not included in 'valeur_biens' in simulation
         # Initial value = prix_achat_bien only = 100,000
-        # After 25 years @ 2%: appreciation starts year 2, so 24 years
-        # 100,000 × 1.02^24 = 160,843.72
-        expected_final = 100_000 * (1.02 ** 24)
+        # TAX_SPEC 1.7 (T21): value at the end of year H = price x (1+g)^H, so 25 years here
+        # 100,000 × 1.02^25 = 164,060.60
+        expected_final = 100_000 * (1.02 ** 25)
 
         final_value = df.iloc[-1]["Valeur Biens"]
         assert abs(final_value - expected_final) < 100, f"Expected ~{expected_final:.0f}, got {final_value:.0f}"

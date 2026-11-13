@@ -219,6 +219,15 @@ def render_credit_params_tab() -> dict[str, Any]:
             help="Part du prix (frais de notaire inclus) qui représente le terrain : elle n'est pas amortie en LMNP réel.",
         )
 
+        st.markdown("**Plus-value à la revente**")
+        nb_owners = st.selectbox(
+            "Nombre de propriétaires",
+            options=[1, 2],
+            index=TAX.nb_owners - 1,
+            help="Chaque bien est détenu et vendu par 1 ou 2 propriétaires (couple en indivision). "
+            "Le seuil de la surtaxe sur les plus-values élevées (50 000 €) s'applique à la part de chacun.",
+        )
+
         st.markdown("**Frais de remboursement anticipés**")
         apply_ira = st.toggle(
             "Appliquer les frais (IRA)",
@@ -248,6 +257,7 @@ def render_credit_params_tab() -> dict[str, Any]:
         "apply_ira": apply_ira,
         "ira_cap_pct": ira_cap,
         "ratio_terrain_pct": float(ratio_terrain) if override_terrain else None,
+        "nb_owners": int(nb_owners),
     }
 
 

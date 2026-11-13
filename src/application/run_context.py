@@ -64,6 +64,8 @@ class RunContext(BaseModel):
     tmi_pct: float = TAX.tmi_pct
     # Land share override (%). None = use each archetype's own ratio_terrain_pct.
     ratio_terrain_pct: float | None = None
+    # Co-owners selling each property (1 or 2): splits the gain for the surtax threshold only.
+    nb_owners: Literal[1, 2] = 1  # default: TAX.nb_owners (checked in tests)
 
     # Market
     appreciation_bien_pct: float = MARKET.appreciation_bien_pct
@@ -106,6 +108,7 @@ class RunContext(BaseModel):
             apply_ira=credit["apply_ira"],
             ira_cap_pct=credit["ira_cap_pct"],
             ratio_terrain_pct=credit.get("ratio_terrain_pct"),
+            nb_owners=2 if int(credit.get("nb_owners", TAX.nb_owners)) == 2 else 1,
             cfe_par_bien_ann=params["cfe"],
             gestion_pct=params["gestion"],
             vacance_pct=params["vacance"],
@@ -163,6 +166,7 @@ class RunContext(BaseModel):
             "regime_fiscal": self.regime_fiscal,
             "frais_vente_pct": self.frais_vente_pct,
             "ratio_terrain_pct": self.ratio_terrain_pct,
+            "nb_owners": self.nb_owners,
             "apply_ira": self.apply_ira,
             "ira_cap_pct": self.ira_cap_pct,
             "cfe_par_bien_ann": self.cfe_par_bien_ann,
@@ -183,4 +187,5 @@ class RunContext(BaseModel):
             "cfe_par_bien_ann": self.cfe_par_bien_ann,
             "frais_vente_pct": self.frais_vente_pct,
             "ratio_terrain_pct": self.ratio_terrain_pct,
+            "nb_owners": self.nb_owners,
         }
