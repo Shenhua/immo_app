@@ -234,6 +234,8 @@ class StrategyFinder:
         self.qualite_weight = qualite_weight
         self.mode_cf = mode_cf
         self.max_properties = max_properties
+        # Solver used by the last find_strategies call: "EXHAUSTIVE", "GENETIC" or "" (not run yet).
+        self.solver_mode: str = ""
 
         self.combo_generator = CombinationGenerator(max_properties=max_properties)
         self.scorer = StrategyScorer(qualite_weight=qualite_weight)
@@ -331,6 +333,7 @@ class StrategyFinder:
         # Hybrid Solver Selection
         if total_combinations < THRESHOLD_EXHAUSTIVE:
             # --- EXHAUSTIVE MODE (v1 Fidelity) ---
+            self.solver_mode = "EXHAUSTIVE"
             log.info("hybrid_solver_selected",
                      mode="EXHAUSTIVE",
                      combos=total_combinations,
@@ -365,6 +368,7 @@ class StrategyFinder:
             # --- GENETIC MODE (v2 Scalability) ---
             # Adaptive GA parameters based on search space size
             # Larger search space = more exploration needed
+            self.solver_mode = "GENETIC"
             if total_combinations > 5_000_000:
                 pop_size = 200
                 generations = 50

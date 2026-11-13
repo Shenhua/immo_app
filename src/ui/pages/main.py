@@ -27,7 +27,7 @@ from src.ui.components.results import (
     render_strategy_details,
 )
 from src.ui.components.sensitivity import render_sensitivity_analysis
-from src.ui.state import get_state, set_state
+from src.ui.state import SessionManager, get_state, set_state
 
 
 def render_header() -> None:
@@ -221,7 +221,7 @@ def render_strategy_list(
         if selection.selection.rows:
             new_idx = selection.selection.rows[0]
             if new_idx != selected_idx:
-                set_state("selected_strategy_idx", new_idx)
+                SessionManager.set_selected_idx(new_idx)
                 # State persistence: We DO NOT force show_details=True here.
                 # We keep the user's current fold/unfold state.
                 st.rerun()

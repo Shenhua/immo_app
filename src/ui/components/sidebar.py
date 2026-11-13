@@ -83,7 +83,7 @@ def render_objectives_section() -> dict[str, Any]:
         apport = st.number_input(
             "Apport Total Disponible (€)",
             min_value=0,
-            value=st.session_state.get("apport", SEARCH.apport),
+            value=SEARCH.apport,
             step=5000,
             format="%d",
             help="Capital total que vous êtes prêt à investir (frais de notaire + apport bancaire)."
@@ -98,7 +98,7 @@ def render_objectives_section() -> dict[str, Any]:
                     "Cash-Flow Cible (/mois)",
                     min_value=-2000.0,
                     max_value=2000.0,
-                    value=float(st.session_state.get("cf_cible", SEARCH.cf_cible)),
+                    value=float(SEARCH.cf_cible),
                     step=50.0,
                     help="Le cash-flow net minimum que vous visez (négatif = effort d'épargne)."
                 )

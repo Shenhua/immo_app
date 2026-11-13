@@ -73,6 +73,7 @@ def render_property_filters(
         "Filtrer les villes",
         villes,
         default=villes if len(villes) <= 12 else [],
+        help="Aucune ville sélectionnée = toutes les villes sont incluses dans la recherche.",
     )
 
     # Type filter

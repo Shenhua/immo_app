@@ -13,6 +13,7 @@ import streamlit as st
 # Add src to path if not present (for running from root)
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+from src.application.progress import SearchPhase, SearchProgress
 from src.application.run_context import RunContext
 from src.application.services.brick_factory import apply_rent_caps
 from src.core.defaults import OPERATING, SEARCH, TAX
@@ -125,24 +126,42 @@ def render_sidebar() -> dict[str, Any]:
     }
 
 
+def track_progress(tracker: dict[str, int], progress: SearchProgress) -> None:
+    """Fold one progress event into the search stats tracker.
+
+    Only the evaluation phase counts combinations. Scoring and deduplication
+    report their own item totals, which must not overwrite the count.
+    """
+    if progress.phase == SearchPhase.EVALUATION and progress.items_total > 0:
+        tracker["combos_evaluated"] = progress.items_total
+    if progress.valid_count > 0:
+        tracker["valid_strategies"] = progress.valid_count
+
+
 def save_search_stats(
     duration: float,
     tracker: dict[str, int],
     strategies: list[dict[str, Any]],
-    archetypes_count: int,
+    bricks_count: int,
+    solver_mode: str,
     max_props: int
 ) -> None:
-    """Save search statistics to session state."""
+    """Save search statistics to session state.
+
+    Args:
+        bricks_count: Number of investment bricks actually searched
+        solver_mode: Solver the finder used ("EXHAUSTIVE", "GENETIC" or "")
+    """
     from src.application.progress import SearchStats
     from src.ui.state import set_state
 
     stats = SearchStats(
         duration_seconds=duration,
-        bricks_count=archetypes_count * 3,
+        bricks_count=bricks_count,
         combos_evaluated=tracker["combos_evaluated"],
         valid_strategies=tracker["valid_strategies"],
         strategies_after_dedupe=len(strategies),
-        mode="EXHAUSTIVE",
+        mode=solver_mode,
         max_properties=max_props,
     )
     set_state("search_stats", {
@@ -171,28 +190,28 @@ def handle_analysis(ctx: RunContext, archetypes: list[dict[str, Any]]) -> None:
     from src.ui.components.progress_display import render_progress_display
 
     start_time = time.time()
-    stats_tracker = {"bricks_count": 0, "combos_evaluated": 0, "valid_strategies": 0}
+    stats_tracker = {"combos_evaluated": 0, "valid_strategies": 0}
+    run_info: dict[str, Any] = {}
     progress_placeholder = st.empty()
 
     def on_progress(progress: SearchProgress) -> None:
         with progress_placeholder.container():
             render_progress_display(progress)
-        if progress.items_total > 0:
-            stats_tracker["combos_evaluated"] = progress.items_total
-        if progress.valid_count > 0:
-            stats_tracker["valid_strategies"] = progress.valid_count
+        track_progress(stats_tracker, progress)
 
-    strategies = run_strategy_search(archetypes, ctx, progress_callback=on_progress)
+    strategies = run_strategy_search(archetypes, ctx, progress_callback=on_progress, run_info=run_info)
 
     # Save stats and results
     save_search_stats(
         time.time() - start_time,
         stats_tracker,
         strategies,
-        len(archetypes),
+        run_info.get("bricks_count", 0),
+        run_info.get("solver_mode", ""),
         ctx.max_properties,
     )
     progress_placeholder.empty()
+    SessionManager.reset_selection()
     SessionManager.set_strategies(strategies)
     SessionManager.set_run_context(ctx)
     autosave_results(strategies, {"horizon": ctx.horizon_ans, "compliance": ctx.apply_cap, "run_context": ctx.to_dict()})
