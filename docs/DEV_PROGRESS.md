@@ -33,8 +33,8 @@ Legend: todo · running · done · blocked · skipped
 | T05 hide broken options | Haiku | done | 24fdf9b (merge 1ba95b1) | batch with T06, T12 |
 | T06 disk side effects | Haiku | done | fbed6a5 | |
 | T12 layering cleanup | Haiku | done | 323b1c4 | also fixed `import app` crash | |
-| T10 central defaults | Sonnet | running | | |
-| T11 RunContext | Sonnet | todo | | |
+| T10 central defaults | Sonnet | done | d9e7440 | | |
+| T11 RunContext | Sonnet | running | | |
 | T20 tax spec + golden | Opus | running | | needs user approval |
 | T22 amortization + land | Sonnet | todo | | |
 | T21 plus-value | Sonnet | todo | | |
@@ -88,6 +88,11 @@ Legend: todo · running · done · blocked · skipped
   - The CI and Docker build must be verified on the first PR.
   - `APP_LOG_DIR` is honoured.
   - `tests/conftest.py` does not yet redirect `APP_RESULTS_DIR`. Add it in T10.
+- After T10:
+  - All defaults live in `src/core/defaults.py`: MARKET, FINANCING, OPERATING, TAX, SEARCH, the `PresetId` enum, PRESETS and BASE_WEIGHTS. Env vars are read there too.
+  - Defaults were aligned to the sidebar values: CFE 150, quality_weight 0.25, BASE_WEIGHTS = the Équilibré preset.
+  - Insurance 0.36 still appears in `financial.py` and `brick.py`, and the evaluator has `w.get(..., 0.25)` fallbacks. Clean these up in T25.
+  - Session keys `cf_cible` and `cash_flow_cible` are inconsistent. T11 resolves this.
 - `ruff format` not applied (45 files would be reformatted). Optional later; skip it to avoid merge churn.
 
 ## Log
@@ -95,3 +100,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-13: T01 merged (0e3ed0f). Starting W2.
 - 2026-11-13: T05/T06/T12 merged (1ba95b1), 233 tests. T20 launched while T02-T04 still run.
 - 2026-11-13: T02–T04 merged; Phase 0 complete. T10 launched (T20 still running).
+- 2026-11-13: T10 merged, 246 tests. T11 launched.
