@@ -42,14 +42,14 @@ Legend: todo · running · done · blocked · skipped
 | T23 tax regime engine | Opus | todo | | after T20 approved |
 | T25 scoring fixes | Sonnet | todo | | |
 | T26a realistic assumptions | Sonnet | todo | | after T23 |
-| T26b data recalibration | Sonnet | todo | | web research |
+| T26b data recalibration | Sonnet | running | | web research |
 | Gate P2 review | Opus | todo | | |
 | T30 CF mode ranking | Sonnet | todo | | |
 | T31 search rewrite | Opus | todo | | |
 | T32 absolute scoring + Pareto | Sonnet | todo | | |
 | T33 near misses | Sonnet | todo | | |
 | T34 Rentier mode | Sonnet | todo | | |
-| T40 results UI batch | Haiku | running | | |
+| T40 results UI batch | Haiku | done | 260dd2e | | |
 | T41 sensitivity rewrite | Sonnet | todo | | |
 | T42 caching | Sonnet | todo | | |
 | T43 validation and UX | Sonnet | todo | | |
@@ -99,6 +99,11 @@ Legend: todo · running · done · blocked · skipped
   - `BaseParams` and `get_base_params` are removed.
   - `app_controller.run_strategy_search(archetypes, ctx, cb)` and `simulate_selected_strategy(strategy, ctx)`.
   - Leftovers for T40: the sidebar reads unused session keys `cf_cible`/`apport`; `SessionManager.set_horizon` and `is_ira_enabled` are unused; `render_debug_section` gets the raw dict.
+- After T40:
+  - For T41: `sensitivity.py` divides the already-monthly `cash_flow_final` by 12, and it mutates `brick["apport_min"]` in place (also a T42 concern).
+  - For T43: the help text on the type filter should say that an empty selection means "all".
+  - UX question for the user: rename "CF Mensuel" to "CF Mensuel (an 1, avant impôt)"?
+  - `StrategyFinder.solver_mode` now exists (T31 should keep it accurate).
 - `ruff format` not applied (45 files would be reformatted). Optional later; skip it to avoid merge churn.
 
 ## Log
@@ -108,3 +113,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-13: T02–T04 merged; Phase 0 complete. T10 launched (T20 still running).
 - 2026-11-13: T10 merged, 246 tests. T11 launched.
 - 2026-11-13: T11 merged, 247 tests. T40 launched (T20 still running).
+- 2026-11-13: T40 merged, 254 tests. T26b launched.
