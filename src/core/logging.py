@@ -15,13 +15,17 @@ from typing import Any
 
 import structlog
 
-# Log file location
-LOG_DIR = Path(__file__).parent.parent.parent / "logs"
-LOG_FILE = LOG_DIR / "app.log"
-
 # Module-level state for lazy initialization
 _configured: bool = False
 _default_logger: structlog.BoundLogger | None = None
+
+
+def _log_dir() -> Path:
+    """Directory for the log file. Override with the APP_LOG_DIR env var (read at call time)."""
+    override = os.environ.get("APP_LOG_DIR")
+    if override:
+        return Path(override)
+    return Path(__file__).parent.parent.parent / "logs"
 
 
 def configure_logging(
@@ -54,9 +58,10 @@ def configure_logging(
     # Only add file handler if not in test mode
     if not os.environ.get("PYTEST_CURRENT_TEST"):
         try:
-            LOG_DIR.mkdir(exist_ok=True)
+            log_dir = _log_dir()
+            log_dir.mkdir(parents=True, exist_ok=True)
             file_handler = logging.handlers.RotatingFileHandler(
-                str(LOG_FILE), maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8"
+                str(log_dir / "app.log"), maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8"
             )
             handlers.append(file_handler)
         except (OSError, PermissionError):

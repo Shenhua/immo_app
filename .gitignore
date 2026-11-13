@@ -59,7 +59,7 @@ logs/
 
 # Environment Variables / Sensitive Data
 # Use .env for configuration variables (like API keys)
-#.env
+.env
 history/
 
 # Auto-generated results

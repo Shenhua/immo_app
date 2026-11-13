@@ -1,12 +1,40 @@
 """Pytest fixtures for app_immo tests."""
 
 import os
+import shutil
 import sys
+import tempfile
 
 import pytest
 
 # Add project root to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+_session_log_dir: str | None = None
+
+
+def pytest_configure(config):
+    """Point logging at a temp dir before collection.
+
+    Modules call get_logger() at import time, which configures the file handler
+    before any test (and any autouse fixture) runs. Setting APP_LOG_DIR here keeps
+    that first configuration out of the repo.
+    """
+    global _session_log_dir
+    _session_log_dir = tempfile.mkdtemp(prefix="app_immo_test_logs_")
+    os.environ["APP_LOG_DIR"] = _session_log_dir
+
+
+def pytest_unconfigure(config):
+    if _session_log_dir:
+        shutil.rmtree(_session_log_dir, ignore_errors=True)
+    os.environ.pop("APP_LOG_DIR", None)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_log_dir(tmp_path, monkeypatch):
+    """Send each test's log output to its own tmp_path, never to the repo's logs/."""
+    monkeypatch.setenv("APP_LOG_DIR", str(tmp_path / "logs"))
 
 
 @pytest.fixture
