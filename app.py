@@ -30,6 +30,7 @@ from src.ui.components.sidebar import (
     render_market_hypotheses,
     render_objectives_section,
     render_scoring_preset,
+    render_tax_section,
 )
 from src.ui.pages.main import render_main_page
 from src.ui.state import SessionManager
@@ -71,10 +72,7 @@ def render_sidebar() -> dict[str, Any]:
 
         # Tax
         with st.expander("⚖️ Fiscalité", expanded=False):
-            tmi = st.slider("TMI (%)", 0, 45, value=int(TAX.tmi_pct), step=1)
-            # Only implemented regimes are offered (SCI IS returns with T23).
-            regime_label = st.selectbox("Régime", ["LMNP", "Micro-BIC"], index=0)
-            regime = "microbic" if regime_label == "Micro-BIC" else "lmnp"
+            tax_choice = render_tax_section()
 
         # Property Filters
         raw_archetypes = load_archetypes()
@@ -113,8 +111,10 @@ def render_sidebar() -> dict[str, Any]:
         "gestion": gestion,
         "vacance": vacance,
         "frais_vente": frais_vente,
-        "tmi": tmi,
-        "regime": regime,
+        "tmi": tax_choice["tmi"],
+        "regime": tax_choice["regime"],
+        "regime_foncier": tax_choice["regime_foncier"],
+        "sci_is": tax_choice["sci_is"],
         "raw_archetypes": raw_archetypes,
         "selected_villes": selected_villes,
         "selected_types": selected_types,

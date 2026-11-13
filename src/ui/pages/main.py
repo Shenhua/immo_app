@@ -91,6 +91,10 @@ def render_strategy_list(
         def render_details_content():
             """Render details for the selected strategy."""
             render_kpi_summary(current_strat, horizon)
+            # Regime overrides (micro ceilings exceeded) and the LMP flag, from the detail simulation (T23).
+            if df_sim is not None:
+                for warning in df_sim.attrs.get("tax_warnings", []):
+                    st.warning(f"⚖️ {warning}")
             tab1, tab2, tab3, tab4 = st.tabs(["🏠 Biens", "📈 Projections", "🎯 Radar", "⚡ Stress Test"])
             with tab1:
                 render_strategy_details(current_strat, horizon)

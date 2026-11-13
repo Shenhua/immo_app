@@ -59,8 +59,12 @@ class RunContext(BaseModel):
     vacance_pct: float = OPERATING.vacance_pct
     frais_vente_pct: float = TAX.frais_vente_pct
 
-    # Tax
+    # Tax: one regime per income category (TAX_SPEC 8). ``regime_fiscal`` = furnished regime
+    # ("lmnp" | "microbic"), ``regime_foncier`` = unfurnished regime ("reel" | "micro"),
+    # ``sci_is`` puts every property in one SCI at IS and overrides both.
     regime_fiscal: str = TAX.regime_fiscal
+    regime_foncier: str = TAX.regime_foncier
+    sci_is: bool = TAX.sci_is
     tmi_pct: float = TAX.tmi_pct
     # Land share override (%). None = use each archetype's own ratio_terrain_pct.
     ratio_terrain_pct: float | None = None
@@ -114,6 +118,8 @@ class RunContext(BaseModel):
             vacance_pct=params["vacance"],
             frais_vente_pct=params["frais_vente"],
             regime_fiscal=params["regime"],
+            regime_foncier=params.get("regime_foncier", TAX.regime_foncier),
+            sci_is=bool(params.get("sci_is", TAX.sci_is)),
             tmi_pct=params["tmi"],
             appreciation_bien_pct=params["market_hypo"]["appreciation_bien_pct"],
             revalo_loyer_pct=params["market_hypo"]["revalo_loyer_pct"],
@@ -164,6 +170,8 @@ class RunContext(BaseModel):
         return {
             "tmi_pct": self.tmi_pct,
             "regime_fiscal": self.regime_fiscal,
+            "regime_foncier": self.regime_foncier,
+            "sci_is": self.sci_is,
             "frais_vente_pct": self.frais_vente_pct,
             "ratio_terrain_pct": self.ratio_terrain_pct,
             "nb_owners": self.nb_owners,
@@ -182,6 +190,8 @@ class RunContext(BaseModel):
         return {
             "tmi_pct": self.tmi_pct,
             "regime_fiscal": self.regime_fiscal,
+            "regime_foncier": self.regime_foncier,
+            "sci_is": self.sci_is,
             "apply_ira": self.apply_ira,
             "ira_cap_pct": self.ira_cap_pct,
             "cfe_par_bien_ann": self.cfe_par_bien_ann,

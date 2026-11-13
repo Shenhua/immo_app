@@ -49,7 +49,9 @@ class EvaluationParams:
         "revalo_loyer_pct": MARKET.revalo_loyer_pct,
         "inflation_charges_pct": MARKET.inflation_charges_pct,
     })
-    regime_fiscal: str = TAX.regime_fiscal
+    regime_fiscal: str = TAX.regime_fiscal  # furnished regime (TAX_SPEC 8)
+    regime_foncier: str = TAX.regime_foncier  # unfurnished regime
+    sci_is: bool = TAX.sci_is  # one SCI at IS for every property, overrides both
     tmi_pct: float = TAX.tmi_pct
     frais_vente_pct: float = TAX.frais_vente_pct
     ratio_terrain_pct: float | None = None  # None: each brick keeps its archetype value
@@ -70,6 +72,8 @@ class EvaluationParams:
                 "inflation_charges_pct": MARKET.inflation_charges_pct,
             },
             regime_fiscal=d.get("regime_fiscal", TAX.regime_fiscal),
+            regime_foncier=d.get("regime_foncier", TAX.regime_foncier),
+            sci_is=bool(d.get("sci_is", TAX.sci_is)),
             tmi_pct=d.get("tmi_pct", TAX.tmi_pct),
             frais_vente_pct=d.get("frais_vente_pct", TAX.frais_vente_pct),
             ratio_terrain_pct=d.get("ratio_terrain_pct"),
@@ -295,6 +299,8 @@ class StrategyFinder:
         tax = TaxParams(
             tmi_pct=ep.tmi_pct,
             regime_fiscal=ep.regime_fiscal,
+            regime_foncier=ep.regime_foncier,
+            sci_is=ep.sci_is,
         )
         ira = IRACalculator(
             apply_ira=ep.apply_ira,
