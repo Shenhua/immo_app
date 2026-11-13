@@ -120,7 +120,7 @@ def create_investment_bricks(
             taxe_fonciere_mth0 +
             gest_mth0 +
             prov_mth0 +
-            (operating.cfe_par_bien_ann / 12.0)
+            (operating.cfe_par_bien_ann / 12.0 if archetype.get("meuble", True) else 0.0)
         )
 
         # 5. Calculate qualitative score for this property

@@ -256,6 +256,7 @@ class SimulationEngine:
         cum_ded_imm = 0.0
         cum_booked_imm = [0.0] * len(projets)
         flux = [-float(strategy["apport_total"])]
+        cum_cash_flow = 0.0
 
         results: list[YearResult] = []
         deficit_reportable = 0.0
@@ -285,15 +286,27 @@ class SimulationEngine:
             ard_reportable = next_ard
             valeur_biens = result.valeur_biens
             flux.append(result.cash_flow_net)
+            cum_cash_flow += result.cash_flow_net
 
         # Final liquidation
         bilan = self._calculate_liquidation(
             results, projets, schedules, horizons_years, flux,
             cum_ded_imm=cum_ded_imm, cum_booked_imm=cum_booked_imm,
+            cum_cash_flow=cum_cash_flow,
         )
 
         df = pd.DataFrame([r.to_dict() for r in results])
         return df, bilan
+
+    def _cfe_for_year(self, p: dict[str, Any], year: int, receipts: float) -> float:
+        """CFE of one property for one year (TAX_SPEC 5).
+
+        Furnished letting only; nothing in year 1 (year of creation, CGI 1478 II); nothing when the year's
+        receipts are <= 5,000 EUR (CGI 1647 D, AN question 7364); indexed like fixed charges (TAX_SPEC 1.8).
+        """
+        if not _is_furnished(p) or year <= 1 or receipts <= CFE_EXEMPTION_RECEIPTS:
+            return 0.0
+        return self.cfe_par_bien_ann * (1.0 + self.market.inflation_charges_pct / 100.0) ** (year - 1)
 
     def _simulate_year(
         self,
@@ -330,6 +343,7 @@ class SimulationEngine:
             gest_ann = loyer_ann * (p["frais_gestion_pct"] / 100.0)
             prov_ann = loyer_ann * (p["provision_pct"] / 100.0)
             charges_fixes_ann = p["charges_fix_mth_courant"] * 12
+            cfe_ann = self._cfe_for_year(p, year, loyer_ann)
 
             # Loan schedule
             sch = schedules[i]
@@ -350,7 +364,7 @@ class SimulationEngine:
             loyers_bruts_pf += loyer_ann
             charges_deductibles_pf += (
                 charges_fixes_ann + gest_ann + prov_ann +
-                interets + assurance + self.cfe_par_bien_ann
+                interets + assurance + cfe_ann
             )
 
             # Amortization by component, straight-line, each stopping after its own duration
@@ -367,7 +381,7 @@ class SimulationEngine:
             if self.tax.regime_fiscal == "lmnp":
                 amortissements_pf += amort_immo + amort_trav + (amort_mob if self.tax.amort_mobilier else 0.0)
 
-            cf_ann += loyer_ann - (charges_fixes_ann + gest_ann + prov_ann) - debt_service - self.cfe_par_bien_ann
+            cf_ann += loyer_ann - (charges_fixes_ann + gest_ann + prov_ann) - debt_service - cfe_ann
             interets_assurance_ann += interets + assurance
             dette_fin += solde_fin
 
@@ -403,6 +417,7 @@ class SimulationEngine:
         flux: list[float],
         cum_ded_imm: float = 0.0,
         cum_booked_imm: list[float] | None = None,
+        cum_cash_flow: float = 0.0,
     ) -> dict[str, Any]:
         """Calculate final liquidation and IRR."""
         if not results:
@@ -452,21 +467,21 @@ class SimulationEngine:
         else:
             flux.append(liquidation_nette)
 
+        # Failed IRR is None plus a warning, never 0 % (TAX_SPEC 5, 10 item 23).
+        tri: float | None
         try:
             tri = float(npf.irr(flux)) * 100.0
             tri_warning = None
+            if not isfinite(tri):
+                tri = None
+                tri_warning = "IRR is non-finite (NaN or Inf)"
         except Exception:
-            tri = 0.0
+            tri = None
             tri_warning = "IRR calculation failed (unstable cashflow pattern)"
 
-        # Handle non-finite IRR
-        if not isfinite(tri):
-            tri = 0.0
-            tri_warning = "IRR is non-finite (NaN or Inf)"
-
-        # Initial investment (flux[0] is negative apport)
+        # Wealth = net exit proceeds + sum of after-tax yearly cash flows - down payment (TAX_SPEC 5)
         apport_initial = -flux[0] if flux else 0.0
-        enrichissement_net = liquidation_nette - apport_initial
+        enrichissement_net = liquidation_nette + cum_cash_flow - apport_initial
 
         # Calculate DSCR from Year 1 data
         from src.core.glossary import calculate_dscr_metric
@@ -490,6 +505,23 @@ class SimulationEngine:
                 for i, (p, b) in enumerate(zip(projets, par_bien, strict=True))
             ],
         }
+
+
+# CGI 1647 D: no minimum CFE contribution when receipts are <= 5,000 EUR (AN question 7364)
+CFE_EXEMPTION_RECEIPTS = 5000.0
+
+
+def _is_furnished(p: dict[str, Any]) -> bool:
+    """Furnished flag of a property: `meuble`, else inferred from `mode_loyer` (`nu_*` = unfurnished).
+
+    Unknown (neither field present) counts as furnished, the conservative choice for cash flow.
+    """
+    if p.get("meuble") is not None:
+        return bool(p["meuble"])
+    mode = p.get("mode_loyer")
+    if mode:
+        return not str(mode).startswith("nu")
+    return True
 
 
 def _ratio_terrain_or_default(value: float | None) -> float:

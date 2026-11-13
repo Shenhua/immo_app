@@ -56,39 +56,20 @@ KNOWN_GAPS: dict[str, str] = {
     "C4_*/yearly.*.cash_flow_after_tax": "T23",
     "C8_*/yearly.20.tax": "T23",
     "C8_*/yearly.20.cash_flow_after_tax": "T23",
-    "C3_*/yearly.25.tax": "T23/T24",
+    "C3_*/yearly.25.tax": "T23",
     "C[248]_*/total_tax_on_income": "T23",
-    "C2_*/cumulative_cash_flow_after_tax": "T23/T24",
-    "C8_*/cumulative_cash_flow_after_tax": "T23/T24",
-    "C4_*/cumulative_cash_flow_after_tax": "T23/T24",
-    # CFE: charged in year 1 and not indexed today (spec: furnished only, 0 in year 1, indexed).
-    "*/yearly.1.operating_charges": "T24",
-    "*/yearly.1.cash_flow_before_tax": "T24",
-    "*/yearly.1.cash_flow_after_tax": "T24",
-    "C1_*/cumulative_cash_flow_after_tax": "T24",
-    "C9_*/cumulative_cash_flow_after_tax": "T24",
-    "C3_*/yearly.*.operating_charges": "T24",
-    "C3_*/yearly.*.cash_flow_before_tax": "T24",
-    "C3_*/yearly.*.cash_flow_after_tax": "T24",
-    "C3_*/yearly.25.taxable_base": "T24",
-    "C3_*/cumulative_cash_flow_after_tax": "T24",
-    "C3_*/total_tax_on_income": "T24",
+    "C2_*/cumulative_cash_flow_after_tax": "T23",
+    "C8_*/cumulative_cash_flow_after_tax": "T23",
+    "C4_*/cumulative_cash_flow_after_tax": "T23",
+    # Wealth, IRR and cash flows that depend on the 18.6 % BIC PS rate (T23); the T24 parts now pass.
+    "C3_*/yearly.25.cash_flow_after_tax": "T23",
+    "C3_*/cumulative_cash_flow_after_tax": "T23",
+    "C3_*/total_tax_on_income": "T23",
+    "C[2348]_*/wealth": "T23",
+    "C[48]_*/irr_pct": "T23",
     # Plus-value on exit, not modelled as in the spec (allowances, add-back, surtax, flat rates).
     "*/exit.deficit_recapture": "T23",
-    # LMNP add-back depends on the amortization actually deducted, which the CFE in year 1 (T24) lowers by 300 EUR
-    # in C1 and C9 (engine charges CFE from year 1, spec: from year 2). Everything downstream moves with it.
-    "C[19]_*/exit.amortization_addback": "T24",
-    "C[19]_*/exit.corrected_acquisition_price": "T24",
-    "C[19]_*/exit.plus_value_brute": "T24",
-    "C[19]_*/exit.base_*": "T24",
-    "C[19]_*/exit.ir_pv": "T24",
-    "C[19]_*/exit.ps_pv": "T24",
-    "C9_*/exit.surtax": "T24",
-    "C[19]_*/exit.net_exit_proceeds": "T24",
     # Sale price: engine appreciates from year 2, i.e. price x (1+g)^(H-1) (TAX_SPEC 10, item 21).
-    # Wealth, IRR and the cash flows that depend on the tax rates (T24 / T23).
-    "*/wealth": "T24",
-    "C[1349]_*/irr_pct": "T24",
 }
 
 
@@ -127,6 +108,7 @@ def _build_strategy(inp: dict[str, Any]) -> dict[str, Any]:
         "tf_const_mth0": inp["property_tax_annual"] / 12.0,
         "frais_gestion_pct": inp["management_pct"],
         "provision_pct": 0.0,
+        "meuble": inp["furnished"],
     }
     return {"apport_total": apport, "details": [prop]}
 

@@ -107,6 +107,12 @@ def render_sensitivity_analysis(strategy: dict[str, Any], ctx: RunContext, key: 
 
             # Helper to show delta
             def show_impact(label, original, new, fmt_func):
+                if original is None or new is None:  # failed IRR: nothing to compare
+                    cols = st.columns([0.4, 0.3, 0.3])
+                    cols[0].write(label)
+                    cols[1].write(fmt_func(original))
+                    cols[2].write(fmt_func(new))
+                    return
                 delta = new - original
                 color = "green" if delta >= 0 else "red"
                 # Invert color for cost/risk metrics? None here.

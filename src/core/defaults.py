@@ -55,7 +55,7 @@ class FinancingDefaults:
 class OperatingDefaults:
     """Operating cost defaults."""
 
-    cfe_par_bien_ann: float = 150.0
+    cfe_par_bien_ann: float = 300.0  # per furnished property; 0 in year 1 and when receipts <= 5,000 (TAX_SPEC 5)
     gestion_pct: float = 5.0
     vacance_pct: float = 3.0
     provision_pct: float = 5.0

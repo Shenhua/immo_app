@@ -63,12 +63,12 @@ def test_rank_strategies_uses_preset_id() -> None:
 
 
 def test_drifting_defaults_are_unified() -> None:
-    assert OPERATING.cfe_par_bien_ann == 150.0
-    assert EvaluationParams.from_dict({}).cfe_par_bien_ann == 150.0
-    assert SimulationEngine(MarketHypotheses(), TaxParams(), None).cfe_par_bien_ann == 150.0  # type: ignore[arg-type]
-    assert SimulationParams().cfe_par_bien_ann == 150.0
-    assert RunContext().cfe_par_bien_ann == 150.0
-    assert OperatingConfig().cfe_par_bien_ann == 150.0
+    assert OPERATING.cfe_par_bien_ann == 300.0
+    assert EvaluationParams.from_dict({}).cfe_par_bien_ann == 300.0
+    assert SimulationEngine(MarketHypotheses(), TaxParams(), None).cfe_par_bien_ann == 300.0  # type: ignore[arg-type]
+    assert SimulationParams().cfe_par_bien_ann == 300.0
+    assert RunContext().cfe_par_bien_ann == 300.0
+    assert OperatingConfig().cfe_par_bien_ann == 300.0
 
     assert MARKET.appreciation_bien_pct == 2.0
     assert MarketHypotheses().appreciation_bien_pct == 2.0

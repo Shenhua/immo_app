@@ -155,3 +155,76 @@ class TestSimulationEngine:
         assert len(df) == 10
         assert "tri_annuel" in bilan
         assert "liquidation_nette" in bilan
+
+
+# --- T24: CFE, wealth, failed IRR -------------------------------------------------------------
+def _t24_strategy(meuble, rent=1000.0):
+    prop = {
+        "prix_achat_bien": 200000.0, "frais_notaire": 0.0, "budget_travaux": 0.0, "renovation_energetique": 0.0,
+        "mobilier": 0.0, "credit_final": 100000.0, "taux_pret": 3.0, "duree_pret": 20, "assurance_ann_pct": 0.0,
+        "loyer_mensuel_initial": rent, "charges_const_mth0": 0.0, "tf_const_mth0": 0.0,
+        "frais_gestion_pct": 0.0, "provision_pct": 0.0, "meuble": meuble,
+    }
+    return {"apport_total": 100000.0, "details": [prop]}
+
+
+def _t24_run(strategy, years=4, charges_idx=0.0):
+    from src.application.services.simulation import simulate_long_term_strategy
+    return simulate_long_term_strategy(
+        strategy, years, {"appreciation_bien_pct": 2.0, "inflation_charges_pct": charges_idx},
+        {"tmi_pct": 0.0, "regime_fiscal": "microbic", "cfe_par_bien_ann": 300.0, "apply_ira": False},
+    )
+
+
+def test_cfe_furnished_only_year1_exempt_and_indexed():
+    df, _ = _t24_run(_t24_strategy(True), charges_idx=2.0)
+    df_nu, _ = _t24_run(_t24_strategy(False), charges_idx=2.0)
+    diffs = (df["Charges Déductibles"] - df_nu["Charges Déductibles"]).abs().tolist()
+    assert diffs[0] == pytest.approx(0.0)
+    assert diffs[1] == pytest.approx(300.0 * 1.02)
+    assert diffs[2] == pytest.approx(300.0 * 1.02**2)
+
+
+def test_cfe_exempt_below_5000_receipts():
+    df, _ = _t24_run(_t24_strategy(True, rent=300.0))  # 3,600 EUR/yr, rent growth keeps it below 5,000
+    df_nu, _ = _t24_run(_t24_strategy(False, rent=300.0))
+    assert df["Cash-Flow Net d'Impôt"].tolist() == pytest.approx(df_nu["Cash-Flow Net d'Impôt"].tolist())
+
+
+def test_wealth_includes_cash_flows():
+    """Different cash flows give different wealth = proceeds + sum CF - apport."""
+    df_a, bil_a = _t24_run(_t24_strategy(False, rent=1000.0))
+    df_b, bil_b = _t24_run(_t24_strategy(False, rent=900.0))
+    for df, bil in ((df_a, bil_a), (df_b, bil_b)):
+        expected = bil["liquidation_nette"] + df["Cash-Flow Net d'Impôt"].sum() - 100000.0
+        assert bil["enrichissement_net"] == pytest.approx(expected)
+    assert bil_a["enrichissement_net"] != pytest.approx(bil_b["enrichissement_net"])
+
+
+def test_nan_irr_is_none_and_never_displays_as_zero(monkeypatch):
+    import numpy as np
+
+    from src.application.services import simulation as sim
+    from src.ui.helpers import format_pct
+
+    monkeypatch.setattr(sim.npf, "irr", lambda flux: np.nan)
+    _, bil = _t24_run(_t24_strategy(False))
+    assert bil["tri_annuel"] is None
+    assert bil["tri_warning"]
+    assert format_pct(bil["tri_annuel"]) == "n/a"
+    assert format_pct(float("nan")) == "n/a"
+
+
+def test_evaluator_scores_failed_irr_as_zero_component():
+    from unittest.mock import MagicMock
+
+    from src.application.services.evaluator import StrategyEvaluator
+
+    scorer = MagicMock()
+    scorer.weights = {"irr": 1.0, "enrich_net": 0.0, "dscr": 0.0, "cf_proximity": 0.0, "cap_eff": 0.0}
+    ev = StrategyEvaluator.__new__(StrategyEvaluator)
+    ev.scorer = scorer
+    score = ev.calculate_finance_score(
+        {"tri_annuel": None, "enrichissement_net": 0.0, "dscr_y1": 1.0}, {"gap": 0.0}, 100000.0, 100.0, 10
+    )
+    assert score == 0.0
