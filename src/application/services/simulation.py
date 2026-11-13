@@ -12,6 +12,7 @@ from typing import Any
 
 import numpy_financial as npf
 import pandas as pd
+
 from src.core.exceptions import SimulationError
 
 # Tax constants
@@ -65,7 +66,7 @@ class TaxParams:
         else:
             # LMNP réel logic
             noi = loyers_bruts - charges_deductibles
-            
+
             # 1. Deficit Foncier (Charges > Rents)
             if noi < 0:
                 # Deficit created/increased. Amortization is largely deferred.
@@ -76,7 +77,7 @@ class TaxParams:
                 # Positive NOI - absorb deficit first
                 # deficit_reportable is negative
                 res_apres_deficit = noi + deficit_reportable
-                
+
                 if res_apres_deficit < 0:
                     # Still in deficit
                     new_deficit = res_apres_deficit
@@ -85,14 +86,14 @@ class TaxParams:
                 else:
                     # Deficit cleared, now attack amortization
                     new_deficit = 0.0
-                    
+
                     # Deduct stock ARD + current amort
                     # (In LMNP, you can use ARD to reduce profit to 0, but not create deficit)
                     # We treat (ard + amort) as the total pool of deductive power
                     total_amort_pool = amort_differes_reportable + amortissements
-                    
+
                     res_final = res_apres_deficit - total_amort_pool
-                    
+
                     if res_final < 0:
                         # Profit reduced to 0, remaining amort becomes new ARD
                         base_imposable = 0.0
@@ -199,7 +200,7 @@ class SimulationEngine:
         self.cfe_par_bien_ann = cfe_par_bien_ann
         self.frais_vente_pct = frais_vente_pct
         self.ratio_terrain_pct = max(0.0, min(100.0, ratio_terrain_pct))
-        
+
         if amort_immo_years <= 0:
             raise ValueError("amort_immo_years must be > 0 to avoid division by zero")
         if amort_mobilier_years <= 0:
@@ -472,9 +473,6 @@ def simulate_long_term_strategy(
     """
     # Import modular generator
     from src.domain.calculator.financial import (
-        calculate_insurance,
-        calculate_monthly_payment,
-        calculate_remaining_balance,
         generate_amortization_schedule,
     )
     if not strategy or not strategy.get("details"):

@@ -15,16 +15,16 @@ import csv
 import os
 from datetime import datetime
 
-from src.domain.calculator.financial import (
-    calculate_monthly_payment,
-    calculate_remaining_balance,
-    generate_amortization_schedule,
-)
 from src.core.simulation import (
     IRACalculator,
     MarketHypotheses,
     SimulationEngine,
     TaxParams,
+)
+from src.domain.calculator.financial import (
+    calculate_insurance,
+    calculate_monthly_payment,
+    generate_amortization_schedule,
 )
 
 

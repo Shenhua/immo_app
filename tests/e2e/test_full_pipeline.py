@@ -15,7 +15,6 @@ from src.application.services.brick_factory import (
     create_investment_bricks,
     validate_bricks,
 )
-from src.application.services.simulation import SimulationEngine
 from src.application.services.strategy_finder import StrategyFinder
 from src.ui.app_controller import load_archetypes
 
@@ -100,7 +99,6 @@ class TestFullPipeline:
     ):
         """Full strategy search should return valid strategies."""
         from src.application.services.brick_factory import create_investment_bricks
-        from src.application.services.strategy_finder import StrategyFinder
 
         bricks = create_investment_bricks(archetypes, finance_config, operating_config)
 
@@ -132,7 +130,6 @@ class TestFullPipeline:
     ):
         """Verify key metrics are correctly calculated (not zero)."""
         from src.application.services.brick_factory import create_investment_bricks
-        from src.application.services.strategy_finder import StrategyFinder
 
         bricks = create_investment_bricks(archetypes, finance_config, operating_config)
 
@@ -200,7 +197,6 @@ class TestMacroUseCases:
     def test_small_budget_investor(self, archetypes, base_config):
         """Use case: First-time investor with 30k budget, wants positive CF."""
         from src.application.services.brick_factory import create_investment_bricks
-        from src.application.services.strategy_finder import StrategyFinder
 
         bricks = create_investment_bricks(
             archetypes, base_config["finance"], base_config["operating"]
@@ -228,7 +224,6 @@ class TestMacroUseCases:
     def test_patrimoine_builder(self, archetypes, base_config):
         """Use case: Wealth builder with 100k, accepting negative CF for appreciation."""
         from src.application.services.brick_factory import create_investment_bricks
-        from src.application.services.strategy_finder import StrategyFinder
 
         bricks = create_investment_bricks(
             archetypes, base_config["finance"], base_config["operating"]
@@ -258,7 +253,6 @@ class TestMacroUseCases:
     def test_cashflow_optimizer(self, archetypes, base_config):
         """Use case: Investor seeking maximum monthly cashflow."""
         from src.application.services.brick_factory import create_investment_bricks
-        from src.application.services.strategy_finder import StrategyFinder
 
         bricks = create_investment_bricks(
             archetypes, base_config["finance"], base_config["operating"]
@@ -284,7 +278,6 @@ class TestMacroUseCases:
     def test_different_horizons_affect_results(self, archetypes, base_config):
         """Verify that different horizons produce different metrics."""
         from src.application.services.brick_factory import create_investment_bricks
-        from src.application.services.strategy_finder import StrategyFinder
 
         bricks = create_investment_bricks(
             archetypes, base_config["finance"], base_config["operating"]

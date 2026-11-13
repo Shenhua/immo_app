@@ -4,15 +4,16 @@ Strategy Evaluator - Shared evaluation logic for strategy optimization.
 This module consolidates the evaluation pipeline used by both GeneticOptimizer
 and ExhaustiveOptimizer, reducing code duplication and ensuring consistency.
 """
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 
-from src.domain.calculator.financial import generate_amortization_schedule
-from src.domain.calculator.scoring import calculate_balanced_score, calculate_qualitative_score
 from src.core.glossary import calculate_cashflow_metrics, calculate_enrichment_metrics
-from .simulation import SimulationEngine
+from src.domain.calculator.financial import generate_amortization_schedule
+from src.domain.calculator.scoring import calculate_qualitative_score
+
 from .allocator import PortfolioAllocator
+from .simulation import SimulationEngine
 
 log = structlog.get_logger(__name__)
 
@@ -37,8 +38,8 @@ class StrategyEvaluator:
     def __init__(
         self,
         simulator: SimulationEngine,
-        allocator: Optional[PortfolioAllocator] = None,
-        scorer: Optional[Any] = None
+        allocator: PortfolioAllocator | None = None,
+        scorer: Any | None = None
     ):
         """
         Initialize evaluator with dependencies.
@@ -90,7 +91,7 @@ class StrategyEvaluator:
 
             # Prefer Pydantic model names, then legacy names
             rate = float(p.get("taux_annuel_pct", p.get("taux_pret", 0.0)))
-            
+
             # Duration in months
             if "duree_credit_mois" in p:
                 duration_months = int(p["duree_credit_mois"])
@@ -202,7 +203,7 @@ class StrategyEvaluator:
         enrich = bilan.get("enrichissement_net", 0.0)
         safe_apport = max(1.0, apport_total)
         roe = enrich / safe_apport
-        
+
         # Target ROE based on horizon (e.g. 1.05^20 ≈ 2.65x)
         # We look for total Equity Multiple = 1 + ROE
         # Target Equity Multiple = 1.05 ^ horizon

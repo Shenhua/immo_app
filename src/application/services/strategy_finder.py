@@ -7,14 +7,15 @@ Provides combination generation, scoring, and ranking.
 from __future__ import annotations
 
 import math
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from math import isfinite
-from typing import Any, Sequence, Union, Iterator
+from typing import Any
 
 from src.core.logging import get_logger
 from src.domain.models.brick import InvestmentBrick
+
 from .allocator import PortfolioAllocator
-from src.domain.models.strategy import PortfolioStrategy
 from .optimizer import ExhaustiveOptimizer, GeneticOptimizer
 
 log = get_logger(__name__)
@@ -168,7 +169,7 @@ class CombinationGenerator:
         apport_disponible: float,
     ) -> Iterator[tuple[InvestmentBrick, ...]]:
         """Generate all valid combinations using bounded enumeration.
-        
+
         Yields:
             Valid combinations as tuples of InvestmentBrick.
         """
@@ -341,7 +342,7 @@ class StrategyFinder:
                     message="Génération des combinaisons..."
                 ))
 
-            optimizer: Union[ExhaustiveOptimizer, GeneticOptimizer] = ExhaustiveOptimizer(
+            optimizer: ExhaustiveOptimizer | GeneticOptimizer = ExhaustiveOptimizer(
                 allocator=allocator,
                 simulator=engine,
                 scorer=self.scorer

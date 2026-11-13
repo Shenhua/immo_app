@@ -192,8 +192,8 @@ class TestScheduleMismatchHandling:
 
     def test_simulation_rejects_mismatched_schedules(self):
         """Simulation should raise ValueError for schedule/details mismatch."""
-        from src.domain.calculator.financial import generate_amortization_schedule
         from src.application.services.simulation import IRACalculator, MarketHypotheses, SimulationEngine, TaxParams
+        from src.domain.calculator.financial import generate_amortization_schedule
 
         engine = SimulationEngine(
             market=MarketHypotheses(),

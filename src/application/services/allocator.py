@@ -7,11 +7,11 @@ Converted from legacy `allouer_apport_pour_cf`.
 from __future__ import annotations
 
 import os
-from typing import Any, Union
+from typing import Any
 
-from src.domain.models.brick import InvestmentBrick
-from src.domain.calculator.financial import calculate_total_monthly_payment, k_factor
 from src.core.logging import get_logger
+from src.domain.calculator.financial import calculate_total_monthly_payment, k_factor
+from src.domain.models.brick import InvestmentBrick
 
 log = get_logger(__name__)
 
@@ -33,7 +33,7 @@ class PortfolioAllocator:
         use_full_capital: bool = False,
     ) -> tuple[bool, list[dict[str, Any]], float, float]:
         """Allocate capital to maximize cash flow proximity or usage."""
-        
+
         def _get_val(obj: Any, key: str, default: Any = 0.0) -> Any:
             """Safe access for both InvestmentBrick and dict with legacy key mapping."""
             mapping = {
@@ -44,7 +44,7 @@ class PortfolioAllocator:
                 "cout_total_bien": "cout_total",
             }
             actual_key = mapping.get(key, key)
-            
+
             # 1. Try dict-style access (for speed and model_dump result)
             if isinstance(obj, dict):
                 val = obj.get(actual_key, obj.get(key))
@@ -60,7 +60,7 @@ class PortfolioAllocator:
                 if key == "duree_pret" and actual_key == "duree_credit_mois" and isinstance(val, int):
                     return val // 12
                 return val
-            
+
             # 3. Try subscripting if supported (fallback)
             try:
                 val = obj[actual_key]
@@ -110,7 +110,7 @@ class PortfolioAllocator:
                 "cout_total_bien": "cout_total",
             }
             actual_key = mapping.get(key, key)
-            
+
             # 1. Try dict-style access (for speed and model_dump result)
             if isinstance(obj, dict):
                 val = obj.get(actual_key, obj.get(key))
@@ -126,7 +126,7 @@ class PortfolioAllocator:
                 if key == "duree_pret" and actual_key == "duree_credit_mois" and isinstance(val, int):
                     return val // 12
                 return val
-            
+
             # 3. Try subscripting if supported (fallback)
             try:
                 val = obj[actual_key]

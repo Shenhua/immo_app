@@ -14,17 +14,16 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 
-from src.domain.calculator.financial import calculate_monthly_payment, generate_amortization_schedule
-from src.core.logging import get_logger
-from src.application.services.simulation import IRACalculator, MarketHypotheses, SimulationEngine, TaxParams
-from src.domain.models.archetype import ArchetypeV2
 from src.application.services.brick_factory import (
     FinancingConfig,
     OperatingConfig,
-    apply_rent_caps,
     create_investment_bricks,
 )
+from src.application.services.simulation import IRACalculator, MarketHypotheses, SimulationEngine, TaxParams
 from src.application.services.strategy_finder import StrategyFinder
+from src.core.logging import get_logger
+from src.domain.calculator.financial import generate_amortization_schedule
+from src.domain.models.archetype import ArchetypeV2
 from src.ui.state import SessionManager
 
 log = get_logger(__name__)

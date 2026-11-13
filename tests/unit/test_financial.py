@@ -6,7 +6,6 @@ from src.domain.calculator.financial import (
     calculate_remaining_balance,
     calculate_total_monthly_payment,
     generate_amortization_schedule,
-    k_factor,
 )
 
 

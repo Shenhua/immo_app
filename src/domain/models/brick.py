@@ -7,6 +7,7 @@ from an archetype, with calculated financial details.
 from __future__ import annotations
 
 from typing import Any
+
 from pydantic import BaseModel, Field, computed_field
 
 
@@ -99,10 +100,10 @@ class InvestmentBrick(BaseModel):
             "duree_pret": "duree_credit_mois",
             "cf_proximity": "cf_proximity", # For sorting tests
         }
-        
+
         # Resolve key
         actual_key = mapping.get(key, key)
-        
+
         # Check attributes first
         if hasattr(self, actual_key):
             val = getattr(self, actual_key)
@@ -110,11 +111,11 @@ class InvestmentBrick(BaseModel):
             if key == "duree_pret" and isinstance(val, int):
                 return val // 12
             return val
-        
+
         # Fallback to model_extra
         if self.model_extra and actual_key in self.model_extra:
             return self.model_extra[actual_key]
-            
+
         raise KeyError(f"Key '{key}' (mapped to '{actual_key}') not found in InvestmentBrick")
 
     def __contains__(self, key: str) -> bool:

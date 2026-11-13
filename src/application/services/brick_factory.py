@@ -6,7 +6,7 @@ Generates investable 'bricks' (property + financing + costs) from archetypes.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Union
+from typing import Any
 
 from src.domain.calculator.financial import calculate_total_monthly_payment
 from src.domain.calculator.scoring import calculate_property_qualitative_score
@@ -232,7 +232,7 @@ class BrickValidationError(ValueError):
     pass
 
 
-def validate_brick(brick: Union[dict[str, Any], InvestmentBrick], strict: bool = False) -> list[str]:
+def validate_brick(brick: dict[str, Any] | InvestmentBrick, strict: bool = False) -> list[str]:
     """Validate a brick has all required fields for simulation.
 
     Args:
@@ -271,7 +271,7 @@ def validate_brick(brick: Union[dict[str, Any], InvestmentBrick], strict: bool =
     return warnings
 
 
-def validate_bricks(bricks: list[Union[dict[str, Any], InvestmentBrick]], strict: bool = False) -> list[str]:
+def validate_bricks(bricks: list[dict[str, Any] | InvestmentBrick], strict: bool = False) -> list[str]:
     """Validate all bricks in a list.
 
     Args:

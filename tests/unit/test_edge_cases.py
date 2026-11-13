@@ -10,6 +10,15 @@ Tests based on QA Audit "Matrix of Pain" covering:
 
 import pytest
 
+from src.application.services.allocator import PortfolioAllocator
+from src.application.services.simulation import (
+    IRACalculator,
+    MarketHypotheses,
+    SimulationEngine,
+    SimulationError,
+    TaxParams,
+)
+from src.application.services.strategy_finder import StrategyScorer
 from src.domain.calculator.financial import (
     calculate_insurance,
     calculate_monthly_payment,
@@ -23,16 +32,7 @@ from src.domain.calculator.scoring import (
     calculate_property_qualitative_score,
     calculate_qualitative_score,
 )
-from src.application.services.simulation import (
-    IRACalculator,
-    MarketHypotheses,
-    SimulationEngine,
-    TaxParams,
-    SimulationError,
-)
 from src.domain.models.brick import InvestmentBrick
-from src.application.services.allocator import PortfolioAllocator
-from src.application.services.strategy_finder import StrategyScorer
 
 
 class TestFinancialEdgeCases:
