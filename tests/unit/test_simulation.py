@@ -1,11 +1,12 @@
 import pytest
+
 from src.application.services.simulation import (
     IRACalculator,
     MarketHypotheses,
     SimulationEngine,
+    SimulationError,
     TaxParams,
     YearResult,
-    SimulationError,
 )
 
 

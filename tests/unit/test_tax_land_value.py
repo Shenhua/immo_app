@@ -4,7 +4,6 @@ Per French LMNP tax law, land value is NOT amortizable - only the building/const
 and improvements (travaux) can be depreciated.
 """
 
-import pytest
 
 from src.application.services.simulation import (
     IRACalculator,
@@ -54,7 +53,7 @@ class TestLandValueExclusion:
         # + Furniture 5k / 10 years = 500
         # Total = 4,166.67 annually
         expected_amort = (110000 / 30) + (5000 / 10)
-        
+
         # Amortissements are displayed as negative in DataFrame
         actual_amort = abs(df.iloc[0]["Amortissements"])
         assert abs(actual_amort - expected_amort) < 10, \
@@ -97,7 +96,7 @@ class TestLandValueExclusion:
         # Base = 80k + 10k works = 90k
         # Amort/year = 90k / 30 = 3,000 + (5k furniture / 10) = 3,500
         expected_amort = (90000 / 30) + (5000 / 10)
-        
+
         # Amortissements are displayed as negative in DataFrame
         actual_amort = abs(df.iloc[0]["Amortissements"])
         assert abs(actual_amort - expected_amort) < 10, \
@@ -148,11 +147,11 @@ class TestLandValueExclusion:
         # Compare absolute amortization values (displayed as negative)
         amort_0 = abs(df_0.iloc[0]["Amortissements"])
         amort_20 = abs(df_20.iloc[0]["Amortissements"])
-        
+
         # Land exclusion should reduce amortization
         assert amort_20 < amort_0, \
             f"Amort with land exclusion ({amort_20:.2f}) should be < without ({amort_0:.2f})"
-        
+
         # With land exclusion, amortization is lower, so taxable base is higher
         # Thus tax should be higher (or equal if still in deficit)
         tax_0 = df_0.iloc[0]["Impôt Dû"]

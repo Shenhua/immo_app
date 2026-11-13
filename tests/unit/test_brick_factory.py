@@ -1,7 +1,12 @@
 
 import pytest
 
-from src.application.services.brick_factory import FinancingConfig, OperatingConfig, apply_rent_caps, create_investment_bricks
+from src.application.services.brick_factory import (
+    FinancingConfig,
+    OperatingConfig,
+    apply_rent_caps,
+    create_investment_bricks,
+)
 
 
 @pytest.fixture

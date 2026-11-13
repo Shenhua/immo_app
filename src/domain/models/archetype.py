@@ -50,7 +50,7 @@ class ArchetypeV2(BaseModel):
 
     # Timing
     delai_vente_j_median: int = Field(default=60, ge=0, description="Median days to sell")
-    
+
     # Additional fields from JSON data
     vacance_pct: float = Field(default=2.0, ge=0, le=100, description="Vacancy rate percentage")
     transport_modes: list[str] = Field(default_factory=list, description="Available transport modes")

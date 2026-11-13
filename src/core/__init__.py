@@ -1,13 +1,6 @@
 """Core financial and scoring engines."""
 
-from .exceptions import (
-    AppImmoError,
-    DataLoadError,
-    InvalidParameterError,
-    NoStrategiesFoundError,
-    SimulationError,
-    StrategyError,
-)
+from src.application.services.simulation import simulate_long_term_strategy
 from src.domain.calculator.financial import (
     calculate_insurance,
     calculate_monthly_payment,
@@ -18,7 +11,15 @@ from src.domain.calculator.scoring import (
     calculate_dpe_score,
     calculate_qualitative_score,
 )
-from src.application.services.simulation import simulate_long_term_strategy
+
+from .exceptions import (
+    AppImmoError,
+    DataLoadError,
+    InvalidParameterError,
+    NoStrategiesFoundError,
+    SimulationError,
+    StrategyError,
+)
 
 __all__ = [
     "calculate_monthly_payment",

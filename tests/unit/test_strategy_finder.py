@@ -1,7 +1,5 @@
 """Unit tests for src.services.strategy_finder module."""
 
-from src.domain.models.brick import InvestmentBrick
-
 from src.application.services.strategy_finder import (
     BASE_WEIGHTS,
     CombinationGenerator,
@@ -9,6 +7,7 @@ from src.application.services.strategy_finder import (
     StrategyFinder,
     StrategyScorer,
 )
+from src.domain.models.brick import InvestmentBrick
 
 
 class TestEvaluationParams:
@@ -141,7 +140,7 @@ class TestStrategyFinder:
         finder = StrategyFinder([], 100000, -100)
         bricks_a = [InvestmentBrick(nom="A", prix_achat_bien=100000)]
         bricks_b = [InvestmentBrick(nom="B", prix_achat_bien=100000)]
-        
+
         strategies = [
             {"details": bricks_a, "balanced_score": 0.8},
             {"details": bricks_a, "balanced_score": 0.7},  # ~same sig

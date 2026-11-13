@@ -5,16 +5,16 @@ subject to Budget and Cashflow constraints.
 """
 import copy
 import random
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import structlog
 
-from .simulation import IRACalculator, MarketHypotheses, SimulationEngine, TaxParams
 from src.domain.models.brick import InvestmentBrick
-from src.domain.models.strategy import PortfolioStrategy
+
 from .allocator import PortfolioAllocator
 from .evaluator import StrategyEvaluator
+from .simulation import SimulationEngine
 
 log = structlog.get_logger()
 
@@ -61,9 +61,9 @@ class GeneticOptimizer:
         crossover_rate: float = 0.7,
         elite_size: int = 5,
         max_properties: int = 5,
-        allocator: Optional[PortfolioAllocator] = None,
-        simulator: Optional[SimulationEngine] = None,
-        scorer: Optional[Any] = None,
+        allocator: PortfolioAllocator | None = None,
+        simulator: SimulationEngine | None = None,
+        scorer: Any | None = None,
         seed: int = 42
     ):
         """Initialize the Genetic Optimizer.
@@ -94,7 +94,7 @@ class GeneticOptimizer:
 
         # Create evaluator for shared evaluation logic
         if simulator:
-            self.evaluator: Optional[StrategyEvaluator] = StrategyEvaluator(simulator, allocator, scorer)
+            self.evaluator: StrategyEvaluator | None = StrategyEvaluator(simulator, allocator, scorer)
         else:
             self.evaluator = None
 
@@ -441,7 +441,7 @@ class ExhaustiveOptimizer:
         allocator: PortfolioAllocator,
         simulator: SimulationEngine,
         scorer: Any,
-        n_workers: Optional[int] = None,  # None = auto-detect CPU count
+        n_workers: int | None = None,  # None = auto-detect CPU count
     ):
         """Initialize ExhaustiveOptimizer.
 
@@ -533,30 +533,30 @@ class ExhaustiveOptimizer:
                  combos_after_pruning="unknown (iterator)")
 
         # Decide between sequential and parallel
-        # Since we can't key off len() easily without consuming, 
-        # we will default to parallel for robustness on large expected sets, 
-        # or consume in chunks. 
-        # Given the new safeguard (Hybrid Solver < 1M), the list is small enough 
+        # Since we can't key off len() easily without consuming,
+        # we will default to parallel for robustness on large expected sets,
+        # or consume in chunks.
+        # Given the new safeguard (Hybrid Solver < 1M), the list is small enough
         # to convert to list safely IF it is under 1M.
         # But for "Zero Trust", we should respect memory.
-        
+
         # Strategy: Consume first N items to see if small?
         # Simpler: Just convert to list but with a hard cap protection?
-        # No, Hybrid Solver guarantees < 1M theoretical max. 
+        # No, Hybrid Solver guarantees < 1M theoretical max.
         # And pruning makes it smaller.
         # So list(combos) IS safe given the new 1M cap in strategy_finder.
         # BUT to be strictly memory safe as requested:
-        
+
         candidates = []
-        
+
         # Hybrid approach: consume into list because 1M tuples is only ~80MB RAM.
         # This simplifies parallelization logic significantly.
         # The risk was 100M (8GB). 1M is fine.
-        combo_list = list(combos) 
+        combo_list = list(combos)
         n_combos = len(combo_list)
-        
+
         log.info("combos_materialized", count=n_combos)
-        
+
         use_parallel = n_combos > self.PARALLEL_THRESHOLD
 
         if use_parallel:

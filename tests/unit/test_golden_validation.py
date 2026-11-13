@@ -6,16 +6,16 @@ the core financial calculations are mathematically correct.
 
 import pytest
 
-from src.domain.calculator.financial import (
-    calculate_insurance,
-    calculate_monthly_payment,
-    generate_amortization_schedule,
-)
 from src.application.services.simulation import (
     IRACalculator,
     MarketHypotheses,
     SimulationEngine,
     TaxParams,
+)
+from src.domain.calculator.financial import (
+    calculate_insurance,
+    calculate_monthly_payment,
+    generate_amortization_schedule,
 )
 
 
