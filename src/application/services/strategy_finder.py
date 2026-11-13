@@ -300,7 +300,7 @@ class StrategyFinder:
                  apport=self.apport_disponible)
 
         # Report Phase 1: Brick generation (already done in __init__)
-        from src.ui.progress import SearchPhase, SearchProgress
+        from src.application.progress import SearchPhase, SearchProgress
         if progress_callback:
             progress_callback(SearchProgress(
                 phase=SearchPhase.BRICK_GENERATION,

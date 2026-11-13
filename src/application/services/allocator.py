@@ -16,6 +16,46 @@ from src.domain.models.brick import InvestmentBrick
 log = get_logger(__name__)
 
 
+def _get_val(obj: Any, key: str, default: Any = 0.0) -> Any:
+    """Safe access for both InvestmentBrick and dict with legacy key mapping."""
+    mapping = {
+        "nom_bien": "nom",
+        "taux_pret": "taux_annuel_pct",
+        "assurance_ann_pct": "assurance_annuelle_pct",
+        "duree_pret": "duree_credit_mois",
+        "cout_total_bien": "cout_total",
+    }
+    actual_key = mapping.get(key, key)
+
+    # 1. Try dict-style access (for speed and model_dump result)
+    if isinstance(obj, dict):
+        val = obj.get(actual_key, obj.get(key))
+        if val is not None:
+            if key == "duree_pret" and actual_key == "duree_credit_mois" and val > 100:
+                return val // 12
+            return val
+        return default
+
+    # 2. Try attribute access (for InvestmentBrick objects)
+    val = getattr(obj, actual_key, getattr(obj, key, None))
+    if val is not None:
+        if key == "duree_pret" and actual_key == "duree_credit_mois" and isinstance(val, int):
+            return val // 12
+        return val
+
+    # 3. Try subscripting if supported (fallback)
+    try:
+        val = obj[actual_key]
+        if key == "duree_pret" and actual_key == "duree_credit_mois":
+             return val // 12
+        return val
+    except (KeyError, TypeError):
+        try:
+            return obj[key]
+        except (KeyError, TypeError):
+            return default
+
+
 class PortfolioAllocator:
     """Service for allocating capital across properties."""
 
@@ -33,45 +73,6 @@ class PortfolioAllocator:
         use_full_capital: bool = False,
     ) -> tuple[bool, list[dict[str, Any]], float, float]:
         """Allocate capital to maximize cash flow proximity or usage."""
-
-        def _get_val(obj: Any, key: str, default: Any = 0.0) -> Any:
-            """Safe access for both InvestmentBrick and dict with legacy key mapping."""
-            mapping = {
-                "nom_bien": "nom",
-                "taux_pret": "taux_annuel_pct",
-                "assurance_ann_pct": "assurance_annuelle_pct",
-                "duree_pret": "duree_credit_mois",
-                "cout_total_bien": "cout_total",
-            }
-            actual_key = mapping.get(key, key)
-
-            # 1. Try dict-style access (for speed and model_dump result)
-            if isinstance(obj, dict):
-                val = obj.get(actual_key, obj.get(key))
-                if val is not None:
-                    if key == "duree_pret" and actual_key == "duree_credit_mois" and val > 100:
-                        return val // 12
-                    return val
-                return default
-
-            # 2. Try attribute access (for InvestmentBrick objects)
-            val = getattr(obj, actual_key, getattr(obj, key, None))
-            if val is not None:
-                if key == "duree_pret" and actual_key == "duree_credit_mois" and isinstance(val, int):
-                    return val // 12
-                return val
-
-            # 3. Try subscripting if supported (fallback)
-            try:
-                val = obj[actual_key]
-                if key == "duree_pret" and actual_key == "duree_credit_mois":
-                     return val // 12
-                return val
-            except (KeyError, TypeError):
-                try:
-                    return obj[key]
-                except (KeyError, TypeError):
-                    return default
 
         if not bricks:
             return True, [], 0.0, 0.0
@@ -99,45 +100,6 @@ class PortfolioAllocator:
                 "pmt_total": pmt_tot if pmt_tot > 0 else data.get("pmt_total", 0.0),
                 "apport_add_bien": 0.0,
             })
-
-        def _get_val(obj: Any, key: str, default: Any = 0.0) -> Any:
-            """Safe access for both InvestmentBrick and dict with legacy key mapping."""
-            mapping = {
-                "nom_bien": "nom",
-                "taux_pret": "taux_annuel_pct",
-                "assurance_ann_pct": "assurance_annuelle_pct",
-                "duree_pret": "duree_credit_mois",
-                "cout_total_bien": "cout_total",
-            }
-            actual_key = mapping.get(key, key)
-
-            # 1. Try dict-style access (for speed and model_dump result)
-            if isinstance(obj, dict):
-                val = obj.get(actual_key, obj.get(key))
-                if val is not None:
-                    if key == "duree_pret" and actual_key == "duree_credit_mois" and val > 100:
-                        return val // 12
-                    return val
-                return default
-
-            # 2. Try attribute access (for InvestmentBrick objects)
-            val = getattr(obj, actual_key, getattr(obj, key, None))
-            if val is not None:
-                if key == "duree_pret" and actual_key == "duree_credit_mois" and isinstance(val, int):
-                    return val // 12
-                return val
-
-            # 3. Try subscripting if supported (fallback)
-            try:
-                val = obj[actual_key]
-                if key == "duree_pret" and actual_key == "duree_credit_mois":
-                     return val // 12
-                return val
-            except (KeyError, TypeError):
-                try:
-                    return obj[key]
-                except (KeyError, TypeError):
-                    return default
 
         # Calculate initial CF
         cf0 = sum(

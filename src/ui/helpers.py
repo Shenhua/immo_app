@@ -137,17 +137,17 @@ def display_score_stars(score: float, help_text: str = "") -> None:
 
 
 def get_taxonomy_badge(taxonomy: str) -> tuple[str, str, str]:
-    """Get badge info for a strategy taxonomy.
+    """Get badge info for strategy taxonomy.
 
     Args:
         taxonomy: Strategy type (Optimisé, Patrimonial, Mix)
 
     Returns:
-        Tuple of (icon, label, tooltip)
+        Tuple of (icon, label, color)
     """
-    taxonomy_info = {
-        "Optimisé": ("🚀", "Optimisé", "Stratégie axée sur le rendement et le cash-flow"),
-        "Patrimonial": ("🏛️", "Patrimonial", "Stratégie axée sur la qualité et la sécurité"),
-        "Mix": ("⚖️", "Mix", "Stratégie équilibrée entre rendement et qualité"),
+    badges = {
+        "Optimisé": ("🚀", "Optimisé", "#28a745"),
+        "Patrimonial": ("🏛️", "Patrimonial", "#17a2b8"),
+        "Mix": ("⚖️", "Mix", "#ffc107"),
     }
-    return taxonomy_info.get(taxonomy, ("🔀", taxonomy or "—", "Typologie non déterminée"))
+    return badges.get(taxonomy, ("🔀", taxonomy or "—", "#6c757d"))

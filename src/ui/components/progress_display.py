@@ -5,7 +5,7 @@ Renders real-time progress during strategy search.
 """
 import streamlit as st
 
-from src.ui.progress import PHASE_LABELS, PHASES_ORDER, SearchPhase, SearchProgress, SearchStats
+from src.application.progress import PHASE_LABELS, PHASES_ORDER, SearchPhase, SearchProgress, SearchStats
 
 
 def render_progress_display(progress: SearchProgress) -> None:

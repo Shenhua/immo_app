@@ -59,12 +59,12 @@ def render_objectives_section() -> dict[str, Any]:
     st.sidebar.markdown("### 🎯 Stratégie d'Investissement")
     strategy_mode = st.sidebar.radio(
         "Mode d'allocation",
-        ["Classique (Levier)", "Empire (Max Volume)", "Rentier (Max Cash-Flow)"],
+        # Rentier mode is hidden until T34 restores it (its backend flag stays in place).
+        ["Classique (Levier)", "Empire (Max Volume)"],
         index=0,
         help=(
             "**Classique (Levier)** : Cherche l'équilibre. Utilise l'apport minimum pour maximiser le retour sur investissement (TRI). Limité à 3 biens.\n\n"
-            "**Empire (Max Volume)** : Cherche à acquérir le plus grand parc immobilier possible (jusqu'à 5 biens) avec votre apport.\n\n"
-            "**Rentier (Max Cash-Flow)** : Objectif de rente. Utilise TOUT votre apport pour réduire les mensualités de crédit et maximiser le cash-flow mensuel net."
+            "**Empire (Max Volume)** : Cherche à acquérir le plus grand parc immobilier possible (jusqu'à 5 biens) avec votre apport."
         )
     )
 

@@ -577,7 +577,7 @@ class ExhaustiveOptimizer:
         progress_callback: Any = None
     ) -> list[dict[str, Any]]:
         """Sequential evaluation for small search spaces."""
-        from src.ui.progress import SearchPhase, SearchProgress
+        from src.application.progress import SearchPhase, SearchProgress
 
         candidates = []
         n_combos = len(combos)
@@ -627,7 +627,7 @@ class ExhaustiveOptimizer:
         import concurrent.futures
         import os
 
-        from src.ui.progress import SearchPhase, SearchProgress
+        from src.application.progress import SearchPhase, SearchProgress
 
         n_workers = self.n_workers or min(8, (os.cpu_count() or 4))
         n_combos = len(combos)
