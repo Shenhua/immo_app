@@ -6,9 +6,9 @@ Converted from legacy `allouer_apport_pour_cf`.
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
+from src.core.defaults import MAX_EXTRA_APPORT_PCT
 from src.core.logging import get_logger
 from src.domain.calculator.financial import calculate_total_monthly_payment, k_factor
 from src.domain.models.brick import InvestmentBrick
@@ -61,7 +61,7 @@ class PortfolioAllocator:
 
     def __init__(self, mode_cf: str = "target"):
         self.mode_cf = mode_cf
-        self.max_extra_apport_pct = float(os.getenv("MAX_EXTRA_APPORT_PCT", "0.95"))
+        self.max_extra_apport_pct = MAX_EXTRA_APPORT_PCT
         log.info("allocator_initialized", mode=self.mode_cf, max_extra_apport_ratio=self.max_extra_apport_pct)
 
     def allocate(

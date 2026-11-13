@@ -21,6 +21,8 @@ from src.application.services.brick_factory import (
 )
 from src.application.services.simulation import IRACalculator, MarketHypotheses, SimulationEngine, TaxParams
 from src.application.services.strategy_finder import StrategyFinder
+from src.core import defaults
+from src.core.defaults import FINANCING, MARKET
 from src.core.logging import get_logger
 from src.domain.calculator.financial import generate_amortization_schedule
 from src.domain.models.archetype import ArchetypeV2
@@ -28,10 +30,10 @@ from src.ui.state import SessionManager
 
 log = get_logger(__name__)
 
-# Disk side effects are opt-in. Env vars are read once, here.
-# FOLLOW-UP (T10): move these into src/core/defaults.py.
-AUTOSAVE_ENABLED: bool = os.environ.get("APP_AUTOSAVE", "0") == "1"
-RESULTS_DIR: str = os.environ.get("APP_RESULTS_DIR", "results")
+# Disk side effects are opt-in. The env vars are read once, in src/core/defaults.py.
+# Module-level names are kept so tests can monkeypatch them.
+AUTOSAVE_ENABLED: bool = defaults.AUTOSAVE_ENABLED
+RESULTS_DIR: str = defaults.RESULTS_DIR
 
 
 def load_archetypes_from_disk(data_path: str) -> list[dict[str, Any]]:
@@ -225,14 +227,14 @@ def simulate_selected_strategy(
     """
     try:
         mk = MarketHypotheses(
-            appreciation_bien_pct=market_hypo.get("appreciation_bien_pct", 2.5),
-            revalo_loyer_pct=market_hypo.get("revalo_loyer_pct", 1.5),
-            inflation_charges_pct=market_hypo.get("inflation_charges_pct", 2.0),
+            appreciation_bien_pct=market_hypo.get("appreciation_bien_pct", MARKET.appreciation_bien_pct),
+            revalo_loyer_pct=market_hypo.get("revalo_loyer_pct", MARKET.revalo_loyer_pct),
+            inflation_charges_pct=market_hypo.get("inflation_charges_pct", MARKET.inflation_charges_pct),
         )
         tx = TaxParams(tmi_pct=tmi, regime_fiscal=regime)
         ir = IRACalculator(
-            apply_ira=credit_params.get("apply_ira", True),
-            ira_cap_pct=credit_params.get("ira_cap_pct", 3.0),
+            apply_ira=credit_params.get("apply_ira", FINANCING.apply_ira),
+            ira_cap_pct=credit_params.get("ira_cap_pct", FINANCING.ira_cap_pct),
         )
         eng = SimulationEngine(
             market=mk,

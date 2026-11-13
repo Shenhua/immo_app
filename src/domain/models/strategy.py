@@ -10,6 +10,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field, computed_field
 
+from src.core.defaults import FINANCING, MARKET, OPERATING, TAX
+
 
 class PortfolioStrategy(BaseModel):
     """Investment strategy combining multiple property bricks.
@@ -80,23 +82,23 @@ class SimulationParams(BaseModel):
     horizon_years: int = Field(default=25, ge=1, le=50, description="Simulation horizon in years")
 
     # Market hypotheses
-    inflation_pct: float = Field(default=2.0, description="Annual inflation %")
-    hausse_loyers_pct: float = Field(default=1.5, description="Annual rent increase %")
-    hausse_prix_immo_pct: float = Field(default=2.0, description="Annual property price increase %")
-    hausse_charges_pct: float = Field(default=2.0, description="Annual charges increase %")
+    inflation_pct: float = Field(default=MARKET.inflation_charges_pct, description="Annual inflation %")
+    hausse_loyers_pct: float = Field(default=MARKET.revalo_loyer_pct, description="Annual rent increase %")
+    hausse_prix_immo_pct: float = Field(default=MARKET.appreciation_bien_pct, description="Annual property price increase %")
+    hausse_charges_pct: float = Field(default=MARKET.inflation_charges_pct, description="Annual charges increase %")
 
     # Tax parameters
-    tmi_pct: float = Field(default=30.0, ge=0, le=45, description="Marginal tax rate %")
-    regime_fiscal: str = Field(default="lmnp", description="Tax regime: lmnp, micro_bic")
-    micro_bic_abatt_pct: float = Field(default=50.0, description="Micro-BIC abatement %")
+    tmi_pct: float = Field(default=TAX.tmi_pct, ge=0, le=45, description="Marginal tax rate %")
+    regime_fiscal: str = Field(default=TAX.regime_fiscal, description="Tax regime: lmnp, micro_bic")
+    micro_bic_abatt_pct: float = Field(default=TAX.micro_bic_abatt_pct, description="Micro-BIC abatement %")
 
     # Costs
-    frais_vente_pct: float = Field(default=6.0, description="Sale costs %")
-    cfe_par_bien_ann: float = Field(default=500.0, description="Annual CFE per property")
+    frais_vente_pct: float = Field(default=TAX.frais_vente_pct, description="Sale costs %")
+    cfe_par_bien_ann: float = Field(default=OPERATING.cfe_par_bien_ann, description="Annual CFE per property")
 
     # IRA (early repayment)
-    apply_ira: bool = Field(default=True, description="Apply early repayment penalties")
-    ira_cap_pct: float = Field(default=3.0, description="IRA cap as % of remaining capital")
+    apply_ira: bool = Field(default=FINANCING.apply_ira, description="Apply early repayment penalties")
+    ira_cap_pct: float = Field(default=FINANCING.ira_cap_pct, description="IRA cap as % of remaining capital")
 
     model_config = {
         "extra": "allow",

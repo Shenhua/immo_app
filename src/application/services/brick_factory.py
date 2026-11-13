@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from src.core.defaults import FINANCING, OPERATING
 from src.core.logging import get_logger
 from src.domain.calculator.financial import calculate_total_monthly_payment
 from src.domain.calculator.scoring import calculate_property_qualitative_score
@@ -20,22 +21,22 @@ log = get_logger(__name__)
 class FinancingConfig:
     """Configuration for financing parameters."""
     credit_rates: dict[int, float]  # duration -> rate
-    frais_notaire_pct: float = 7.5
-    apport_min_pct: float = 10.0
-    assurance_ann_pct: float = 0.36
-    frais_pret_pct: float = 1.0
-    inclure_travaux: bool = True
-    inclure_reno_ener: bool = True
-    inclure_mobilier: bool = True
-    financer_mobilier: bool = True
+    frais_notaire_pct: float = FINANCING.frais_notaire_pct
+    apport_min_pct: float = FINANCING.apport_min_pct
+    assurance_ann_pct: float = FINANCING.assurance_ann_pct
+    frais_pret_pct: float = FINANCING.frais_pret_pct
+    inclure_travaux: bool = FINANCING.inclure_travaux
+    inclure_reno_ener: bool = FINANCING.inclure_reno_ener
+    inclure_mobilier: bool = FINANCING.inclure_mobilier
+    financer_mobilier: bool = FINANCING.financer_mobilier
 
 
 @dataclass
 class OperatingConfig:
     """Configuration for operating costs."""
-    frais_gestion_pct: float = 5.0
-    provision_pct: float = 5.0
-    cfe_par_bien_ann: float = 150.0
+    frais_gestion_pct: float = OPERATING.gestion_pct
+    provision_pct: float = OPERATING.provision_pct
+    cfe_par_bien_ann: float = OPERATING.cfe_par_bien_ann
 
 
 def create_investment_bricks(

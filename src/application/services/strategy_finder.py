@@ -12,6 +12,16 @@ from dataclasses import dataclass, field
 from math import isfinite
 from typing import Any
 
+from src.core.defaults import (
+    BASE_WEIGHTS,
+    DEFAULT_PRESET,
+    FINANCING,
+    MARKET,
+    OPERATING,
+    SEARCH,
+    TAX,
+    PresetId,
+)
 from src.core.logging import get_logger
 from src.domain.models.brick import InvestmentBrick
 
@@ -21,59 +31,51 @@ from .optimizer import ExhaustiveOptimizer, GeneticOptimizer
 log = get_logger(__name__)
 
 
-# Base financial scoring weights
-BASE_WEIGHTS = {
-    "enrich_net": 0.30,
-    "irr": 0.25,
-    "cf_proximity": 0.20,
-    "dscr": 0.15,
-    "cap_eff": 0.10,
-}
 
 
 @dataclass
 class EvaluationParams:
     """Parameters for strategy evaluation."""
 
-    duree_simulation_ans: int = 25
+    duree_simulation_ans: int = SEARCH.horizon_ans
     hypotheses_marche: dict[str, float] = field(default_factory=lambda: {
-        "appreciation_bien_pct": 2.0,
-        "revalo_loyer_pct": 1.5,
-        "inflation_charges_pct": 2.0,
+        "appreciation_bien_pct": MARKET.appreciation_bien_pct,
+        "revalo_loyer_pct": MARKET.revalo_loyer_pct,
+        "inflation_charges_pct": MARKET.inflation_charges_pct,
     })
-    regime_fiscal: str = "lmnp"
-    tmi_pct: float = 30.0
-    frais_vente_pct: float = 6.0
-    cfe_par_bien_ann: float = 150.0
-    apply_ira: bool = True
-    ira_cap_pct: float = 3.0
+    regime_fiscal: str = TAX.regime_fiscal
+    tmi_pct: float = TAX.tmi_pct
+    frais_vente_pct: float = TAX.frais_vente_pct
+    cfe_par_bien_ann: float = OPERATING.cfe_par_bien_ann
+    apply_ira: bool = FINANCING.apply_ira
+    ira_cap_pct: float = FINANCING.ira_cap_pct
     finance_weights_override: dict[str, float] | None = None
-    finance_preset_name: str = "Équilibré (défaut)"
+    finance_preset_name: str = DEFAULT_PRESET.label
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> EvaluationParams:
         return cls(
-            duree_simulation_ans=d.get("duree_simulation_ans", 25),
+            duree_simulation_ans=d.get("duree_simulation_ans", SEARCH.horizon_ans),
             hypotheses_marche=d.get("hypotheses_marche") or {
-                "appreciation_bien_pct": 2.0,
-                "revalo_loyer_pct": 1.5,
-                "inflation_charges_pct": 2.0,
+                "appreciation_bien_pct": MARKET.appreciation_bien_pct,
+                "revalo_loyer_pct": MARKET.revalo_loyer_pct,
+                "inflation_charges_pct": MARKET.inflation_charges_pct,
             },
-            regime_fiscal=d.get("regime_fiscal", "lmnp"),
-            tmi_pct=d.get("tmi_pct", 30.0),
-            frais_vente_pct=d.get("frais_vente_pct", 6.0),
-            cfe_par_bien_ann=d.get("cfe_par_bien_ann", 500.0),
-            apply_ira=d.get("apply_ira", True),
-            ira_cap_pct=d.get("ira_cap_pct", 3.0),
+            regime_fiscal=d.get("regime_fiscal", TAX.regime_fiscal),
+            tmi_pct=d.get("tmi_pct", TAX.tmi_pct),
+            frais_vente_pct=d.get("frais_vente_pct", TAX.frais_vente_pct),
+            cfe_par_bien_ann=d.get("cfe_par_bien_ann", OPERATING.cfe_par_bien_ann),
+            apply_ira=d.get("apply_ira", FINANCING.apply_ira),
+            ira_cap_pct=d.get("ira_cap_pct", FINANCING.ira_cap_pct),
             finance_weights_override=d.get("finance_weights_override"),
-            finance_preset_name=d.get("finance_preset_name", "Équilibré (défaut)"),
+            finance_preset_name=d.get("finance_preset_name", DEFAULT_PRESET.label),
         )
 
 
 class StrategyScorer:
     """Scores strategies based on financial and qualitative metrics."""
 
-    def __init__(self, qualite_weight: float = 0.25, weights: dict[str, float] | None = None):
+    def __init__(self, qualite_weight: float = SEARCH.qualite_weight, weights: dict[str, float] | None = None):
         self.qualite_weight = max(0.0, min(1.0, qualite_weight))
         self.weights = self._normalize_weights(weights or BASE_WEIGHTS)
 
@@ -221,7 +223,7 @@ class StrategyFinder:
         apport_disponible: float,
         cash_flow_cible: float,
         tolerance: float = 100.0,
-        qualite_weight: float = 0.25,
+        qualite_weight: float = SEARCH.qualite_weight,
         mode_cf: str = "target",
         max_properties: int = 3,
     ):
@@ -602,7 +604,7 @@ class StrategyFinder:
     def rank_strategies(
         self,
         strategies: list[dict[str, Any]],
-        preset_name: str = "Équilibré (défaut)",
+        preset_name: PresetId | str = DEFAULT_PRESET,
         top_n: int = 10,
     ) -> list[dict[str, Any]]:
         """Sort strategies by preset priority.
@@ -612,7 +614,7 @@ class StrategyFinder:
         - Secondary: Preset-specific tiebreaker metric
         - Tertiary: CF proximity (closer to target is better)
         """
-        name = preset_name.lower()
+        preset = PresetId.parse(preset_name)
 
         def sort_key(x: dict[str, Any]) -> tuple:
             # CRITICAL FIX: Always prioritize Tier first!
@@ -626,20 +628,19 @@ class StrategyFinder:
             finance = x.get("finance_score", 0)
             balanced = x.get("balanced_score", 0)
 
-            # Match French preset names
-            if "sécurité" in name or "dscr" in name:
+            if preset is PresetId.SECURITY:
                 # Safety profile: prioritize DSCR, then finance_score
                 return (tier_score, x.get("dscr_norm", 0), finance, cf_prox)
 
-            if "rendement" in name or "irr" in name:
+            if preset is PresetId.IRR:
                 # IRR profile: prioritize TRI, then finance_score
                 return (tier_score, x.get("tri_norm", 0), finance, cf_prox)
 
-            if "cash" in name:
+            if preset is PresetId.CASHFLOW:
                 # Cash-flow profile: prioritize CF proximity, then DSCR for safety
                 return (tier_score, cf_prox, x.get("dscr_norm", 0), finance)
 
-            if "patrimoine" in name:
+            if preset is PresetId.WEALTH:
                 # Wealth-building profile: prioritize enrichment, then IRR
                 return (tier_score, x.get("enrich_norm", 0), x.get("tri_norm", 0), balanced)
 

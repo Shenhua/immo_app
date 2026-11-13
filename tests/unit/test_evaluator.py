@@ -127,7 +127,7 @@ class TestStrategyEvaluatorInit:
     def test_quality_weight_default(self, mock_simulator):
         """Test default quality weight when no scorer."""
         evaluator = StrategyEvaluator(mock_simulator)
-        assert evaluator.quality_weight == 0.5
+        assert evaluator.quality_weight == 0.25  # T10: aligned with scoring.py / defaults.SEARCH
 
     def test_mode_cf_from_allocator(self, evaluator):
         """Test mode_cf from allocator."""

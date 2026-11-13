@@ -11,6 +11,8 @@ from typing import Any, TypeVar
 
 import streamlit as st
 
+from src.core.defaults import DEFAULT_PRESET, FINANCING, MARKET, OPERATING, SEARCH, TAX
+
 T = TypeVar("T")
 
 
@@ -56,63 +58,63 @@ def init_state(defaults: dict[str, Any]) -> None:
 class BaseParams:
     """Base simulation parameters from sidebar."""
 
-    apport_disponible: float = 100000.0
-    cash_flow_cible: float = -100.0
-    tolerance: float = 50.0
+    apport_disponible: float = SEARCH.apport
+    cash_flow_cible: float = SEARCH.cf_cible
+    tolerance: float = SEARCH.tolerance
     mode_cf: str = "target"
-    qualite_weight: float = 0.5
-    horizon_ans: int = 25
+    qualite_weight: float = SEARCH.qualite_weight
+    horizon_ans: int = SEARCH.horizon_ans
 
     # Credit
-    taux_credits: dict[int, float] = field(default_factory=lambda: {15: 3.2, 20: 3.4, 25: 3.6})
-    frais_notaire_pct: float = 7.5
-    assurance_ann_pct: float = 0.35
-    frais_pret_pct: float = 1.0
+    taux_credits: dict[int, float] = field(default_factory=lambda: FINANCING.taux_credits)
+    frais_notaire_pct: float = FINANCING.frais_notaire_pct
+    assurance_ann_pct: float = FINANCING.assurance_ann_pct
+    frais_pret_pct: float = FINANCING.frais_pret_pct
 
     # Costs inclusion
-    inclure_travaux: bool = True
-    inclure_reno_ener: bool = True
-    inclure_mobilier: bool = True
-    financer_mobilier: bool = True
+    inclure_travaux: bool = FINANCING.inclure_travaux
+    inclure_reno_ener: bool = FINANCING.inclure_reno_ener
+    inclure_mobilier: bool = FINANCING.inclure_mobilier
+    financer_mobilier: bool = FINANCING.financer_mobilier
 
     # IRA
-    apply_ira: bool = True
-    ira_cap_pct: float = 3.0
+    apply_ira: bool = FINANCING.apply_ira
+    ira_cap_pct: float = FINANCING.ira_cap_pct
 
     # Fiscal
-    frais_gestion_pct: float = 0.0
-    provision_pct: float = 5.0
-    cfe_par_bien_ann: float = 150.0
-    regime_fiscal: str = "lmnp"
-    tmi_pct: float = 30.0
-    micro_bic_abatt_pct: float = 50.0
-    frais_vente_pct: float = 6.0
+    frais_gestion_pct: float = OPERATING.gestion_pct
+    provision_pct: float = OPERATING.provision_pct
+    cfe_par_bien_ann: float = OPERATING.cfe_par_bien_ann
+    regime_fiscal: str = TAX.regime_fiscal
+    tmi_pct: float = TAX.tmi_pct
+    micro_bic_abatt_pct: float = TAX.micro_bic_abatt_pct
+    frais_vente_pct: float = TAX.frais_vente_pct
 
     # Market
-    appreciation: float = 2.0
-    revalo: float = 1.5
-    inflation: float = 2.0
+    appreciation: float = MARKET.appreciation_bien_pct
+    revalo: float = MARKET.revalo_loyer_pct
+    inflation: float = MARKET.inflation_charges_pct
 
     @classmethod
     def from_session_state(cls) -> BaseParams:
         """Create BaseParams from current session state."""
         return cls(
-            apport_disponible=get_state("apport_disponible", 100000.0),
-            cash_flow_cible=get_state("cash_flow_cible", -100.0),
-            tolerance=get_state("tolerance", 50.0),
+            apport_disponible=get_state("apport_disponible", SEARCH.apport),
+            cash_flow_cible=get_state("cash_flow_cible", SEARCH.cf_cible),
+            tolerance=get_state("tolerance", SEARCH.tolerance),
             mode_cf=get_state("mode_cf", "target"),
-            qualite_weight=get_state("qualite_weight", 0.5),
-            horizon_ans=get_state("horizon_ans", 25),
-            taux_credits=get_state("taux_credits", {15: 3.2, 20: 3.4, 25: 3.6}),
-            frais_notaire_pct=get_state("frais_notaire_pct", 7.5),
-            assurance_ann_pct=get_state("assurance_ann_pct", 0.35),
-            apply_ira=get_state("apply_ira", True),
-            ira_cap_pct=get_state("ira_cap_pct", 3.0),
-            regime_fiscal=get_state("regime_fiscal", "lmnp"),
-            tmi_pct=get_state("tmi_pct", 30.0),
-            appreciation=get_state("appreciation", 2.0),
-            revalo=get_state("revalo", 1.5),
-            inflation=get_state("inflation", 2.0),
+            qualite_weight=get_state("qualite_weight", SEARCH.qualite_weight),
+            horizon_ans=get_state("horizon_ans", SEARCH.horizon_ans),
+            taux_credits=get_state("taux_credits", FINANCING.taux_credits),
+            frais_notaire_pct=get_state("frais_notaire_pct", FINANCING.frais_notaire_pct),
+            assurance_ann_pct=get_state("assurance_ann_pct", FINANCING.assurance_ann_pct),
+            apply_ira=get_state("apply_ira", FINANCING.apply_ira),
+            ira_cap_pct=get_state("ira_cap_pct", FINANCING.ira_cap_pct),
+            regime_fiscal=get_state("regime_fiscal", TAX.regime_fiscal),
+            tmi_pct=get_state("tmi_pct", TAX.tmi_pct),
+            appreciation=get_state("appreciation", MARKET.appreciation_bien_pct),
+            revalo=get_state("revalo", MARKET.revalo_loyer_pct),
+            inflation=get_state("inflation", MARKET.inflation_charges_pct),
         )
 
     def to_eval_params(self) -> dict[str, Any]:
@@ -143,14 +145,14 @@ class SessionManager:
         "show_comparison": False,
         "analysis_run": False,
         "archetypes_source_label": "",
-        "finance_preset": "Équilibré (défaut)",
+        "finance_preset": DEFAULT_PRESET.label,
         "finance_custom": None,
-        "horizon_ans": 25,
-        "appreciation": 2.0,
-        "revalo": 1.5,
-        "inflation": 2.0,
-        "apply_ira": True,
-        "ira_cap_pct": 3.0,
+        "horizon_ans": SEARCH.horizon_ans,
+        "appreciation": MARKET.appreciation_bien_pct,
+        "revalo": MARKET.revalo_loyer_pct,
+        "inflation": MARKET.inflation_charges_pct,
+        "apply_ira": FINANCING.apply_ira,
+        "ira_cap_pct": FINANCING.ira_cap_pct,
         "show_details": False, # New state for Details Panel visibility
     }
 
@@ -219,7 +221,7 @@ class SessionManager:
     @classmethod
     def get_horizon(cls) -> int:
         """Get current horizon in years."""
-        return get_state("horizon_ans", 25)
+        return get_state("horizon_ans", SEARCH.horizon_ans)
 
     @classmethod
     def set_horizon(cls, horizon: int) -> None:
@@ -229,4 +231,4 @@ class SessionManager:
     @classmethod
     def is_ira_enabled(cls) -> bool:
         """Check if IRA is enabled."""
-        return get_state("apply_ira", True)
+        return get_state("apply_ira", FINANCING.apply_ira)

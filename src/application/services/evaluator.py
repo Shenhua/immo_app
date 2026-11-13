@@ -8,6 +8,7 @@ from typing import Any
 
 import structlog
 
+from src.core.defaults import BASE_WEIGHTS, SEARCH
 from src.core.glossary import calculate_cashflow_metrics, calculate_enrichment_metrics
 from src.domain.calculator.financial import generate_amortization_schedule
 from src.domain.calculator.scoring import calculate_qualitative_score
@@ -27,13 +28,7 @@ class StrategyEvaluator:
     """
 
     # Default scoring weights (from scoring_constants)
-    DEFAULT_WEIGHTS = {
-        "irr": 0.20,
-        "enrich_net": 0.25,
-        "dscr": 0.15,
-        "cf_proximity": 0.30,
-        "cap_eff": 0.10
-    }
+    DEFAULT_WEIGHTS = BASE_WEIGHTS
 
     def __init__(
         self,
@@ -65,7 +60,7 @@ class StrategyEvaluator:
         """Get quality vs finance weighting."""
         if self.scorer and hasattr(self.scorer, 'qualite_weight'):
             return self.scorer.qualite_weight
-        return 0.5
+        return SEARCH.qualite_weight
 
     @property
     def mode_cf(self) -> str:

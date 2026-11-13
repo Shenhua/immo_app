@@ -23,12 +23,15 @@ def pytest_configure(config):
     global _session_log_dir
     _session_log_dir = tempfile.mkdtemp(prefix="app_immo_test_logs_")
     os.environ["APP_LOG_DIR"] = _session_log_dir
+    # src/core/defaults.py reads APP_RESULTS_DIR once at import: keep it out of the repo too.
+    os.environ["APP_RESULTS_DIR"] = os.path.join(_session_log_dir, "results")
 
 
 def pytest_unconfigure(config):
     if _session_log_dir:
         shutil.rmtree(_session_log_dir, ignore_errors=True)
     os.environ.pop("APP_LOG_DIR", None)
+    os.environ.pop("APP_RESULTS_DIR", None)
 
 
 @pytest.fixture(autouse=True)
