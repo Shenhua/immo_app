@@ -64,3 +64,6 @@ history/
 
 # Auto-generated results
 results/
+
+# Agent worktrees
+.claude/worktrees/

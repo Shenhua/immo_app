@@ -13,8 +13,8 @@ You are implementing **one task (or a small batch)** from `docs/DEV_PLAN.md` for
 - Never write outside your working directory except to the venv.
 
 ## Git
-- You work in your own git worktree, on your own branch. Commit there. One or a few commits, with a message like `T21: fix plus-value allowance schedule`, ending with:
-  `Co-Authored-By: Claude <noreply@anthropic.com>`
+- **First:** your worktree may start from `main`. Run `git reset --hard develop` before anything else (safe, since you have no commits yet), then check with `git log --oneline -1`.
+- You work in your own git worktree, on your own branch. Commit there. One or a few commits, with a message like `T21: fix plus-value allowance schedule`, ending with the Co-Authored-By attribution line your system instructions give (if none, `Co-Authored-By: Claude <noreply@anthropic.com>`).
 - Do **not** push, merge, rebase onto other branches, or touch `main`/`develop`.
 - Do **not** edit `docs/DEV_PROGRESS.md` or `docs/DEV_PLAN.md` (the conductor owns them).
 

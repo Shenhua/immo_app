@@ -26,13 +26,13 @@ Legend: todo · running · done · blocked · skipped
 
 | Task | Model | Status | Branch / commit | Notes |
 |---|---|---|---|---|
-| T01 lint baseline | Haiku | todo | | |
-| T02 repo hygiene | Haiku | todo | | batch with T03, T04 |
-| T03 packaging | Haiku | todo | | |
-| T04 CI and Docker | Haiku | todo | | |
-| T05 hide broken options | Haiku | todo | | batch with T06, T12 |
-| T06 disk side effects | Haiku | todo | | |
-| T12 layering cleanup | Haiku | todo | | |
+| T01 lint baseline | Haiku | done | 4454fb9 (merge 0e3ed0f) | ruff 124 to 0 errors |
+| T02 repo hygiene | Haiku | running | | batch with T03, T04 |
+| T03 packaging | Haiku | running | | |
+| T04 CI and Docker | Haiku | running | | |
+| T05 hide broken options | Haiku | running | | batch with T06, T12 |
+| T06 disk side effects | Haiku | running | | |
+| T12 layering cleanup | Haiku | running | | |
 | T10 central defaults | Sonnet | todo | | |
 | T11 RunContext | Sonnet | todo | | |
 | T20 tax spec + golden | Opus | todo | | needs user approval |
@@ -69,6 +69,12 @@ Legend: todo · running · done · blocked · skipped
 ## Conductor notes (carry into later prompts)
 - Project venv: `/Users/mperrier/immo_app/.venv` (Python 3.15; 209 tests green at the start).
 - No API access for real data: T66 is file-based (see plan).
+- **Worktrees are created from `main`, not `develop`.** Every agent prompt must begin with: run `git reset --hard develop` in your worktree (safe, no commits yet).
+- After T01: `tests/verification_fixtures.py` and `tests/verification_scenarios.py` import modules that no longer exist (`src.core.simulation`, `src.services.*`). Assigned to T02: fix the paths, or delete them if they duplicate the golden tests.
+- After T01: `src/core/__init__.py` imports from the application layer (isort moved it first). T12 must remove it.
+- After T01: `test_audit_remediation.py::test_combinatorial_explosion_safety` doesn't test what its name says. Revisit in T50.
+- `ruff format` not applied (45 files would be reformatted). Optional later; skip it to avoid merge churn.
 
 ## Log
 - 2026-11-13: Plan written, `develop` branch created, venv set up. Starting W1.
+- 2026-11-13: T01 merged (0e3ed0f). Starting W2.
