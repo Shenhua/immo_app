@@ -35,8 +35,8 @@ Legend: todo · running · done · blocked · skipped
 | T12 layering cleanup | Haiku | done | 323b1c4 | also fixed `import app` crash | |
 | T10 central defaults | Sonnet | done | d9e7440 | | |
 | T11 RunContext | Sonnet | done | 8bd0deb | | |
-| T20 tax spec + golden | Opus | done | 7e1b60c | **awaiting user approval of §11 points** | | needs user approval |
-| T22 amortization + land | Sonnet | todo | | |
+| T20 tax spec + golden | Opus | done | 7e1b60c | approved by the user (TAX_SPEC §11b) | | needs user approval |
+| T22 amortization + land | Sonnet | running | | |
 | T21 plus-value | Sonnet | todo | | |
 | T24 wealth/IRR/CFE | Sonnet | todo | | |
 | T23 tax regime engine | Opus | todo | | after T20 approved |
@@ -44,7 +44,7 @@ Legend: todo · running · done · blocked · skipped
 | T26a realistic assumptions | Sonnet | todo | | after T23 |
 | T26b data recalibration | Sonnet | done | ee96023 | TF/charges/caps unverified | | web research |
 | Gate P2 review | Opus | todo | | |
-| T30 CF mode ranking | Sonnet | running | | |
+| T30 CF mode ranking | Sonnet | done | 75e0e0f | | |
 | T31 search rewrite | Opus | todo | | |
 | T32 absolute scoring + Pareto | Sonnet | todo | | |
 | T33 near misses | Sonnet | todo | | |
@@ -117,6 +117,15 @@ Legend: todo · running · done · blocked · skipped
     - PS 18.6% on LMNP income, 17.2% on revenus fonciers and plus-values;
     - micro-BIC ceiling 83,600 €;
     - 21,400 € déficit foncier cap until 2027.
+- After T30:
+  - `glossary.cf_accepts` and `glossary.cf_penalty` are the single source for CF acceptance.
+  - In min mode, tolerance no longer applies to acceptance. T43 should hide the tolerance input in min mode.
+  - `StrategyScorer` defaults `mode_cf` to "target", while `RunContext` defaults to "min". Align them in T32.
+- User decisions on the tax spec are in TAX_SPEC §11b:
+  - CFE default 300 € → T24;
+  - `nb_owners` → T21;
+  - SCI IS PFU at exit → T23;
+  - Jeanbrun → T68.
 - `ruff format` not applied (45 files would be reformatted). Optional later; skip it to avoid merge churn.
 
 ## Log
@@ -129,3 +138,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-13: T40 merged, 254 tests. T26b launched.
 - 2026-11-13: T26b merged. T30 launched (T20 still running).
 - 2026-11-13: T20 merged. Waiting for the user to decide on the TAX_SPEC §11 points before T21–T25.
+- 2026-11-13: The user approved the spec (§11b). T30 merged, 275 tests. T22 launched (Phase 2 sequence: T22 → T21 → T24 → T23 → T25).

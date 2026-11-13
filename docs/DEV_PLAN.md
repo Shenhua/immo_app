@@ -395,6 +395,8 @@ Goal: numbers you can trust.
 | T66b | **Real-data pipeline build** | Sonnet | T66a | Implement the T66a design as `scripts/build_archetypes.py` with tests and small fixtures (no network). Add a "source" label per brick and an upload widget in the UI for the listings CSV. |
 | T67 | **Hosting** | Sonnet | T06, T65 | Streamlit auth (OIDC), per-user storage, a rate limit on search, deployment docs. |
 
+| T68 | **Dispositif Jeanbrun regime** | Opus | T23 | New amortization regime for unfurnished lets (LF 2026). Wait until the decrees are published and the annual cap is settled. See TAX_SPEC §11 point 13. |
+
 **Suggested Phase 6 order:**
 1. T60 and T61 (they change which results are valid)
 2. T62

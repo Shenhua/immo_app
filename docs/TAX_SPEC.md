@@ -331,6 +331,13 @@ Item 21 was not in the plan. It is a small bias: −2 % on the sale price at g =
 14. **SCI IS distribution model**: PFU on the boni at exit (default on). Or do you prefer yearly distributions?
 15. **Residence-services exception**: the exact list (students, seniors, elderly or disabled people) and its CCH reference (L631-12 according to a law firm) were not verified in the text of CGI 150 VB III, which was not readable here.
 
+## 11b. User decisions (2026-11-13)
+- **Points 1–8, 10, 11, 12, 15:** adopted as written in this spec (the user was offered the defaults and raised no objection). Revisit if the law or BOFiP clarifies.
+- **Point 8, CFE default:** **300 €/yr per furnished property**, with the year-1 exemption and the exemption below 5,000 € of receipts applied automatically. Unfurnished properties: none.
+- **Point 9, co-owners:** add a parameter `nb_owners ∈ {1, 2}` (default 1). The gain is split by owner for the surtax threshold only.
+- **Point 13, Jeanbrun:** out of scope for now; tracked as a later task (T68).
+- **Point 14, SCI IS:** profits are capitalised. PFU (31.4 %) applies once, on the liquidation boni at exit. No yearly distributions.
+
 ## 12. Sources
 - Légifrance, LFSS 2026 (loi 2025-1403 du 30/12/2025) art. 12: https://www.legifrance.gouv.fr/jorf/article_jo/JORFARTI000053226452
 - impots.gouv, "Principales nouveautés revenus 2025" (CSG 10.6 %, exclusions, micro-BIC Le Meur): https://www.impots.gouv.fr/www2/fichiers/documentation/brochure/ir_2026/pdf_som/nouveautes.pdf
