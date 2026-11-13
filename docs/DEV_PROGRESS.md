@@ -34,7 +34,7 @@ Legend: todo · running · done · blocked · skipped
 | T06 disk side effects | Haiku | done | fbed6a5 | |
 | T12 layering cleanup | Haiku | done | 323b1c4 | also fixed `import app` crash | |
 | T10 central defaults | Sonnet | done | d9e7440 | | |
-| T11 RunContext | Sonnet | running | | |
+| T11 RunContext | Sonnet | done | 8bd0deb | | |
 | T20 tax spec + golden | Opus | running | | needs user approval |
 | T22 amortization + land | Sonnet | todo | | |
 | T21 plus-value | Sonnet | todo | | |
@@ -49,7 +49,7 @@ Legend: todo · running · done · blocked · skipped
 | T32 absolute scoring + Pareto | Sonnet | todo | | |
 | T33 near misses | Sonnet | todo | | |
 | T34 Rentier mode | Sonnet | todo | | |
-| T40 results UI batch | Haiku | todo | | |
+| T40 results UI batch | Haiku | running | | |
 | T41 sensitivity rewrite | Sonnet | todo | | |
 | T42 caching | Sonnet | todo | | |
 | T43 validation and UX | Sonnet | todo | | |
@@ -93,6 +93,12 @@ Legend: todo · running · done · blocked · skipped
   - Defaults were aligned to the sidebar values: CFE 150, quality_weight 0.25, BASE_WEIGHTS = the Équilibré preset.
   - Insurance 0.36 still appears in `financial.py` and `brick.py`, and the evaluator has `w.get(..., 0.25)` fallbacks. Clean these up in T25.
   - Session keys `cf_cible` and `cash_flow_cible` are inconsistent. T11 resolves this.
+- After T11:
+  - `src/application/run_context.py`: frozen `RunContext` with `from_sidebar`, `to_eval_params`, `to_tax_params` and the other views.
+  - app.py stores the context with the results, and the stale banner works.
+  - `BaseParams` and `get_base_params` are removed.
+  - `app_controller.run_strategy_search(archetypes, ctx, cb)` and `simulate_selected_strategy(strategy, ctx)`.
+  - Leftovers for T40: the sidebar reads unused session keys `cf_cible`/`apport`; `SessionManager.set_horizon` and `is_ira_enabled` are unused; `render_debug_section` gets the raw dict.
 - `ruff format` not applied (45 files would be reformatted). Optional later; skip it to avoid merge churn.
 
 ## Log
@@ -101,3 +107,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-13: T05/T06/T12 merged (1ba95b1), 233 tests. T20 launched while T02-T04 still run.
 - 2026-11-13: T02–T04 merged; Phase 0 complete. T10 launched (T20 still running).
 - 2026-11-13: T10 merged, 246 tests. T11 launched.
+- 2026-11-13: T11 merged, 247 tests. T40 launched (T20 still running).
