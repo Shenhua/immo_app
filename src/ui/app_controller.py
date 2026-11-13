@@ -79,7 +79,7 @@ def load_archetypes() -> list[dict[str, Any]]:
     try:
         archetypes = SessionManager.get_archetypes()
         if not archetypes:
-            path = os.path.join(os.path.dirname(__file__), "../../data/archetypes_recale_2025_v2.json")
+            path = os.path.join(os.path.dirname(__file__), "../../data/archetypes_2026_v1.json")
             path = os.path.normpath(path)
             archetypes = load_archetypes_from_disk(path)
             SessionManager.set_archetypes(archetypes)
