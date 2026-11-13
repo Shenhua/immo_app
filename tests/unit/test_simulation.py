@@ -8,6 +8,7 @@ from src.application.services.simulation import (
     TaxParams,
     YearResult,
 )
+from src.domain.tax import RegimeId
 
 
 class TestMarketHypotheses:
@@ -32,32 +33,22 @@ class TestMarketHypotheses:
 class TestTaxParams:
     """Tests for TaxParams."""
 
-    def test_lmnp_tax_calculation(self):
-        """LMNP real should use amortization deductions."""
-        tax = TaxParams(tmi_pct=30.0, regime_fiscal="lmnp")
+    def test_maps_to_one_regime_per_category(self):
+        """regime_fiscal is the furnished regime, regime_foncier the unfurnished one (TAX_SPEC 8)."""
+        cfg = TaxParams(tmi_pct=30.0, regime_fiscal="microbic", regime_foncier="micro").to_config()
+        assert cfg.furnished_regime is RegimeId.MICRO_BIC
+        assert cfg.unfurnished_regime is RegimeId.MICRO_FONCIER
+        assert not cfg.sci_is
 
-        impot, deficit, ard, base = tax.calculate_tax(
-            loyers_bruts=10000,
-            charges_deductibles=3000,
-            amortissements=5000,
-        )
+    def test_legacy_sci_is_value_sets_flag(self):
+        tax = TaxParams(regime_fiscal="sci_is")
+        assert tax.sci_is and tax.to_config().sci_is
 
-        # 10000 - 3000 - 5000 = 2000 base
-        assert base == 2000.0
-        assert impot > 0
-
-    def test_microbic_tax_calculation(self):
-        """Micro-BIC should use 50% abatement."""
-        tax = TaxParams(regime_fiscal="microbic", micro_bic_abatt_pct=50.0)
-
-        impot, deficit, ard, base = tax.calculate_tax(
-            loyers_bruts=10000,
-            charges_deductibles=3000,  # ignored in micro-bic
-            amortissements=5000,  # ignored in micro-bic
-        )
-
-        # 10000 * (1 - 0.50) = 5000 base
-        assert base == 5000.0
+    def test_unknown_regime_rejected(self):
+        with pytest.raises(ValueError):
+            TaxParams(regime_fiscal="pinel").to_config()
+        with pytest.raises(ValueError):
+            TaxParams(regime_foncier="lmnp").to_config()
 
 
 class TestIRACalculator:
@@ -188,7 +179,8 @@ def test_cfe_furnished_only_year1_exempt_and_indexed():
 def test_cfe_exempt_below_5000_receipts():
     df, _ = _t24_run(_t24_strategy(True, rent=300.0))  # 3,600 EUR/yr, rent growth keeps it below 5,000
     df_nu, _ = _t24_run(_t24_strategy(False, rent=300.0))
-    assert df["Cash-Flow Net d'Impôt"].tolist() == pytest.approx(df_nu["Cash-Flow Net d'Impôt"].tolist())
+    # Compare charges, not after-tax CF: since T23 the unfurnished twin is taxed under revenus fonciers.
+    assert df["Charges Déductibles"].tolist() == pytest.approx(df_nu["Charges Déductibles"].tolist())
 
 
 def test_wealth_includes_cash_flows():

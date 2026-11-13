@@ -17,6 +17,7 @@ from src.domain.calculator.financial import (
     calculate_monthly_payment,
     generate_amortization_schedule,
 )
+from src.domain.tax import LmnpReel, TaxState, YearContext
 
 
 class TestGoldenLoanCalculations:
@@ -206,6 +207,13 @@ class TestGoldenSimulation:
         assert abs(final_value - expected_final) < 100, f"Expected ~{expected_final:.0f}, got {final_value:.0f}"
 
 
+def _ctx(rent: float, charges: float, amort: float) -> YearContext:
+    return YearContext(
+        year=1, property_id=0, rent=rent, operating_charges=charges, interest=0.0, loan_insurance=0.0,
+        amort_building=amort,
+    )
+
+
 class TestLMNPTaxCalculation:
     """Golden tests for LMNP tax calculations."""
 
@@ -220,12 +228,12 @@ class TestLMNPTaxCalculation:
         Resultat = 10,000 - 3,000 - 8,000 = -1,000 (deficit)
         Tax = 0
         """
-        tax = TaxParams(tmi_pct=30.0, regime_fiscal="lmnp")
-        impot, deficit, ard, base = tax.calculate_tax(10_000, 3_000, 8_000)
+        state = TaxState()
+        res = LmnpReel(tmi_pct=30.0).compute_year(1, [_ctx(10_000, 3_000, 8_000)], state)
 
-        assert impot == 0.0, f"Expected 0 tax, got {impot:.2f}"
-        assert deficit == 0.0, "Should NOT have reportable deficit (rents > charges)"
-        assert ard > 0, "Should have deferred amortization"
+        assert res.total == 0.0, f"Expected 0 tax, got {res.total:.2f}"
+        assert state.deficits.total == 0.0, "Should NOT have reportable deficit (rents > charges)"
+        assert state.prop(0).ard > 0, "Should have deferred amortization"
 
     def test_lmnp_tax_with_profit(self):
         """
@@ -236,13 +244,12 @@ class TestLMNPTaxCalculation:
         Amortization: 3,000€
 
         Base = 10,000 - 2,000 - 3,000 = 5,000€
-        Tax = 5,000 × (30% + 17.2%) = 2,360€
+        Tax = 5,000 × (30% + 18.6% PS on BIC income, LFSS 2026) = 2,430€
         """
-        tax = TaxParams(tmi_pct=30.0, regime_fiscal="lmnp")
-        impot, deficit, ard, base = tax.calculate_tax(10_000, 2_000, 3_000)
+        res = LmnpReel(tmi_pct=30.0).compute_year(1, [_ctx(10_000, 2_000, 3_000)], TaxState())
 
-        expected_tax = 5_000 * (0.30 + 0.172)
-        assert abs(impot - expected_tax) < 0.01, f"Expected {expected_tax:.2f}, got {impot:.2f}"
+        expected_tax = 5_000 * (0.30 + 0.186)
+        assert abs(res.total - expected_tax) < 0.01, f"Expected {expected_tax:.2f}, got {res.total:.2f}"
 
 
 class TestIRACalculation:
