@@ -15,10 +15,15 @@ import pandas as pd
 
 from src.core.defaults import FINANCING, MARKET, OPERATING, TAX
 from src.core.exceptions import SimulationError
-from src.domain.tax.plus_value import PlusValueBreakdown, compute_plus_value, sum_breakdowns
-
-# Tax constants
-TAUX_PRELEVEMENTS_SOCIAUX = 17.2
+from src.domain.tax import (
+    PropertyExit,
+    RegimeId,
+    TaxConfig,
+    TaxHousehold,
+    YearContext,
+    parse_furnished_regime,
+    parse_unfurnished_regime,
+)
 
 
 @dataclass
@@ -40,73 +45,37 @@ class MarketHypotheses:
 
 @dataclass
 class TaxParams:
-    """Tax calculation parameters."""
+    """User's tax choices: one regime per income category of the foyer (TAX_SPEC 8).
+
+    ``regime_fiscal`` is the furnished regime ("lmnp" = LMNP réel, or "microbic"); the legacy value
+    "sci_is" is read as ``sci_is=True``. ``regime_foncier`` is the unfurnished regime ("reel" or
+    "micro"). ``sci_is`` puts every property in one SCI at IS and overrides both.
+    """
 
     tmi_pct: float = TAX.tmi_pct
-    regime_fiscal: str = TAX.regime_fiscal  # lmnp or microbic
+    regime_fiscal: str = TAX.regime_fiscal
     amort_mobilier: bool = True
-    micro_bic_abatt_pct: float = TAX.micro_bic_abatt_pct  # Default 50%, can be 71% for classé
+    micro_bic_abatt_pct: float = TAX.micro_bic_abatt_pct  # 50 (long-term / classé) or 30 (non classé)
+    regime_foncier: str = TAX.regime_foncier
+    sci_is: bool = TAX.sci_is
+    sci_distribute_at_exit: bool = TAX.sci_distribute_at_exit
 
+    def __post_init__(self) -> None:
+        if str(self.regime_fiscal).strip().lower() == RegimeId.SCI_IS.value:
+            self.sci_is = True
+            self.regime_fiscal = TAX.regime_fiscal
 
-    def calculate_tax(
-        self,
-        loyers_bruts: float,
-        charges_deductibles: float,
-        amortissements: float,
-        deficit_reportable: float = 0.0,
-        amort_differes_reportable: float = 0.0,
-    ) -> tuple[float, float, float, float]:
-        """Calculate income tax for the year.
-
-        Returns:
-            Tuple of (tax_due, new_deficit_reportable, new_amort_differes, taxable_base)
-        """
-        if self.regime_fiscal == "microbic":
-            base_imposable = max(0.0, loyers_bruts * (1.0 - self.micro_bic_abatt_pct / 100.0))
-            new_deficit = 0.0
-            new_ard = 0.0
-        else:
-            # LMNP réel logic
-            noi = loyers_bruts - charges_deductibles
-
-            # 1. Deficit Foncier (Charges > Rents)
-            if noi < 0:
-                # Deficit created/increased. Amortization is largely deferred.
-                new_deficit = deficit_reportable + noi
-                new_ard = amort_differes_reportable + amortissements
-                base_imposable = 0.0
-            else:
-                # Positive NOI - absorb deficit first
-                # deficit_reportable is negative
-                res_apres_deficit = noi + deficit_reportable
-
-                if res_apres_deficit < 0:
-                    # Still in deficit
-                    new_deficit = res_apres_deficit
-                    new_ard = amort_differes_reportable + amortissements
-                    base_imposable = 0.0
-                else:
-                    # Deficit cleared, now attack amortization
-                    new_deficit = 0.0
-
-                    # Deduct stock ARD + current amort
-                    # (In LMNP, you can use ARD to reduce profit to 0, but not create deficit)
-                    # We treat (ard + amort) as the total pool of deductive power
-                    total_amort_pool = amort_differes_reportable + amortissements
-
-                    res_final = res_apres_deficit - total_amort_pool
-
-                    if res_final < 0:
-                        # Profit reduced to 0, remaining amort becomes new ARD
-                        base_imposable = 0.0
-                        new_ard = -res_final
-                    else:
-                        # Profit remaining after full amort deduction
-                        base_imposable = res_final
-                        new_ard = 0.0
-
-        impot = base_imposable * (self.tmi_pct / 100.0 + TAUX_PRELEVEMENTS_SOCIAUX / 100.0)
-        return impot, new_deficit, new_ard, base_imposable
+    def to_config(self, nb_owners: int = TAX.nb_owners) -> TaxConfig:
+        return TaxConfig(
+            tmi_pct=self.tmi_pct,
+            furnished_regime=parse_furnished_regime(self.regime_fiscal),
+            unfurnished_regime=parse_unfurnished_regime(self.regime_foncier),
+            sci_is=self.sci_is,
+            micro_bic_abattement_pct=float(self.micro_bic_abatt_pct),
+            amortize_furniture=self.amort_mobilier,
+            sci_distribute_at_exit=self.sci_distribute_at_exit,
+            nb_owners=nb_owners,
+        )
 
 
 @dataclass
@@ -161,8 +130,12 @@ class YearResult:
     loyers_bruts: float
     charges_deductibles: float
     amortissements: float
-    # Building + works amortization booked this year, per property (the rest of ``amortissements`` is furniture).
-    amort_imm_par_bien: list[float] = field(default_factory=list)
+    # Tax split (TAX_SPEC 7): IR (negative in a déficit-foncier year), PS, IS.
+    ir: float = 0.0
+    ps: float = 0.0
+    is_: float = 0.0
+    # Per-regime detail of the year (ARD and deficit stocks, imputations...), keys as in TAX_SPEC 6.
+    tax_detail: dict[str, float] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -178,13 +151,17 @@ class YearResult:
             "Loyers Bruts": self.loyers_bruts,
             "Charges Déductibles": -self.charges_deductibles,
             "Amortissements": -self.amortissements,
+            "IR": self.ir,
+            "PS": self.ps,
+            "IS": self.is_,
         }
 
 
 class SimulationEngine:
     """Long-term strategy simulation engine.
 
-    Runs year-by-year projections for a property portfolio.
+    Runs year-by-year projections for a property portfolio. The tax of each year and the exit tax
+    are delegated to the foyer's tax regimes (``src.domain.tax``, TAX_SPEC 7-8).
     """
 
     def __init__(
@@ -222,6 +199,17 @@ class SimulationEngine:
         self.amort_works_years = amort_works_years
         self.amort_mobilier_years = amort_mobilier_years
 
+    def build_household(self, projets: list[dict[str, Any]], horizon_years: int) -> TaxHousehold:
+        """Regime of each income category, with the micro ceilings checked on the horizon's receipts."""
+        furnished = [_is_furnished(p) for p in projets]
+        g = 1.0 + self.market.revalo_loyer_pct / 100.0
+        max_receipts: dict[str, float] = {}
+        for cat, flag in (("furnished", True), ("unfurnished", False)):
+            base = sum(p["loyer_mensuel_initial"] * 12 for p, f in zip(projets, furnished, strict=True) if f == flag)
+            # Receipts move monotonically with the years, so the maximum is in year 1 or in year H.
+            max_receipts[cat] = max(base, base * g ** max(0, horizon_years - 1))
+        return TaxHousehold.build(self.tax.to_config(self.nb_owners), furnished, max_receipts)
+
     def simulate(
         self,
         strategy: dict[str, Any],
@@ -250,49 +238,21 @@ class SimulationEngine:
                 "Each property requires a pre-computed amortization schedule."
             )
 
+        household = self.build_household(projets, horizons_years)
         valeur_biens = sum(p["prix_achat_bien"] for p in projets)
-        # Amortization actually deducted, building/works pool vs furniture pool (TAX_SPEC 3.4, 11.3).
-        ard_imm = ard_mob = 0.0
-        cum_ded_imm = 0.0
-        cum_booked_imm = [0.0] * len(projets)
         flux = [-float(strategy["apport_total"])]
         cum_cash_flow = 0.0
-
         results: list[YearResult] = []
-        deficit_reportable = 0.0
-        ard_reportable = 0.0
-        total_impot = 0.0
 
         for year in range(1, horizons_years + 1):
-            result, next_deficit, next_ard = self._simulate_year(
-                year, projets, schedules, valeur_biens, deficit_reportable, ard_reportable
-            )
+            result = self._simulate_year(year, projets, schedules, valeur_biens, household)
             results.append(result)
-
-            cur_imm = sum(result.amort_imm_par_bien)
-            cur_mob = max(0.0, result.amortissements - cur_imm)
-            pool_imm, pool_mob = cur_imm + ard_imm, cur_mob + ard_mob
-            pool = pool_imm + pool_mob
-            deducted = max(0.0, min(pool, pool - next_ard))
-            share_imm = pool_imm / pool if pool > 0 else 0.0
-            ded_imm = deducted * share_imm
-            ard_imm, ard_mob = pool_imm - ded_imm, pool_mob - (deducted - ded_imm)
-            cum_ded_imm += ded_imm
-            for i, a in enumerate(result.amort_imm_par_bien):
-                cum_booked_imm[i] += a
-
-            total_impot += result.impot_du
-            deficit_reportable = next_deficit
-            ard_reportable = next_ard
             valeur_biens = result.valeur_biens
             flux.append(result.cash_flow_net)
             cum_cash_flow += result.cash_flow_net
 
-        # Final liquidation
         bilan = self._calculate_liquidation(
-            results, projets, schedules, horizons_years, flux,
-            cum_ded_imm=cum_ded_imm, cum_booked_imm=cum_booked_imm,
-            cum_cash_flow=cum_cash_flow,
+            results, projets, schedules, horizons_years, flux, household, cum_cash_flow=cum_cash_flow,
         )
 
         df = pd.DataFrame([r.to_dict() for r in results])
@@ -314,21 +274,16 @@ class SimulationEngine:
         projets: list[dict[str, Any]],
         schedules: list[dict[str, Any]],
         valeur_biens: float,
-        deficit_reportable: float,
-        ard_reportable: float = 0.0,
-    ) -> tuple[YearResult, float, float]:
-        """Simulate a single year.
-
-        Returns:
-            Tuple of (YearResult, next_year_deficit_reportable, next_year_ard)
-        """
+        household: TaxHousehold,
+    ) -> YearResult:
+        """Simulate a single year: cash flows per property, then the foyer's tax."""
         # Market value at the end of year y = price x (1 + g)^y (TAX_SPEC 1.7)
         valeur_biens *= (1.0 + self.market.appreciation_bien_pct / 100.0)
 
         cf_ann, dette_fin = 0.0, 0.0
         capital_rembourse_ann, interets_assurance_ann = 0.0, 0.0
-        loyers_bruts_pf, charges_deductibles_pf, amortissements_pf = 0.0, 0.0, 0.0
-        amort_imm_par_bien: list[float] = []
+        loyers_bruts_pf, charges_deductibles_pf = 0.0, 0.0
+        year_ctxs: list[YearContext] = []
 
         for i, p in enumerate(projets):
             # Update rents and charges
@@ -361,52 +316,69 @@ class SimulationEngine:
                 else p["credit_final"] if sch["nmois"] == 0 else 0.0
             )
 
+            operating = charges_fixes_ann + gest_ann + prov_ann + cfe_ann
             loyers_bruts_pf += loyer_ann
-            charges_deductibles_pf += (
-                charges_fixes_ann + gest_ann + prov_ann +
-                interets + assurance + cfe_ann
-            )
+            charges_deductibles_pf += operating + interets + assurance
 
             # Amortization by component, straight-line, each stopping after its own duration
             # (TAX_SPEC 4.1; CGI 39 C; BOI-BIC-AMT-20-40-10-20). Land is never amortized.
             # Notary fees are capitalized with the purchase price and split pro rata land/building.
+            # Only LMNP réel and SCI IS amortize; unfurnished regimes never do (TAX_SPEC 4.1, 10 item 7).
+            amortizes = household.amortizes(i)
             ratio_terrain = p.get("ratio_terrain_pct")
             ratio_terrain = self.ratio_terrain_pct if ratio_terrain is None else max(0.0, min(100.0, float(ratio_terrain)))
             base_batiment = (p["prix_achat_bien"] + p.get("frais_notaire", 0.0)) * (1.0 - ratio_terrain / 100.0)
-            base_travaux = p["budget_travaux"] + p.get("renovation_energetique", 0.0)
-            amort_immo = base_batiment / self.amort_immo_years if year <= self.amort_immo_years else 0.0
-            amort_trav = base_travaux / self.amort_works_years if year <= self.amort_works_years else 0.0
-            amort_mob = p["mobilier"] / self.amort_mobilier_years if year <= self.amort_mobilier_years else 0.0
-            amort_imm_par_bien.append(amort_immo + amort_trav if self.tax.regime_fiscal == "lmnp" else 0.0)
-            if self.tax.regime_fiscal == "lmnp":
-                amortissements_pf += amort_immo + amort_trav + (amort_mob if self.tax.amort_mobilier else 0.0)
+            energy_works = float(p.get("renovation_energetique", 0.0) or 0.0)
+            base_travaux = p["budget_travaux"] + energy_works
+            year_ctxs.append(
+                YearContext(
+                    year=year,
+                    property_id=i,
+                    rent=loyer_ann,
+                    operating_charges=operating,
+                    interest=interets,
+                    loan_insurance=assurance,
+                    # Works are paid at t0, i.e. in year 1 (TAX_SPEC 1.9); deductible under foncier réel (4.5).
+                    works_paid=base_travaux if year == 1 else 0.0,
+                    energy_works_paid=energy_works if year == 1 else 0.0,
+                    amort_building=(
+                        base_batiment / self.amort_immo_years if amortizes and year <= self.amort_immo_years else 0.0
+                    ),
+                    amort_works=(
+                        base_travaux / self.amort_works_years if amortizes and year <= self.amort_works_years else 0.0
+                    ),
+                    amort_furniture=(
+                        p["mobilier"] / self.amort_mobilier_years
+                        if amortizes and year <= self.amort_mobilier_years else 0.0
+                    ),
+                )
+            )
 
-            cf_ann += loyer_ann - (charges_fixes_ann + gest_ann + prov_ann) - debt_service - cfe_ann
+            cf_ann += loyer_ann - operating - debt_service
             interets_assurance_ann += interets + assurance
             dette_fin += solde_fin
 
-        # Tax calculation
-        impot, new_deficit, new_ard, base_imposable = self.tax.calculate_tax(
-            loyers_bruts_pf, charges_deductibles_pf, amortissements_pf,
-            deficit_reportable, ard_reportable
-        )
-        cf_ann -= impot
+        tax = household.compute_year(year, year_ctxs)
+        cf_ann -= tax.total
 
         return YearResult(
             year=year,
             valeur_biens=valeur_biens,
             dette=max(0.0, dette_fin),
             patrimoine_net=valeur_biens - dette_fin,
-            resultat_fiscal=base_imposable,
-            impot_du=impot,
+            resultat_fiscal=tax.taxable_base,
+            impot_du=tax.total,
             cash_flow_net=cf_ann,
             capital_rembourse=capital_rembourse_ann,
             interets_assurance=interets_assurance_ann,
             loyers_bruts=loyers_bruts_pf,
             charges_deductibles=charges_deductibles_pf,
-            amortissements=amortissements_pf,
-            amort_imm_par_bien=amort_imm_par_bien,
-        ), new_deficit, new_ard
+            amortissements=tax.amortization_booked,
+            ir=tax.ir,
+            ps=tax.ps,
+            is_=tax.is_,
+            tax_detail=dict(tax.detail),
+        )
 
     def _calculate_liquidation(
         self,
@@ -415,8 +387,7 @@ class SimulationEngine:
         schedules: list[dict[str, Any]],
         horizon: int,
         flux: list[float],
-        cum_ded_imm: float = 0.0,
-        cum_booked_imm: list[float] | None = None,
+        household: TaxHousehold,
         cum_cash_flow: float = 0.0,
     ) -> dict[str, Any]:
         """Calculate final liquidation and IRR."""
@@ -428,36 +399,32 @@ class SimulationEngine:
         dette_finale = final.dette
 
         frais_vente = valeur_biens * (self.frais_vente_pct / 100.0)
+        ira_total = self.ira.calculate(projets, schedules, horizon)
+        apport_initial = -flux[0] if flux else 0.0
 
-        # Plus-value of individuals, per property, floored at 0, no netting (TAX_SPEC 3, 1.10).
-        # The deducted amortization is shared between properties pro rata of the amortization each booked.
-        booked = cum_booked_imm or [0.0] * len(projets)
-        total_booked = sum(booked)
+        # Exit tax per regime: plus-value of individuals per property, floored at 0, no netting
+        # (TAX_SPEC 3, 1.10), plus déficit-foncier recapture; or IS on exit + PFU on the boni (SCI IS, 4.6).
         g = 1.0 + self.market.appreciation_bien_pct / 100.0
-        is_lmnp = self.tax.regime_fiscal == "lmnp"
-        par_bien: list[PlusValueBreakdown] = []
+        exits = []
         for i, p in enumerate(projets):
             sale_price = p["prix_achat_bien"] * g**horizon
-            share = booked[i] / total_booked if total_booked > 0 else 0.0
-            par_bien.append(
-                compute_plus_value(
+            exits.append(
+                PropertyExit(
+                    property_id=i,
+                    name=str(p.get("nom_bien", p.get("nom", f"bien_{i + 1}"))),
                     price=p["prix_achat_bien"],
                     notary_fees=p.get("frais_notaire", 0.0),
                     works=p["budget_travaux"] + p.get("renovation_energetique", 0.0),
+                    furniture=p.get("mobilier", 0.0),
                     sale_price=sale_price,
                     sale_fees=sale_price * self.frais_vente_pct / 100.0,
-                    years_held=horizon,
-                    amortization_deducted_imm=cum_ded_imm * share,
-                    # CGI 150 VB III: LMNP reel only; residences-services are exempt (TAX_SPEC 3.4)
-                    amortization_addback_applies=is_lmnp and not bool(p.get("residence_services", False)),
-                    nb_owners=self.nb_owners,
+                    residence_services=bool(p.get("residence_services", False)),
                 )
             )
-        pv_total = sum_breakdowns(par_bien)
-        impot_pv = pv_total.total_tax
-
-        # IRA
-        ira_total = self.ira.calculate(projets, schedules, horizon)
+        exit_tax = household.compute_exit(
+            horizon, exits, debt_repaid=dette_finale + ira_total, cum_cash_flow=cum_cash_flow, apport=apport_initial,
+        )
+        impot_pv = exit_tax.total
 
         liquidation_nette = valeur_biens - dette_finale - frais_vente - impot_pv - ira_total
 
@@ -480,7 +447,6 @@ class SimulationEngine:
             tri_warning = "IRR calculation failed (unstable cashflow pattern)"
 
         # Wealth = net exit proceeds + sum of after-tax yearly cash flows - down payment (TAX_SPEC 5)
-        apport_initial = -flux[0] if flux else 0.0
         enrichissement_net = liquidation_nette + cum_cash_flow - apport_initial
 
         # Calculate DSCR from Year 1 data
@@ -499,10 +465,27 @@ class SimulationEngine:
             "ira_total": ira_total,
             "dscr_y1": dscr_y1,
             "impot_pv": impot_pv,
-            "plus_value": pv_total.to_dict(),
-            "plus_value_par_bien": [
-                {"nom": p.get("nom_bien", p.get("nom", f"bien_{i + 1}")), **b.to_dict()}
-                for i, (p, b) in enumerate(zip(projets, par_bien, strict=True))
+            "plus_value": exit_tax.details,
+            "plus_value_par_bien": [{"nom": name, **b.to_dict()} for _, name, b in exit_tax.per_property],
+            "exit_tax": {
+                "ir": exit_tax.ir,
+                "ps": exit_tax.ps,
+                "surtax": exit_tax.surtax,
+                "is": exit_tax.is_,
+                "pfu": exit_tax.pfu,
+                "deficit_recapture": exit_tax.deficit_recapture,
+                "total": exit_tax.total,
+            },
+            # Regime applied per category, and why a choice was overridden (micro ceilings, LMP flag).
+            "regimes": household.regime_ids,
+            "tax_warnings": list(household.warnings),
+            # Per-year tax detail: IR/PS/IS split plus the regimes' carryforward stocks (TAX_SPEC 6-7).
+            "fiscal_annuel": [
+                {
+                    "year": r.year, "taxable_base": r.resultat_fiscal, "ir": r.ir, "ps": r.ps, "is": r.is_,
+                    "tax": r.impot_du, **r.tax_detail,
+                }
+                for r in results
             ],
         }
 
@@ -554,6 +537,9 @@ def simulate_long_term_strategy(
         tmi_pct=tax_dict.get("tmi_pct", TAX.tmi_pct),
         regime_fiscal=tax_dict.get("regime_fiscal", TAX.regime_fiscal),
         micro_bic_abatt_pct=tax_dict.get("micro_bic_abatt_pct", TAX.micro_bic_abatt_pct),
+        regime_foncier=tax_dict.get("regime_foncier", TAX.regime_foncier),
+        sci_is=bool(tax_dict.get("sci_is", TAX.sci_is)),
+        sci_distribute_at_exit=bool(tax_dict.get("sci_distribute_at_exit", TAX.sci_distribute_at_exit)),
     )
 
     ira = IRACalculator(

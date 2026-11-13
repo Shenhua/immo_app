@@ -338,6 +338,15 @@ Item 21 was not in the plan. It is a small bias: −2 % on the sale price at g =
 - **Point 13, Jeanbrun:** out of scope for now; tracked as a later task (T68).
 - **Point 14, SCI IS:** profits are capitalised. PFU (31.4 %) applies once, on the liquidation boni at exit. No yearly distributions.
 
+## 11c. Implementation readings (T23)
+Where the spec left room, T23 (`src/domain/tax/`) implements these readings:
+1. **Micro ceilings over the horizon.** The ceiling is checked against the category's highest yearly receipts over the horizon (year 1 or year H, depending on rent indexation). If it is exceeded in any year, the category uses its régime réel for the **whole horizon**, with a warning. This follows "one regime for the whole horizon" (§4.3, §4.4). The model does not switch regime year by year, and the one-year tolerance is still ignored.
+2. **Default unfurnished regime: réel.** This mirrors the furnished default (LMNP réel). The legal default is micro-foncier, which the user can pick.
+3. **Energy-works cap (§4.5, 11.6).** cap = 10,700 + min(10,700, energy works paid that year), only in simulation years 1–2 (2026–2027). The model assumes that `renovation_energetique` lifts the DPE from E/F/G to A–D.
+4. **SCI IS with several properties.** There is one company: the IS brackets apply once to the company's total result, and the professional gains and losses at exit are **netted across properties** (no per-property floor, unlike §1.10 for individuals). CFE still applies to furnished properties held by the SCI. The SCI always amortizes furniture; the `amort_mobilier` switch only affects LMNP réel.
+5. **Déficit-foncier recapture with several properties.** Imputations are tracked at foyer level. Every property is sold at H, so the recapture covers all imputations of years N > H − 3.
+6. **Vacancy provision.** The engine's `provision_pct` (vacancy provision) stays a deductible operating charge in the réel regimes, as before T23. Micro allowances apply to the rent before that provision, so micro regimes slightly overstate the base when the provision is used. T26a reworks vacancy.
+
 ## 12. Sources
 - Légifrance, LFSS 2026 (loi 2025-1403 du 30/12/2025) art. 12: https://www.legifrance.gouv.fr/jorf/article_jo/JORFARTI000053226452
 - impots.gouv, "Principales nouveautés revenus 2025" (CSG 10.6 %, exclusions, micro-BIC Le Meur): https://www.impots.gouv.fr/www2/fichiers/documentation/brochure/ir_2026/pdf_som/nouveautes.pdf

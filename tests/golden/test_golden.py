@@ -29,48 +29,19 @@ CASES: list[dict[str, Any]] = _DOC["cases"]
 TOL_EUR = float(_DOC["tolerance_eur"])
 TOL_IRR_PCT = float(_DOC["tolerance_irr_pct"])
 
-# Regimes the engine can run today (T23 adds the others).
-SUPPORTED_REGIMES = {"lmnp_reel": "lmnp", "micro_bic": "microbic"}
+# Golden regime id -> engine tax params (TAX_SPEC 8: one regime per category, or a global SCI IS).
+REGIME_PARAMS: dict[str, dict[str, Any]] = {
+    "lmnp_reel": {"regime_fiscal": "lmnp"},
+    "micro_bic": {"regime_fiscal": "microbic"},
+    "micro_foncier": {"regime_foncier": "micro"},
+    "foncier_reel": {"regime_foncier": "reel"},
+    "sci_is": {"sci_is": True},
+}
 
 # --------------------------------------------------------------------------- #
 # Known gaps: "case_id/field" (fnmatch pattern) -> task that fixes it.
 # --------------------------------------------------------------------------- #
-KNOWN_GAPS: dict[str, str] = {
-    # Regimes that do not exist in the engine yet.
-    "C5_*/*": "T23",
-    "C6_*/*": "T23",
-    "C7_*/*": "T23",
-    # Tax state and split not exposed by the engine (ARD stock, deficits, IR/PS split, 18.6 % BIC PS rate).
-    "*/yearly.*.ard_stock_end": "T23",
-    "*/yearly.*.amortization_deducted": "T23",
-    "*/yearly.*.bic_deficit_stock_end": "T23",
-    "*/yearly.*.ir": "T23",
-    "*/yearly.*.ps": "T23",
-    "*/yearly.*.result_before_amortization": "T23",
-    "*/yearly.*.accounting_result": "T23",
-    "*/yearly.*.amortization_booked": "T23",
-    # PS rate: engine uses 17.2 % on BIC income, spec 18.6 % (affects every year with a positive base).
-    "C2_*/yearly.20.tax": "T23",
-    "C2_*/yearly.20.cash_flow_after_tax": "T23",
-    "C4_*/yearly.*.tax": "T23",
-    "C4_*/yearly.*.cash_flow_after_tax": "T23",
-    "C8_*/yearly.20.tax": "T23",
-    "C8_*/yearly.20.cash_flow_after_tax": "T23",
-    "C3_*/yearly.25.tax": "T23",
-    "C[248]_*/total_tax_on_income": "T23",
-    "C2_*/cumulative_cash_flow_after_tax": "T23",
-    "C8_*/cumulative_cash_flow_after_tax": "T23",
-    "C4_*/cumulative_cash_flow_after_tax": "T23",
-    # Wealth, IRR and cash flows that depend on the 18.6 % BIC PS rate (T23); the T24 parts now pass.
-    "C3_*/yearly.25.cash_flow_after_tax": "T23",
-    "C3_*/cumulative_cash_flow_after_tax": "T23",
-    "C3_*/total_tax_on_income": "T23",
-    "C[2348]_*/wealth": "T23",
-    "C[48]_*/irr_pct": "T23",
-    # Plus-value on exit, not modelled as in the spec (allowances, add-back, surtax, flat rates).
-    "*/exit.deficit_recapture": "T23",
-    # Sale price: engine appreciates from year 2, i.e. price x (1+g)^(H-1) (TAX_SPEC 10, item 21).
-}
+KNOWN_GAPS: dict[str, str] = {}
 
 
 def _gap_for(test_id: str) -> str | None:
@@ -109,19 +80,21 @@ def _build_strategy(inp: dict[str, Any]) -> dict[str, Any]:
         "frais_gestion_pct": inp["management_pct"],
         "provision_pct": 0.0,
         "meuble": inp["furnished"],
+        "residence_services": inp["residence_services"],
     }
     return {"apport_total": apport, "details": [prop]}
 
 
 def _run_engine(case: dict[str, Any]) -> dict[str, float]:
     inp = case["inputs"]
-    regime = SUPPORTED_REGIMES.get(case["regime"])
+    regime = REGIME_PARAMS.get(case["regime"])
     if regime is None:
         raise Unsupported(f"regime {case['regime']} not implemented in the engine")
     strategy = _build_strategy(inp)
     tax_params = {
+        **regime,
         "tmi_pct": inp["tmi_pct"],
-        "regime_fiscal": regime,
+        "sci_distribute_at_exit": inp["sci_distribute_at_exit"],
         "micro_bic_abatt_pct": inp["micro_bic_abattement_pct"],
         "apply_ira": inp["apply_ira"],
         "cfe_par_bien_ann": inp["cfe_annual"],
@@ -150,6 +123,12 @@ def _run_engine(case: dict[str, Any]) -> dict[str, float]:
         out[f"yearly.{y}.tax"] = tax
         out[f"yearly.{y}.cash_flow_after_tax"] = cf_after
         out[f"yearly.{y}.cash_flow_before_tax"] = cf_after + tax
+    # Per-regime detail (IR/PS/IS split, ARD and deficit stocks, imputations).
+    for row in bilan["fiscal_annuel"]:
+        y = int(row["year"])
+        for key, val in row.items():
+            if key != "year":
+                out[f"yearly.{y}.{key}"] = float(val)
     last = df.iloc[-1]
     out["exit.sale_price"] = float(last["Valeur Biens"])
     out["exit.crd"] = float(last["Dette"])

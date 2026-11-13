@@ -261,6 +261,64 @@ def render_credit_params_tab() -> dict[str, Any]:
     }
 
 
+# Tax regimes offered per income category (TAX_SPEC 8): label -> engine value.
+REGIMES_MEUBLE: dict[str, str] = {"LMNP réel": "lmnp", "Micro-BIC": "microbic"}
+REGIMES_NU: dict[str, str] = {"Réel (déficit foncier)": "reel", "Micro-foncier": "micro"}
+
+
+def _label_for(options: dict[str, str], value: str) -> int:
+    values = list(options.values())
+    return values.index(value) if value in values else 0
+
+
+def render_tax_section() -> dict[str, Any]:
+    """Tax choices: TMI, one regime per category (furnished / unfurnished), or a global SCI at IS.
+
+    Returns:
+        Dict with tmi, regime (furnished), regime_foncier (unfurnished) and sci_is.
+    """
+    tmi = st.slider("TMI (%)", 0, 45, value=int(TAX.tmi_pct), step=1)
+    sci_is = st.checkbox(
+        "SCI à l'IS (tous les biens)",
+        value=TAX.sci_is,
+        key="tax_sci_is",
+        help=(
+            "Tous les biens dans une SCI à l'IS : IS 15 % jusqu'à 42 500 € puis 25 %, amortissements, "
+            "plus-value sur la valeur nette comptable. Les bénéfices restent dans la SCI ; "
+            "flat tax 31,4 % sur le boni de liquidation à la revente. Remplace les deux régimes ci-dessous."
+        ),
+    )
+    meuble_label = st.selectbox(
+        "Régime des biens meublés",
+        list(REGIMES_MEUBLE),
+        index=_label_for(REGIMES_MEUBLE, TAX.regime_fiscal),
+        disabled=sci_is,
+        key="tax_regime_meuble",
+        help=(
+            "Un seul régime pour tous les biens meublés du foyer. Micro-BIC : abattement 50 %, "
+            "plafond 83 600 € de recettes ; au-delà, le LMNP réel est appliqué (avertissement affiché)."
+        ),
+    )
+    nu_label = st.selectbox(
+        "Régime des biens loués nus",
+        list(REGIMES_NU),
+        index=_label_for(REGIMES_NU, TAX.regime_foncier),
+        disabled=sci_is,
+        key="tax_regime_nu",
+        help=(
+            "Un seul régime pour tous les biens nus du foyer. Réel : charges, intérêts et travaux déductibles, "
+            "déficit foncier imputable sur le revenu global jusqu'à 10 700 €. Micro-foncier : abattement 30 %, "
+            "plafond 15 000 € de loyers ; au-delà, le réel est appliqué (avertissement affiché)."
+        ),
+    )
+    return {
+        "tmi": tmi,
+        "regime": REGIMES_MEUBLE[meuble_label],
+        "regime_foncier": REGIMES_NU[nu_label],
+        "sci_is": bool(sci_is),
+    }
+
+
 def render_market_hypotheses() -> dict[str, float]:
     """Render market hypotheses section.
 

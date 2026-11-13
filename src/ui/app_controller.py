@@ -200,12 +200,15 @@ def simulate_selected_strategy(strategy: dict[str, Any], ctx: RunContext) -> pd.
         DataFrame with yearly projections or None on error
     """
     try:
-        df_sim, _ = simulate_long_term_strategy(
+        df_sim, bilan = simulate_long_term_strategy(
             strategy,
             duration_years=ctx.horizon_ans,
             market_hypotheses=ctx.market_hypotheses,
             tax_params=ctx.to_tax_params(),
         )
+        # Regime actually applied and why a choice was overridden (micro ceilings, LMP flag).
+        df_sim.attrs["tax_regimes"] = bilan.get("regimes", {})
+        df_sim.attrs["tax_warnings"] = bilan.get("tax_warnings", [])
         return df_sim
 
     except Exception as e:
