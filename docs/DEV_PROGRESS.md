@@ -27,13 +27,13 @@ Legend: todo · running · done · blocked · skipped
 | Task | Model | Status | Branch / commit | Notes |
 |---|---|---|---|---|
 | T01 lint baseline | Haiku | done | 4454fb9 (merge 0e3ed0f) | ruff 124 to 0 errors |
-| T02 repo hygiene | Haiku | running | | batch with T03, T04 |
-| T03 packaging | Haiku | running | | |
-| T04 CI and Docker | Haiku | running | | |
+| T02 repo hygiene | Haiku | done | 476a5cd | | batch with T03, T04 |
+| T03 packaging | Haiku | done | 96bc84e | |
+| T04 CI and Docker | Haiku | done | a61ee09 | coverage floor 59; Docker build not verified locally | |
 | T05 hide broken options | Haiku | done | 24fdf9b (merge 1ba95b1) | batch with T06, T12 |
 | T06 disk side effects | Haiku | done | fbed6a5 | |
 | T12 layering cleanup | Haiku | done | 323b1c4 | also fixed `import app` crash | |
-| T10 central defaults | Sonnet | todo | | |
+| T10 central defaults | Sonnet | running | | |
 | T11 RunContext | Sonnet | todo | | |
 | T20 tax spec + golden | Opus | running | | needs user approval |
 | T22 amortization + land | Sonnet | todo | | |
@@ -80,9 +80,18 @@ Legend: todo · running · done · blocked · skipped
   - T10 must move `APP_AUTOSAVE` / `APP_RESULTS_DIR` (now read in `app_controller.py`) into `defaults.py`.
   - T34 must restore Rentier (dead `is_rentier` branches remain in the sidebar).
   - The regime selectbox offers only LMNP and Micro-BIC.
+- After T02–T04:
+  - The venv runs numpy 2.5.4.
+  - `health_check.py` is deleted.
+  - The CI coverage floor is 59; T52 raises it.
+  - `pre-commit run --all-files` doesn't pass yet (ruff-format, EOF and mypy hooks). Fix it in T52 or a format pass.
+  - The CI and Docker build must be verified on the first PR.
+  - `APP_LOG_DIR` is honoured.
+  - `tests/conftest.py` does not yet redirect `APP_RESULTS_DIR`. Add it in T10.
 - `ruff format` not applied (45 files would be reformatted). Optional later; skip it to avoid merge churn.
 
 ## Log
 - 2026-11-13: Plan written, `develop` branch created, venv set up. Starting W1.
 - 2026-11-13: T01 merged (0e3ed0f). Starting W2.
 - 2026-11-13: T05/T06/T12 merged (1ba95b1), 233 tests. T20 launched while T02-T04 still run.
+- 2026-11-13: T02–T04 merged; Phase 0 complete. T10 launched (T20 still running).
