@@ -92,9 +92,19 @@ class SessionManager:
 
     @classmethod
     def set_selected_idx(cls, idx: int) -> None:
-        """Set selected strategy index."""
+        """Select a strategy and write its index to the URL (`?strategy=N`) so the link can be shared."""
         set_state("selected_strategy_idx", idx)
         st.query_params["strategy"] = str(idx)
+
+    @classmethod
+    def reset_selection(cls) -> None:
+        """Clear the selected strategy and the details panel. Called when a new search runs."""
+        set_state("selected_strategy_idx", 0)
+        set_state("show_details", False)
+        try:
+            st.query_params.pop("strategy", None)
+        except Exception:
+            pass
 
     @classmethod
     def get_strategies(cls) -> list[dict[str, Any]]:
@@ -143,12 +153,3 @@ class SessionManager:
         """Store the RunContext next to the results it produced."""
         st.session_state["run_context"] = ctx
 
-    @classmethod
-    def set_horizon(cls, horizon: int) -> None:
-        """Set current horizon."""
-        set_state("horizon_ans", horizon)
-
-    @classmethod
-    def is_ira_enabled(cls) -> bool:
-        """Check if IRA is enabled."""
-        return get_state("apply_ira", FINANCING.apply_ira)

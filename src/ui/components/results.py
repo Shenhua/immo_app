@@ -162,7 +162,7 @@ def render_strategy_details(strategy: dict[str, Any], horizon: int = 25) -> None
 
             with col2:
                 st.markdown("**Financement**")
-                st.write(f"Apport: {format_euro(bien.get('apport_min', 0))}")
+                st.write(f"Apport: {format_euro(bien.get('apport_final_bien', 0))}")
                 st.write(f"Crédit: {format_euro(bien.get('credit_final', 0))}")
                 st.write(f"Durée: {bien.get('duree_pret', 0)} ans")
                 st.write(f"Taux: {bien.get('taux_pret', 0):.2f}%")
@@ -206,7 +206,7 @@ def render_kpi_summary(strategy: dict[str, Any], horizon: int = 25) -> None:
     cols = st.columns(6)
 
     metrics = [
-        ("CF Mensuel", strategy.get("cash_flow_final", 0), format_euro, "Cash-flow net d'impôt moyen mensuel."),
+        ("CF Mensuel", strategy.get("cash_flow_final", 0), format_euro, "Cash-flow mensuel de l'année 1, avant impôt sur le revenu (loyers moins charges et mensualités de crédit, tous biens)."),
         (f"TRI ({horizon}a)", strategy.get("tri_annuel", 0), format_pct, "Taux de Rentabilité Interne annualisé (inclut la revente)."),
         ("Enrichissement", strategy.get("liquidation_nette", 0), format_euro, f"Capital net disponible à la revente au bout de {horizon} ans (après impôts et remboursement dette)."),
         ("DSCR Y1", strategy.get("dscr_y1", 0), lambda x: f"{x:.2f}" if x else "—", "Ratio de couverture de la dette (Revenus / Charges crédit). >1.0 signifie autofinancement."),

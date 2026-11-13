@@ -98,6 +98,7 @@ def run_strategy_search(
     archetypes: list[dict[str, Any]],
     ctx: RunContext,
     progress_callback: Any = None,
+    run_info: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Execute the strategy search pipeline.
 
@@ -107,6 +108,8 @@ def run_strategy_search(
         archetypes: Filtered and compliant archetypes
         ctx: Parameters of this run
         progress_callback: Optional callback for progress updates
+        run_info: Optional dict filled with facts about the run that the caller
+            cannot see otherwise: ``bricks_count`` and ``solver_mode``
 
     Returns:
         List of ranked strategies
@@ -145,6 +148,10 @@ def run_strategy_search(
         top_n=ctx.top_n,
         progress_callback=progress_callback,
     )
+
+    if run_info is not None:
+        run_info["bricks_count"] = len(bricks)
+        run_info["solver_mode"] = finder.solver_mode
 
     log.info("analysis_completed", strategies_found=len(strategies))
 
