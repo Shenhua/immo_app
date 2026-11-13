@@ -5,9 +5,9 @@ from typing import Any
 
 import streamlit as st
 
+from src.application.run_context import RunContext
 from src.application.services.simulation import simulate_long_term_strategy
 from src.ui.helpers import format_euro, format_pct
-from src.ui.state import SessionManager
 
 
 def run_sensitivity_simulation(
@@ -15,7 +15,7 @@ def run_sensitivity_simulation(
     delta_loyer_pct: float,
     delta_vacance_pct: float,
     delta_travaux_pct: float,
-    horizon: int,
+    ctx: RunContext,
 ) -> dict[str, Any]:
     """Run simulation with modified parameters."""
     # Deep copy to avoid mutating original
@@ -48,21 +48,12 @@ def run_sensitivity_simulation(
             brick["apport_min"] += diff
             modified["apport_total"] += diff
 
-    # Get current session params for context (Market, Tax)
-    base_params = SessionManager.get_base_params()
-    eval_params = base_params.to_eval_params()
-
     # Run simulation
     df, bilan = simulate_long_term_strategy(
         modified,
-        duration_years=horizon,
-        market_hypotheses=eval_params.get("hypotheses_marche"),
-        tax_params={
-            "tmi_pct": eval_params.get("tmi_pct"),
-            "regime_fiscal": eval_params.get("regime_fiscal"),
-            "apply_ira": eval_params.get("apply_ira"),
-            "ira_cap_pct": eval_params.get("ira_cap_pct"),
-        }
+        duration_years=ctx.horizon_ans,
+        market_hypotheses=ctx.market_hypotheses,
+        tax_params=ctx.to_tax_params(),
     )
 
     # Construct result dict similar to strategy dict
@@ -87,12 +78,12 @@ def run_sensitivity_simulation(
     return {}
 
 
-def render_sensitivity_analysis(strategy: dict[str, Any], horizon: int = 25, key: str = "0") -> None:
+def render_sensitivity_analysis(strategy: dict[str, Any], ctx: RunContext, key: str = "0") -> None:
     """Render interactive sensitivity analysis.
 
     Args:
         strategy: Strategy dictionary
-        horizon: Simulation horizon
+        ctx: Parameters of the run that produced the strategy
         key: Unique key for widget elements
     """
     st.markdown("### ⚡ Stress Test & Sensibilité")
@@ -108,7 +99,7 @@ def render_sensitivity_analysis(strategy: dict[str, Any], horizon: int = 25, key
 
     # Recalculate on fly
     if d_loyer != 0 or d_vacance != 0 or d_travaux != 0:
-        res = run_sensitivity_simulation(strategy, d_loyer, d_vacance, d_travaux, horizon)
+        res = run_sensitivity_simulation(strategy, d_loyer, d_vacance, d_travaux, ctx)
 
         # Display comparison
         with col_res:

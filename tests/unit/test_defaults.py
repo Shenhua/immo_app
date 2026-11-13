@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from src.application.run_context import RunContext
 from src.application.services import strategy_finder
 from src.application.services.allocator import PortfolioAllocator
 from src.application.services.brick_factory import FinancingConfig, OperatingConfig
@@ -18,7 +19,6 @@ from src.core.defaults import FINANCING, MARKET, OPERATING, PRESETS, SEARCH, Pre
 from src.domain.calculator.scoring import calculate_balanced_score
 from src.domain.models.strategy import SimulationParams
 from src.ui.components import sidebar
-from src.ui.state import BaseParams
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SIDEBAR_FILES = [REPO_ROOT / "src/ui/components/sidebar.py", REPO_ROOT / "app.py"]
@@ -67,21 +67,21 @@ def test_drifting_defaults_are_unified() -> None:
     assert EvaluationParams.from_dict({}).cfe_par_bien_ann == 150.0
     assert SimulationEngine(MarketHypotheses(), TaxParams(), None).cfe_par_bien_ann == 150.0  # type: ignore[arg-type]
     assert SimulationParams().cfe_par_bien_ann == 150.0
-    assert BaseParams().cfe_par_bien_ann == 150.0
+    assert RunContext().cfe_par_bien_ann == 150.0
     assert OperatingConfig().cfe_par_bien_ann == 150.0
 
     assert MARKET.appreciation_bien_pct == 2.0
     assert MarketHypotheses().appreciation_bien_pct == 2.0
-    assert BaseParams().appreciation == 2.0
+    assert RunContext().appreciation_bien_pct == 2.0
 
     assert FINANCING.taux_credits == {15: 3.5, 20: 3.6, 25: 3.8}
-    assert BaseParams().taux_credits == FINANCING.taux_credits
+    assert RunContext().taux_credits == FINANCING.taux_credits
     assert FINANCING.frais_notaire_pct == 8.0
-    assert BaseParams().frais_notaire_pct == 8.0
+    assert RunContext().frais_notaire_pct == 8.0
     assert FinancingConfig(credit_rates={}).frais_notaire_pct == 8.0
 
     assert SEARCH.qualite_weight == 0.25
-    assert BaseParams().qualite_weight == 0.25
+    assert RunContext().qualite_weight == 0.25
     assert StrategyScorer().qualite_weight == 0.25
     assert StrategyEvaluator(simulator=None).quality_weight == 0.25  # type: ignore[arg-type]
     assert calculate_balanced_score.__kwdefaults__["qualite_weight"] == 0.25

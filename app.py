@@ -13,11 +13,8 @@ import streamlit as st
 # Add src to path if not present (for running from root)
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from src.application.services.brick_factory import (
-    apply_rent_caps,
-    build_financing_config,
-    build_operating_config,
-)
+from src.application.run_context import RunContext
+from src.application.services.brick_factory import apply_rent_caps
 from src.core.defaults import OPERATING, SEARCH, TAX
 from src.core.logging import get_logger
 from src.ui.app_controller import (
@@ -128,23 +125,6 @@ def render_sidebar() -> dict[str, Any]:
     }
 
 
-def build_eval_params(params: dict[str, Any]) -> dict[str, Any]:
-    """Build evaluation parameters dictionary from sidebar params."""
-    return {
-        "tmi_pct": params["tmi"],
-        "regime_fiscal": params["regime"],
-        "frais_vente_pct": params["frais_vente"],
-        "apply_ira": params["credit_params"]["apply_ira"],
-        "ira_cap_pct": params["credit_params"]["ira_cap_pct"],
-        "cfe_par_bien_ann": params["cfe"],
-        "hypotheses_marche": params["market_hypo"],
-        "finance_preset_name": params["finance_preset_name"],
-        "finance_weights_override": params["finance_weights"],
-        "max_properties": params.get("max_properties", 3),
-        "use_full_capital": params.get("use_full_capital", False),
-    }
-
-
 def save_search_stats(
     duration: float,
     tracker: dict[str, int],
@@ -178,11 +158,11 @@ def save_search_stats(
     })
 
 
-def handle_analysis(params: dict[str, Any], archetypes: list[dict[str, Any]]) -> None:
+def handle_analysis(ctx: RunContext, archetypes: list[dict[str, Any]]) -> None:
     """Handle the analysis button click with progress display.
 
     Args:
-        params: Sidebar parameters
+        ctx: Snapshot of the sidebar parameters at click time
         archetypes: Filtered and compliant archetypes
     """
     import time
@@ -202,26 +182,7 @@ def handle_analysis(params: dict[str, Any], archetypes: list[dict[str, Any]]) ->
         if progress.valid_count > 0:
             stats_tracker["valid_strategies"] = progress.valid_count
 
-    # Build configs
-    fin_config = build_financing_config(params["credit_params"])
-    op_config = build_operating_config(params["gestion"], params["vacance"], params["cfe"])
-    eval_params = build_eval_params(params)
-
-    # Run search
-    strategies = run_strategy_search(
-        archetypes=archetypes,
-        fin_config=fin_config,
-        op_config=op_config,
-        apport=params["apport"],
-        cf_cible=params["cf_cible"],
-        tolerance=params["tolerance"],
-        qual_weight=params["qual_weight"],
-        mode_cf=params["mode_cf"],
-        eval_params=eval_params,
-        horizon_years=params["horizon"],
-        top_n=params.get("top_n", 50),
-        progress_callback=on_progress,
-    )
+    strategies = run_strategy_search(archetypes, ctx, progress_callback=on_progress)
 
     # Save stats and results
     save_search_stats(
@@ -229,11 +190,12 @@ def handle_analysis(params: dict[str, Any], archetypes: list[dict[str, Any]]) ->
         stats_tracker,
         strategies,
         len(archetypes),
-        params.get("max_properties", 3)
+        ctx.max_properties,
     )
     progress_placeholder.empty()
     SessionManager.set_strategies(strategies)
-    autosave_results(strategies, {"horizon": params["horizon"], "compliance": params["apply_cap"]})
+    SessionManager.set_run_context(ctx)
+    autosave_results(strategies, {"horizon": ctx.horizon_ans, "compliance": ctx.apply_cap, "run_context": ctx.to_dict()})
     st.rerun()
 
 
@@ -268,30 +230,24 @@ def main() -> None:
     )
     compliant = apply_rent_caps(filtered, params["apply_cap"])
 
-    # 5. Analysis button
+    # 5. Snapshot of the current sidebar. Used for the search and for the stale check only.
+    current_ctx = RunContext.from_sidebar(params, compliant)
     if st.sidebar.button("🚀 Lancer l'analyse", type="primary"):
-        handle_analysis(params, compliant)
+        handle_analysis(current_ctx, compliant)
 
-    # 6. Get current results
+    # 6. Results and the context they were computed with
     strategies = SessionManager.get_strategies()
+    run_ctx = SessionManager.get_run_context()
+    stale = run_ctx is not None and run_ctx != current_ctx
 
-    # 7. Simulate selected strategy for charts
+    # 7. Simulate selected strategy for charts, with the run's own parameters
     df_sim = None
     idx = SessionManager.get_selected_idx()
-    if strategies and 0 <= idx < len(strategies):
-        df_sim = simulate_selected_strategy(
-            strategy=strategies[idx],
-            horizon=params["horizon"],
-            credit_params=params["credit_params"],
-            tmi=params["tmi"],
-            regime=params["regime"],
-            cfe=params["cfe"],
-            frais_vente=params["frais_vente"],
-            market_hypo=params["market_hypo"],
-        )
+    if run_ctx is not None and strategies and 0 <= idx < len(strategies):
+        df_sim = simulate_selected_strategy(strategies[idx], run_ctx)
 
     # 8. Render main page
-    render_main_page(compliant, strategies, df_sim)
+    render_main_page(compliant, strategies, df_sim, run_ctx, stale)
 
     # 9. Render Debug Tools (at bottom of sidebar)
     from src.ui.components.sidebar import render_debug_section

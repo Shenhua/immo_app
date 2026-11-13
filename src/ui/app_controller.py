@@ -14,17 +14,16 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 
+from src.application.run_context import RunContext
 from src.application.services.brick_factory import (
-    FinancingConfig,
-    OperatingConfig,
+    build_financing_config,
+    build_operating_config,
     create_investment_bricks,
 )
-from src.application.services.simulation import IRACalculator, MarketHypotheses, SimulationEngine, TaxParams
+from src.application.services.simulation import simulate_long_term_strategy
 from src.application.services.strategy_finder import StrategyFinder
 from src.core import defaults
-from src.core.defaults import FINANCING, MARKET
 from src.core.logging import get_logger
-from src.domain.calculator.financial import generate_amortization_schedule
 from src.domain.models.archetype import ArchetypeV2
 from src.ui.state import SessionManager
 
@@ -97,72 +96,54 @@ def load_archetypes() -> list[dict[str, Any]]:
 
 def run_strategy_search(
     archetypes: list[dict[str, Any]],
-    fin_config: FinancingConfig,
-    op_config: OperatingConfig,
-    apport: float,
-    cf_cible: float,
-    tolerance: float,
-    qual_weight: float,
-    mode_cf: str,
-    eval_params: dict[str, Any],
-    horizon_years: int,
-    top_n: int = 100,
+    ctx: RunContext,
     progress_callback: Any = None,
 ) -> list[dict[str, Any]]:
     """Execute the strategy search pipeline.
 
-    This is the core business logic extracted from main().
+    Every parameter comes from the RunContext snapshot.
 
     Args:
         archetypes: Filtered and compliant archetypes
-        fin_config: Financing configuration
-        op_config: Operating configuration
-        apport: Available down payment
-        cf_cible: Target cash flow
-        tolerance: Cash flow tolerance
-        qual_weight: Qualitative score weight
-        mode_cf: Cash flow mode
-        eval_params: Evaluation parameters for simulation
-        horizon_years: Simulation horizon
-        top_n: Max number of strategies to return (Phase 17.1)
+        ctx: Parameters of this run
         progress_callback: Optional callback for progress updates
 
     Returns:
         List of ranked strategies
     """
-    log.info("analysis_started", archetypes_count=len(archetypes), horizon=horizon_years, top_n=top_n)
+    eval_params = ctx.to_eval_params()
+    log.info("analysis_started", archetypes_count=len(archetypes), horizon=ctx.horizon_ans, top_n=ctx.top_n)
     log.debug(
         "run_strategy_search_called",
-        apport=apport,
-        cf_cible=cf_cible,
-        mode_cf=mode_cf,
-        max_props=eval_params.get("max_properties"),
-        use_full_capital=eval_params.get("use_full_capital"),
+        apport=ctx.apport,
+        cf_cible=ctx.cf_cible,
+        mode_cf=ctx.mode_cf,
+        max_props=ctx.max_properties,
+        use_full_capital=ctx.use_full_capital,
     )
 
     # 1. Create investment bricks
+    fin_config = build_financing_config(ctx.to_credit_params())
+    op_config = build_operating_config(ctx.gestion_pct, ctx.vacance_pct, ctx.cfe_par_bien_ann)
     bricks = create_investment_bricks(archetypes, fin_config, op_config)
 
     # 2. Find strategies
     finder = StrategyFinder(
         bricks=bricks,
-        apport_disponible=apport,
-        cash_flow_cible=cf_cible,
-        tolerance=tolerance,
-        qualite_weight=qual_weight,
-        mode_cf=mode_cf,
-        max_properties=eval_params.get("max_properties", 3)
+        apport_disponible=ctx.apport,
+        cash_flow_cible=ctx.cf_cible,
+        tolerance=ctx.tolerance,
+        qualite_weight=ctx.qualite_weight,
+        mode_cf=ctx.mode_cf,
+        max_properties=ctx.max_properties,
     )
-
-    # Allow use_full_capital from params
-    use_full = eval_params.get("use_full_capital", False)
 
     strategies = finder.find_strategies(
         eval_params=eval_params,
-        horizon_years=horizon_years,
-        use_full_capital_override=use_full,
-        top_n=top_n,
-        progress_callback=progress_callback
+        horizon_years=ctx.horizon_ans,
+        use_full_capital_override=ctx.use_full_capital,
+        top_n=ctx.top_n,
+        progress_callback=progress_callback,
     )
 
     log.info("analysis_completed", strategies_found=len(strategies))
@@ -173,24 +154,25 @@ def run_strategy_search(
             from src.utils.debug import collect_debug_context, save_debug_context
 
             ctx_params = {
-                "apport": apport,
-                "cf_cible": cf_cible,
-                "tolerance": tolerance,
-                "qual_weight": qual_weight,
-                "mode_cf": mode_cf,
-                "horizon_years": horizon_years,
-                "top_n": top_n,
+                "apport": ctx.apport,
+                "cf_cible": ctx.cf_cible,
+                "tolerance": ctx.tolerance,
+                "qual_weight": ctx.qualite_weight,
+                "mode_cf": ctx.mode_cf,
+                "horizon_years": ctx.horizon_ans,
+                "top_n": ctx.top_n,
                 "eval_params": eval_params,
+                "run_context": ctx.to_dict(),
             }
 
-            ctx = collect_debug_context(
+            debug_ctx = collect_debug_context(
                 params=ctx_params,
                 strategies=strategies,
                 log_file_path="logs/app.log"
             )
             # Use timestamped name
             debug_path = os.path.join(RESULTS_DIR, f"debug_context_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
-            save_debug_context(ctx, filepath=debug_path)
+            save_debug_context(debug_ctx, filepath=debug_path)
             log.info("debug_context_saved")
         except Exception as e:
             log.warning("debug_context_save_failed", error=str(e))
@@ -198,63 +180,25 @@ def run_strategy_search(
     return strategies
 
 
-def simulate_selected_strategy(
-    strategy: dict[str, Any],
-    horizon: int,
-    credit_params: dict[str, Any],
-    tmi: float,
-    regime: str,
-    cfe: float,
-    frais_vente: float,
-    market_hypo: dict[str, float],
-) -> pd.DataFrame | None:
-    """Run detailed simulation for a selected strategy.
+def simulate_selected_strategy(strategy: dict[str, Any], ctx: RunContext) -> pd.DataFrame | None:
+    """Run detailed simulation for a selected strategy, with the parameters of its run.
 
     Creates yearly projection data for charts.
 
     Args:
         strategy: Strategy to simulate
-        horizon: Simulation years
-        credit_params: Credit parameters for IRA
-        tmi: Marginal tax rate
-        regime: Tax regime
-        cfe: CFE per property
-        frais_vente: Sale costs percentage
-        market_hypo: Market hypotheses
+        ctx: Parameters of the run that produced the strategy
 
     Returns:
         DataFrame with yearly projections or None on error
     """
     try:
-        mk = MarketHypotheses(
-            appreciation_bien_pct=market_hypo.get("appreciation_bien_pct", MARKET.appreciation_bien_pct),
-            revalo_loyer_pct=market_hypo.get("revalo_loyer_pct", MARKET.revalo_loyer_pct),
-            inflation_charges_pct=market_hypo.get("inflation_charges_pct", MARKET.inflation_charges_pct),
+        df_sim, _ = simulate_long_term_strategy(
+            strategy,
+            duration_years=ctx.horizon_ans,
+            market_hypotheses=ctx.market_hypotheses,
+            tax_params=ctx.to_tax_params(),
         )
-        tx = TaxParams(tmi_pct=tmi, regime_fiscal=regime)
-        ir = IRACalculator(
-            apply_ira=credit_params.get("apply_ira", FINANCING.apply_ira),
-            ira_cap_pct=credit_params.get("ira_cap_pct", FINANCING.ira_cap_pct),
-        )
-        eng = SimulationEngine(
-            market=mk,
-            tax=tx,
-            ira=ir,
-            cfe_par_bien_ann=cfe,
-            frais_vente_pct=frais_vente,
-        )
-
-        schedules = [
-            generate_amortization_schedule(
-                float(p["credit_final"]),
-                float(p["taux_pret"]),
-                int(p["duree_pret"]) * 12,
-                float(p["assurance_ann_pct"]),
-            )
-            for p in strategy["details"]
-        ]
-
-        df_sim, _ = eng.simulate(strategy, horizon, schedules)
         return df_sim
 
     except Exception as e:
