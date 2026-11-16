@@ -12,6 +12,7 @@ import streamlit as st
 from src.application.validation import MAX_RATE_PCT
 from src.core.defaults import (
     DEFAULT_PRESET,
+    DPE,
     FINANCING,
     MARKET,
     PRESETS,
@@ -246,6 +247,31 @@ def render_credit_params_tab() -> dict[str, Any]:
         inclure_mobilier = c3.checkbox("Mobilier", value=FINANCING.inclure_mobilier)
         financer_mobilier = c4.checkbox("Financé", value=FINANCING.financer_mobilier)
 
+        st.markdown("**Interdiction de location (DPE)**")
+        dpe_labels = {
+            "Rénover avant l'interdiction": "renover",
+            "Ne pas rénover (loyer nul dès l'interdiction)": "ne_pas_renover",
+        }
+        dpe_label = st.radio(
+            "Biens E, F, G",
+            options=list(dpe_labels),
+            index=list(dpe_labels.values()).index(DPE.policy),
+            help="Loi Climat et Résilience : G interdit à la location dès 2025, F dès 2028, E dès 2034. "
+            "Par simplification, l'interdiction s'applique au bien dès cette date (en droit, le G ne bloque que "
+            "les baux nouveaux ou renouvelés). Rénover : travaux l'année précédente (à l'achat, sur l'apport, si "
+            "l'interdiction est déjà en vigueur), traités comme des travaux énergétiques. Ne pas rénover : loyer "
+            "nul, charges, taxe foncière et prêt maintenus. L'option « Reno E→D » ci-dessus est la même rénovation, "
+            "faite à l'achat : le bien est alors classé D et n'est jamais compté deux fois.",
+        )
+        dpe_cout = st.number_input(
+            "Coût de rénovation (€/m²/classe)",
+            0.0, 1000.0,
+            value=DPE.cout_m2_par_classe,
+            step=10.0,
+            disabled=dpe_labels[dpe_label] != "renover",
+            help="Hypothèse : ordre de grandeur ADEME / Effinergie pour une rénovation globale.",
+        )
+
         st.markdown("**Part terrain (non amortissable)**")
         override_terrain = st.toggle(
             "Imposer la part terrain",
@@ -295,6 +321,8 @@ def render_credit_params_tab() -> dict[str, Any]:
         "frais_pret_pct": frais_pret,
         "inclure_travaux": inclure_travaux,
         "inclure_reno_ener": inclure_reno,
+        "dpe_policy": dpe_labels[dpe_label],
+        "dpe_cout_m2_par_classe": dpe_cout,
         "inclure_mobilier": inclure_mobilier,
         "financer_mobilier": financer_mobilier,
         "apply_ira": apply_ira,
