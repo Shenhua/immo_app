@@ -57,11 +57,12 @@ Legend: todo · running · done · blocked · skipped
 | T41 sensitivity rewrite | Sonnet | done | 448cd08 | | |
 | T42 caching | Sonnet | done | d3c7fd2 | verified with AppTest call counters | | |
 | T43 validation and UX | Sonnet | done | ea8da8c | defaults: apport 80k, CF −100 → 7 strategies | | |
-| T50 property tests | Sonnet | todo | | |
+| T50 property tests | Sonnet | done | 2c93b05 | no bugs found | | |
 | T51 AppTest | Sonnet | todo | | |
 | T52 typing + coverage | Sonnet | todo | | |
 | T53 README/docs | Haiku | todo | | |
-| T60–T67 features | mixed | todo | | see plan; T66 = offline files, no API |
+| T61 DPE rental ban | Sonnet | running | | |
+| T60, T62–T68 features | mixed | todo | | see plan; T66 = offline files, no API |
 
 ## Next waves
 1. **W1:** T01 (alone; touches many files)
@@ -257,3 +258,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-16: T42 merged (1192 passed). T43 launched alongside T32.
 - 2026-11-16: T32 merged (1191 passed, 1 skipped). T33 launched (T43 still running).
 - 2026-11-16: T43 merged. T34 waits for T33 (both touch the optimizer and strategy_finder).
+- 2026-11-16: T50 merged (1217 passed). T61 launched (T33 still running).
