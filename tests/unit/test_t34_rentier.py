@@ -63,3 +63,32 @@ def test_tax_correction_loop_converges_when_target_is_relaxed():
             assert float(s["cf_monthly_stab"]) >= target - 1e-9
     b = next(s for s in _run(50000, -260.0) if s["details"][0]["nom"] == "B")
     assert float(b["cf_monthly_stab"]) < -259.0  # B lands on the target
+
+
+def _real_year2(regime_fiscal: str) -> list[tuple[float, float, float]]:
+    """(monthly rent, monthly income tax) of year 2 for each strategy of a default-context real search."""
+    from src.application.run_context import RunContext
+    from src.application.services.simulation import simulate_long_term_strategy
+    from src.ui.app_controller import load_archetypes_from_disk, run_strategy_search
+
+    ctx = RunContext(regime_fiscal=regime_fiscal)
+    out = []
+    for s in run_strategy_search(load_archetypes_from_disk("data/archetypes_2026_v1.json"), ctx, run_info={}):
+        df, _ = simulate_long_term_strategy(s, duration_years=ctx.horizon_ans,
+                                            market_hypotheses=ctx.market_hypotheses, tax_params=ctx.to_tax_params())
+        out.append((float(df.iloc[1]["Loyers Bruts"]) / 12, float(df.iloc[1]["Impôt Dû"]) / 12, ctx.tmi_pct))
+    return out
+
+
+def test_year2_income_tax_is_plausible_on_a_real_search():
+    # T34 part C. LMNP réel: amortization wipes the taxable result, so no tax.
+    lmnp = _real_year2("lmnp")
+    assert lmnp
+    assert all(tax < 1.0 for _, tax, _ in lmnp)
+    # micro-BIC: 50 % abatement, then TMI + social levies (18.6 % since 2026) on what is left.
+    from src.core.defaults import TAX_RATES
+    micro = _real_year2("microbic")
+    assert micro
+    for rent, tax, tmi in micro:
+        expected = 0.5 * rent * (tmi + TAX_RATES.ps_bic_pct) / 100.0
+        assert abs(tax - expected) < 0.02 * expected + 1.0
