@@ -98,8 +98,11 @@ def render_strategy_card(
 
             color_cf = get_cf_color(cf, cf_cible)
 
-            st.markdown("<div style='font-size: 0.9em; color: gray;'>Cash-flow</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size: 0.9em; color: gray;'>Cash-flow (année stabilisée)</div>", unsafe_allow_html=True)
             st.markdown(f"<div style='font-size: 2.5em; font-weight: bold; color: {color_cf};'>{format_euro(cf)}</div>", unsafe_allow_html=True)
+            cf_y1 = strategy.get("cf_monthly_y1")
+            if cf_y1 is not None:
+                st.caption(f"Année 1 (avec travaux) : {format_euro(cf_y1)}/mois, après impôt")
 
 
         with c3:
@@ -206,10 +209,10 @@ def render_kpi_summary(strategy: dict[str, Any], horizon: int = 25) -> None:
     cols = st.columns(6)
 
     metrics = [
-        ("CF Mensuel", strategy.get("cash_flow_final", 0), format_euro, "Cash-flow mensuel de l'année 1, avant impôt sur le revenu (loyers moins charges et mensualités de crédit, tous biens)."),
+        ("CF Mensuel", strategy.get("cash_flow_final", 0), format_euro, "Cash-flow mensuel de l'année stabilisée (année 2, loyers de 12 mois), avant impôt sur le revenu (loyers moins charges et mensualités de crédit, tous biens)."),
         (f"TRI ({horizon}a)", strategy.get("tri_annuel", 0), format_pct, "Taux de Rentabilité Interne annualisé (inclut la revente)."),
         ("Enrichissement", strategy.get("liquidation_nette", 0), format_euro, f"Capital net disponible à la revente au bout de {horizon} ans (après impôts et remboursement dette)."),
-        ("DSCR Y1", strategy.get("dscr_y1", 0), lambda x: f"{x:.2f}" if x else "—", "Ratio de couverture de la dette (Revenus / Charges crédit). >1.0 signifie autofinancement."),
+        ("DSCR stabilisé", strategy.get("dscr_stab", strategy.get("dscr_y1", 0)), lambda x: f"{x:.2f}" if x else "—", "Ratio de couverture de la dette (Revenus / Charges crédit) de l'année stabilisée (année 2). >1.0 signifie autofinancement. Année 1 (avec travaux) : voir le détail."),
         ("Score Qualité", strategy.get("qual_score", 50), lambda x: f"{get_star_rating(x)}", "Qualité intrinsèque des biens (Emplacement, Tension, Liquidité)."),
         ("Score Global", strategy.get("balanced_score", 0) * 100, lambda x: f"{get_star_rating(x)}", "Note pondérée combinant performance financière et qualité."),
     ]
@@ -227,3 +230,13 @@ def render_kpi_summary(strategy: dict[str, Any], horizon: int = 25) -> None:
                  )
             else:
                  st.metric(label, formatter(value), help=help_text)
+
+    cf_y1 = strategy.get("cf_monthly_y1")
+    dscr_y1 = strategy.get("dscr_y1")
+    if cf_y1 is not None or dscr_y1 is not None:
+        parts = []
+        if cf_y1 is not None:
+            parts.append(f"CF année 1 (avec travaux) : {format_euro(cf_y1)}/mois après impôt")
+        if dscr_y1 is not None:
+            parts.append(f"DSCR année 1 (avec travaux) : {dscr_y1:.2f}")
+        st.caption(" · ".join(parts) + ". Les travaux réduisent les loyers de la première année seulement.")

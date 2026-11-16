@@ -175,7 +175,7 @@ class StrategyScorer:
         # A failed IRR (None) is non-finite, so it normalizes to 0 (worst), never to a 0 % return
         irr = [float("nan") if s.get("tri_annuel", 0.0) is None else s.get("tri_annuel", 0.0) for s in strategies]
         cap_eff = [s.get("cap_eff", 0.0) for s in strategies]
-        dscr = [1.5 if s.get("dscr_y1") is None else max(0.0, float(s.get("dscr_y1", 0.0))) for s in strategies]
+        dscr = [1.5 if s.get("dscr_stab") is None else max(0.0, float(s.get("dscr_stab", 0.0))) for s in strategies]
         cf_dist = [cf_penalty(s.get("cash_flow_final", 0.0), cash_flow_cible, self.mode_cf) for s in strategies]
         # CF proximity: mode-aware (min: only a deficit is penalised; target: abs gap)
         # smaller penalty = higher score (use 500€ as reasonable max distance)
@@ -311,7 +311,7 @@ class StrategyFinder:
 
         engine = build_engine(ep.hypotheses_marche, ep.to_tax_params())
 
-        allocator = PortfolioAllocator(self.mode_cf)
+        allocator = PortfolioAllocator(self.mode_cf, market=ep.hypotheses_marche)
 
         # Validate bricks before proceeding (fail-fast)
         from .brick_factory import validate_bricks

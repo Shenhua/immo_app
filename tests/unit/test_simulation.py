@@ -217,6 +217,6 @@ def test_evaluator_scores_failed_irr_as_zero_component():
     ev = StrategyEvaluator.__new__(StrategyEvaluator)
     ev.scorer = scorer
     score = ev.calculate_finance_score(
-        {"tri_annuel": None, "enrichissement_net": 0.0, "dscr_y1": 1.0}, {"gap": 0.0}, 100000.0, 100.0, 10
+        {"tri_annuel": None, "enrichissement_net": 0.0, "dscr_stab": 1.0}, {"gap": 0.0}, 100000.0, 100.0, 10
     )
     assert score == 0.0

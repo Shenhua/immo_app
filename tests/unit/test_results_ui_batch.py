@@ -44,12 +44,19 @@ def test_brick_generation_does_not_count_as_evaluation():
 # ---------------------------------------------------------------------------
 
 
+# Fields the simulation engine needs (it no longer swallows a KeyError from an incomplete brick).
+_SIM_FIELDS = {
+    "charges_const_mth0": 50.0, "tf_const_mth0": 50.0, "frais_gestion_pct": 0.0, "budget_travaux": 0.0, "mobilier": 0.0,
+    "frais_notaire": 7000.0, "taux_annuel_pct": 3.5, "duree_credit_mois": 240,
+}
+
+
 def test_finder_reports_exhaustive_solver_after_run():
     bricks = [
         InvestmentBrick(nom="A", apport_min=10000, prix_achat_bien=100000,
-                        capital_emprunte=90000, loyer_mensuel_initial=500),
+                        capital_emprunte=90000, loyer_mensuel_initial=500, **_SIM_FIELDS),
         InvestmentBrick(nom="B", apport_min=20000, prix_achat_bien=200000,
-                        capital_emprunte=180000, loyer_mensuel_initial=1000),
+                        capital_emprunte=180000, loyer_mensuel_initial=1000, **_SIM_FIELDS),
     ]
     finder = StrategyFinder(bricks=bricks, apport_disponible=50000, cash_flow_cible=0.0)
     assert finder.solver_mode == ""

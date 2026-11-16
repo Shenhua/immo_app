@@ -179,6 +179,7 @@ class GeneticOptimizer:
             "enrichissement_net": metrics.get("enrich_net", 0.0),
             "tri_annuel": metrics.get("tri_annuel", 0.0),
             "dscr_y1": metrics.get("dscr_y1", 0.0),
+            "dscr_stab": metrics.get("dscr_stab", 0.0),
         }
         ind.stats.update({
             k: v for k, v in metrics.items()
@@ -217,13 +218,14 @@ class GeneticOptimizer:
             "tri_annuel": bilan.get("tri_annuel", 0.0),
             "tri_global": bilan.get("tri_annuel", 0.0),
             "dscr_y1": bilan.get("dscr_y1", 0.0),
+            "dscr_stab": bilan.get("dscr_stab", 0.0),
             "qual_score": ind.stats.get("qual_score", 50.0),
         }
 
         # Add CF metrics
-        if "cf_year_1_monthly" in ind.stats:
-            s["cf_monthly_y1"] = ind.stats["cf_year_1_monthly"]
-            s["cf_monthly_avg"] = ind.stats["cf_avg_5y_monthly"]
+        for key in ("cf_monthly_y1", "cf_monthly_stab", "cf_monthly_avg"):
+            if key in ind.stats:
+                s[key] = ind.stats[key]
 
         return s
 
@@ -495,6 +497,8 @@ class ExhaustiveOptimizer:
         strategy["tri_annuel"] = metrics.get("tri_annuel", 0.0)
         strategy["tri_global"] = metrics.get("tri_annuel", 0.0)
         strategy["dscr_y1"] = metrics.get("dscr_y1", 0.0)
+        strategy["dscr_stab"] = metrics.get("dscr_stab", 0.0)
+        strategy["cf_monthly_stab"] = metrics.get("cf_monthly_stab", 0.0)
         strategy["cf_monthly_y1"] = metrics.get("cf_monthly_y1", 0.0)
         strategy["cf_monthly_avg"] = metrics.get("cf_monthly_avg", 0.0)
         strategy["is_acceptable"] = metrics.get("is_acceptable", False)

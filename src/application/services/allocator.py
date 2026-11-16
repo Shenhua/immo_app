@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.core.defaults import MAX_EXTRA_APPORT_PCT
+from src.core.defaults import MARKET, MAX_EXTRA_APPORT_PCT, REALISM
 from src.core.glossary import cf_accepts
 from src.core.logging import get_logger
 from src.domain.calculator.financial import calculate_total_monthly_payment, k_factor
@@ -60,8 +60,14 @@ def _get_val(obj: Any, key: str, default: Any = 0.0) -> Any:
 class PortfolioAllocator:
     """Service for allocating capital across properties."""
 
-    def __init__(self, mode_cf: str = "target"):
+    def __init__(self, mode_cf: str = "target", market: dict[str, float] | None = None):
         self.mode_cf = mode_cf
+        # Growth rates of the stabilised year (glossary.STABILISED_YEAR = year 2): the estimate below must
+        # use the same ones as the simulation, or the allocator accepts what the evaluator rejects.
+        m = market or {}
+        self.revalo_loyer_pct = float(m.get("revalo_loyer_pct", MARKET.revalo_loyer_pct))
+        self.inflation_charges_pct = float(m.get("inflation_charges_pct", MARKET.inflation_charges_pct))
+        self.tf_growth_pct = float(m.get("tf_growth_pct", REALISM.tf_growth_pct))
         self.max_extra_apport_pct = MAX_EXTRA_APPORT_PCT
         log.info("allocator_initialized", mode=self.mode_cf, max_extra_apport_ratio=self.max_extra_apport_pct)
 
@@ -102,13 +108,8 @@ class PortfolioAllocator:
                 "apport_add_bien": 0.0,
             })
 
-        # Calculate initial CF
-        cf0 = sum(
-            _get_val(b, "loyer_mensuel_initial") -
-            _get_val(b, "depenses_mensuelles_hors_credit_initial") -
-            _get_val(b, "pmt_total")
-            for b in biens
-        )
+        # Initial CF, stabilised-year definition (glossary.STABILISED_YEAR)
+        cf0 = self.stabilised_monthly_cf(biens)
 
         apport_total_min = sum(_get_val(b, "apport_min") for b in bricks)
         apport_suppl_max = max(0.0, apport_disponible - apport_total_min)
@@ -266,12 +267,7 @@ class PortfolioAllocator:
                 apport_rest -= delta
 
                 # Recompute global CF
-                cf0 = sum(
-                    x["loyer_mensuel_initial"] -
-                    x["depenses_mensuelles_hors_credit_initial"] -
-                    x["pmt_total"]
-                    for x in biens
-                )
+                cf0 = self.stabilised_monthly_cf(biens)
                 # log.debug("step_allocation", delta=delta,  new_cf=cf0, property=b.get("nom_bien"))
 
             if not changes_made:
@@ -293,6 +289,32 @@ class PortfolioAllocator:
 
         total_apport_final = sum(d["apport_final_bien"] for d in details)
         return success, details, cf0, total_apport_final
+
+    def stabilised_monthly_cf(self, biens: list[dict[str, Any]]) -> float:
+        """Monthly cash-flow estimate for the stabilised year (year 2), before income tax.
+
+        Year 2 = first year with every month rented (no works vacancy), with indexation applied once:
+        rent x (1 + revalo), charges and maintenance x (1 + inflation), taxe foncière x (1 + TF growth).
+        Rent-linked costs (management, vacancy provision, GLI) follow the rent. CFE, which the brick only
+        exposes inside its total operating costs, is the residual and is indexed like charges.
+        """
+        g_rent = 1.0 + self.revalo_loyer_pct / 100.0
+        g_chg = 1.0 + self.inflation_charges_pct / 100.0
+        g_tf = 1.0 + self.tf_growth_pct / 100.0
+        total = 0.0
+        for b in biens:
+            rent = float(_get_val(b, "loyer_mensuel_initial"))
+            charges = float(_get_val(b, "charges_const_mth0"))
+            tf = float(_get_val(b, "tf_const_mth0"))
+            prov = float(_get_val(b, "provision_pct")) / 100.0
+            rent_linked = rent * (float(_get_val(b, "frais_gestion_pct")) / 100.0 + prov
+                                  + (1.0 - prov) * float(_get_val(b, "gli_pct")) / 100.0)
+            maint = float(_get_val(b, "maintenance_m2_an")) * float(_get_val(b, "surface")) / 12.0
+            depenses0 = float(_get_val(b, "depenses_mensuelles_hors_credit_initial"))
+            cfe = max(0.0, depenses0 - charges - tf - rent_linked - maint)
+            opex = rent_linked * g_rent + charges * g_chg + tf * g_tf + (maint + cfe) * g_chg
+            total += rent * g_rent - opex - float(_get_val(b, "pmt_total"))
+        return total
 
     def _accept_cf(self, cf_observe: float, cf_cible: float, tol: float) -> bool:
         return cf_accepts(cf_observe, cf_cible, tol, self.mode_cf)

@@ -9,6 +9,7 @@ from typing import Any
 import structlog
 
 from src.core.defaults import BASE_WEIGHTS, CAP_EFF_BENCHMARK_MAX, SEARCH
+from src.core.exceptions import SimulationError
 from src.core.glossary import calculate_cashflow_metrics, calculate_enrichment_metrics
 from src.domain.calculator.financial import generate_amortization_schedule
 from src.domain.calculator.scoring import calculate_qualitative_score
@@ -17,6 +18,10 @@ from .allocator import PortfolioAllocator
 from .simulation import SimulationEngine
 
 log = structlog.get_logger(__name__)
+
+# Failures evaluate() may absorb: invalid inputs (ValueError from the tax regimes / schedule check),
+# the engine's own SimulationError, and a degenerate division. Unexpected exceptions propagate.
+EXPECTED_EVALUATION_ERRORS = (ValueError, ZeroDivisionError, SimulationError)
 
 
 class StrategyEvaluator:
@@ -211,8 +216,8 @@ class StrategyEvaluator:
         # on a fixed 0..CAP_EFF_BENCHMARK_MAX scale (defaults.py). Replaces the old proxy that reused s_enrich.
         s_cap_eff = max(0.0, min(1.0, roe / CAP_EFF_BENCHMARK_MAX))
 
-        # 3. DSCR - target 1.15
-        dscr = float(bilan.get("dscr_y1", 0.0) or 0.0)
+        # 3. DSCR - target 1.15, on the stabilised year (glossary.STABILISED_YEAR), not on the works year
+        dscr = float(bilan.get("dscr_stab", 0.0) or 0.0)
         s_dscr = max(0.0, min(1.0, dscr / 1.15))
 
         # 4. Cash Flow Proximity - 0 gap is perfect
@@ -323,10 +328,12 @@ class StrategyEvaluator:
                 "tri_global": bilan.get("tri_annuel", 0.0),
                 "tri_warning": bilan.get("tri_warning"),
                 "irr_failed": bilan.get("tri_annuel", 0.0) is None,
-                "dscr_y1": bilan.get("dscr_y1", 0.0),
+                "dscr_y1": bilan.get("dscr_y1", 0.0),  # year 1, with works months (display)
+                "dscr_stab": bilan.get("dscr_stab", 0.0),  # stabilised year (acceptance of risk, scoring)
 
                 # CF metrics
-                "cf_monthly_y1": cf_metrics.get("cf_year_1_monthly", 0.0),
+                "cf_monthly_y1": cf_metrics.get("cf_year_1_monthly", 0.0),  # year 1, with works (display)
+                "cf_monthly_stab": cf_metrics.get("cf_stabilised_monthly", 0.0),  # stabilised: acceptance + scoring
                 "cf_monthly_avg": cf_metrics.get("cf_avg_5y_monthly", 0.0),
                 "is_acceptable": cf_metrics.get("is_acceptable", False),
                 "gap": cf_metrics.get("gap", 0.0),
@@ -351,6 +358,9 @@ class StrategyEvaluator:
 
             return is_valid, result
 
-        except Exception as e:
-            log.warning("evaluation_failed", error=str(e))
-            return False, {"error": str(e)}
+        except EXPECTED_EVALUATION_ERRORS as e:
+            # Expected failures (invalid inputs rejected by a regime, empty strategy, degenerate division)
+            # are surfaced as a strategy warning. Anything else is a bug and propagates.
+            msg = f"{type(e).__name__}: {e}"
+            log.warning("evaluation_failed", error=msg)
+            return False, {"error": msg, "warnings": [msg]}

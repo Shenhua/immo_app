@@ -28,7 +28,7 @@ def mock_simulator():
         "liquidation_nette": 150000.0,
         "enrichissement_net": 80000.0,
         "tri_annuel": 8.5,
-        "dscr_y1": 1.2,
+        "dscr_stab": 1.2,
     }
     simulator.simulate.return_value = (df_mock, bilan_mock)
     return simulator
@@ -181,7 +181,7 @@ class TestCalculateFinanceScore:
         bilan = {
             "tri_annuel": 25.0,  # > 20% target
             "enrichissement_net": 250000.0,  # 2.5x ROE
-            "dscr_y1": 1.5,  # > 1.3 target
+            "dscr_stab": 1.5,  # > 1.3 target
         }
         cf_metrics = {"gap": 0.0}
 
@@ -195,7 +195,7 @@ class TestCalculateFinanceScore:
         bilan = {
             "tri_annuel": 0.0,
             "enrichissement_net": 0.0,
-            "dscr_y1": 0.0,
+            "dscr_stab": 0.0,
         }
         cf_metrics = {"gap": 500.0}  # Large gap
 
@@ -209,7 +209,7 @@ class TestCalculateFinanceScore:
         bilan = {
             "tri_annuel": 10.0,  # 50% of target
             "enrichissement_net": 100000.0,  # 1x ROE
-            "dscr_y1": 1.0,  # Below safe level
+            "dscr_stab": 1.0,  # Below safe level
         }
         cf_metrics = {"gap": 50.0}
 
@@ -311,7 +311,7 @@ class TestEvaluateFullPipeline:
         assert "fitness" in result
         assert "qual_score" in result
         assert "tri_annuel" in result
-        assert "dscr_y1" in result
+        assert "dscr_stab" in result
         assert result["fitness"] > 0
 
     def test_evaluate_empty_details(self, evaluator):
@@ -328,12 +328,22 @@ class TestEvaluateFullPipeline:
         strategy = {"details": sample_details, "apport_total": 50000.0}
 
         # Make simulation raise an exception
-        evaluator.simulator.simulate.side_effect = Exception("Simulation error")
+        evaluator.simulator.simulate.side_effect = ValueError("Simulation error")
 
         is_valid, result = evaluator.evaluate(strategy, -100.0, 100.0, 25)
 
         assert is_valid is False
         assert "error" in result
+        # The message is surfaced as a strategy warning
+        assert any("Simulation error" in w for w in result["warnings"])
+
+    def test_evaluate_unexpected_exception_propagates(self, evaluator, sample_details):
+        """T29 (m4): only expected errors are absorbed; a bug must not be swallowed."""
+        strategy = {"details": sample_details, "apport_total": 50000.0}
+        evaluator.simulator.simulate.side_effect = KeyError("bug")
+
+        with pytest.raises(KeyError):
+            evaluator.evaluate(strategy, -100.0, 100.0, 25)
 
 
 class TestEdgeCases:
@@ -341,7 +351,7 @@ class TestEdgeCases:
 
     def test_finance_score_with_zero_apport(self, evaluator):
         """Test finance score doesn't divide by zero with zero apport."""
-        bilan = {"tri_annuel": 10.0, "enrichissement_net": 50000.0, "dscr_y1": 1.0}
+        bilan = {"tri_annuel": 10.0, "enrichissement_net": 50000.0, "dscr_stab": 1.0}
         cf_metrics = {"gap": 50.0}
 
         # Should not raise, uses safe_apport = max(1.0, 0) = 1.0
@@ -351,7 +361,7 @@ class TestEdgeCases:
 
     def test_finance_score_with_zero_tolerance(self, evaluator):
         """Test finance score with zero tolerance uses default."""
-        bilan = {"tri_annuel": 10.0, "enrichissement_net": 50000.0, "dscr_y1": 1.0}
+        bilan = {"tri_annuel": 10.0, "enrichissement_net": 50000.0, "dscr_stab": 1.0}
         cf_metrics = {"gap": 50.0}
 
         # Should use safe_tol = 100.0
@@ -361,7 +371,7 @@ class TestEdgeCases:
 
     def test_finance_score_none_dscr(self, evaluator):
         """Test finance score handles None DSCR."""
-        bilan = {"tri_annuel": 10.0, "enrichissement_net": 50000.0, "dscr_y1": None}
+        bilan = {"tri_annuel": 10.0, "enrichissement_net": 50000.0, "dscr_stab": None}
         cf_metrics = {"gap": 50.0}
 
         # Should treat None as 0.0
