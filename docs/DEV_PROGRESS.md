@@ -40,7 +40,7 @@ Legend: todo · running · done · blocked · skipped
 | T21 plus-value | Sonnet | done | c1cb93f | | |
 | T24 wealth/IRR/CFE | Sonnet | done | 0eaa978 | | |
 | T23 tax regime engine | Opus | done | f44af5b..ef88a02 | golden C1–C9 all pass | | after T20 approved |
-| T25 scoring fixes | Sonnet | running | | |
+| T25 scoring fixes | Sonnet | done | b702d05 | | |
 | T26a realistic assumptions | Sonnet | running | | after T23 |
 | T26b data recalibration | Sonnet | done | ee96023 | TF/charges/caps unverified | | web research |
 | Gate P2 review | Opus | todo | | |
@@ -152,6 +152,11 @@ Legend: todo · running · done · blocked · skipped
     - `provision_pct` (vacancy) is treated as a deductible charge → T26a.
     - `SimulationParams.regime_fiscal` (domain/models/strategy.py) is stale → T52.
     - Strategy cards don't show regime warnings → T43.
+- After T25:
+  - The evaluator's `cap_eff` is now enrichment / down payment, against `CAP_EFF_BENCHMARK_MAX` = 5.
+  - At the cap, the rent-cap margin scores neutral (0.6).
+  - **For T32:** `StrategyScorer` in `strategy_finder.py` still has its own min-max `cap_eff` normalization.
+  - `cap_eff` and `s_enrich` remain correlated. Revisit the weights in T32.
 - `ruff format` not applied (45 files would be reformatted). Optional later; skip it to avoid merge churn.
 
 ## Log
@@ -171,3 +176,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-13: T23 merged (976 passed, 0 xfail). T25 and T26a launched in parallel.
 - 2026-11-13: The usage limit interrupted T25 (uncommitted edits in worktree agent-a0b0f095f0fbb0865) and T26a (no changes).
 - 2026-11-16: T25 and T26a resumed via SendMessage. If this session dies, inspect those worktrees: commit or keep the edits, then relaunch with a "continue from this worktree" note.
+- 2026-11-16: T25 merged (984 passed). Waiting for T26a.
