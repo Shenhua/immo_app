@@ -64,7 +64,7 @@ def test_allocator_accepted_strategy_is_never_rejected_by_evaluator(archetype, t
         if mode_cf == "target" and result["cf_monthly_stab"] > cf0 + 1.0:
             # Known, separate from M1: the allocator estimate is before income tax, the evaluator CF is after
             # tax, so a tax refund (deficit foncier on unfurnished lets) pushes the CF above a precise target.
-            # Reported as a follow-up; "min" mode is unaffected (a surplus is accepted).
+            # The search handles it by accepting on the after-tax CF (glossary.CF_ACCEPTANCE_BASIS, T31).
             continue
         assert valid, (
             f"{archetype['nom']}: allocator cf0={cf0:.0f} accepted, evaluator "
