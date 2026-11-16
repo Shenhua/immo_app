@@ -49,13 +49,13 @@ Legend: todo · running · done · blocked · skipped
 | T28 tax hygiene + multi-prop tests | Sonnet | done | 8760fd6 | | after T27 |
 | T29 stabilised-year metrics | Sonnet | done | 762c5c6 (merge 23e1e3d) | stabilised = year 2 | | after T27, parallel with T28 | | |
 | T30 CF mode ranking | Sonnet | done | 75e0e0f | | |
-| T31 search rewrite | Opus | running | | |
-| T32 absolute scoring + Pareto | Sonnet | todo | | |
+| T31 search rewrite | Opus | done | 2aede1c..b38fc93 (merge f18c1a5) | Empire 5–8 s, deterministic, GA removed | | |
+| T32 absolute scoring + Pareto | Sonnet | running | | |
 | T33 near misses | Sonnet | todo | | |
 | T34 Rentier mode | Sonnet | todo | | |
 | T40 results UI batch | Haiku | done | 260dd2e | | |
 | T41 sensitivity rewrite | Sonnet | done | 448cd08 | | |
-| T42 caching | Sonnet | todo | | |
+| T42 caching | Sonnet | running | | |
 | T43 validation and UX | Sonnet | todo | | |
 | T50 property tests | Sonnet | todo | | |
 | T51 AppTest | Sonnet | todo | | |
@@ -197,6 +197,15 @@ Legend: todo · running · done · blocked · skipped
   - Follow-ups:
     - The rate delta keeps `credit_final` fixed.
     - The works delta is paid by the down payment.
+- After T31:
+  - Search: property subsets with budget pruning; durations screened exactly up to 3^5, otherwise greedy + swap; a proxy ranking applies when there are more than `EVAL_BUDGET` = 12k candidates (`solver_mode` "EXHAUSTIVE" or "SUBSET_PROXY").
+  - A ProcessPool is used above 2,000 evaluations (spawn on macOS: scripts need a `__main__` guard).
+  - Acceptance = year-2 CF after income tax (`glossary.CF_ACCEPTANCE_BASIS`). The allocator is only a pre-filter with a tax margin; re-allocation runs up to 3 rounds.
+  - The allocator is analytic (gap / k), so step truncation is gone.
+  - Open items:
+    - **USER MANUAL CHECK:** a real `streamlit run app.py` Empire search with the process pool (untested outside pytest).
+    - **T32:** the Pareto filter leaves only 2–11 strategies; the scorer's CF proximity uses the pre-tax `cash_flow_final`.
+    - **Perf:** a simulation costs 2–3 ms (pandas + round in `_generate_schedule_cached`), possible later optimization.
 - `ruff format` not applied (45 files would be reformatted). Optional later; skip it to avoid merge churn.
 
 ## Log
@@ -224,3 +233,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-16: T29 merged (1171 passed; glossary conflict resolved via `CHARGES_COL`). **Phase 2 complete.** T31 launched (Opus).
 - 2026-11-16: T41 merged (1176 passed). T31 still running; the second slot is kept free (T42 and T43 touch files T31 may change).
 - 2026-11-16 13:42: The usage limit interrupted T31 (worktree agent-a5ecae762d3a2520b: commits 2aede1c and 8223cbe, plus uncommitted optimizer.py). Resumed via SendMessage. If the session dies, relaunch T31 with "continue from branch worktree-agent-a5ecae762d3a2520b".
+- 2026-11-16: T31 merged (1189 passed). Phase 3 continues: T32 and T42 launched in parallel.
