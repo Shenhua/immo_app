@@ -45,11 +45,12 @@ import numpy as np
 import structlog
 
 from src.core.defaults import MARKET, TAX, TAX_RATES
-from src.core.glossary import cf_accepts
+from src.core.glossary import MIN_MODES, cf_accepts
 from src.domain.models.archetype import is_furnished
 from src.domain.models.brick import InvestmentBrick
 
 from .allocator import PortfolioAllocator, PreparedBrick
+from .diagnostics import NearMiss, SearchDiagnostics
 from .evaluator import StrategyEvaluator
 from .simulation import SimulationEngine
 
@@ -190,11 +191,13 @@ def _balance_fraction(rate_pct: float, n_months: int, paid_months: int) -> float
     return ((1 + r) ** n_months - (1 + r) ** paid_months) / ((1 + r) ** n_months - 1)
 
 
-def enumerate_subsets(table: BrickTable, budget: float, max_props: int) -> Iterator[tuple[int, ...]]:
+def enumerate_subsets(table: BrickTable, budget: float, max_props: int,
+                      diag: SearchDiagnostics | None = None) -> Iterator[tuple[int, ...]]:
     """Property subsets (indices into ``table.names``) whose cheapest down payments fit the budget.
 
     Depth-first, properties in ``table.names`` order (cheapest first), so a branch stops at the first property
-    that no longer fits. Deterministic.
+    that no longer fits. Deterministic. With ``diag``, the pruned extensions are counted by reason (over budget,
+    or over the maximum size while fitting the budget).
     """
     costs = table.prop_min_apport
     n = table.n_props
@@ -203,10 +206,23 @@ def enumerate_subsets(table: BrickTable, budget: float, max_props: int) -> Itera
         if chosen:
             yield tuple(chosen)
         if len(chosen) >= max_props:
+            if diag is not None:
+                for p in range(start, n):
+                    if spent + costs[p] > budget + 1e-6:
+                        break
+                    diag.record(NearMiss("max_props", tuple(table.names[i] for i in (*chosen, p)), 1.0, "bien"))
             return
         for p in range(start, n):
             c = spent + costs[p]
             if c > budget + 1e-6:
+                if diag is not None:
+                    for q in range(p, n):
+                        gap = spent + costs[q] - budget
+                        diag.add_budget_gap(gap)
+                        if q == p:
+                            diag.record(NearMiss("budget", tuple(table.names[i] for i in (*chosen, q)), gap, "€"))
+                        else:
+                            diag.count_only("budget")
                 break
             chosen.append(p)
             yield from rec(p + 1, chosen, c)
@@ -222,6 +238,8 @@ class Screen:
 
     passes: np.ndarray  # pre-filter verdict
     proxy: np.ndarray  # higher is better; -inf when the row does not pass
+    cf_gap: np.ndarray  # EUR/month the optimistic CF bound misses the target by (<= 0: not a CF rejection)
+    cf_best: np.ndarray  # optimistic reachable CF (EUR/month, after the largest possible refund)
 
 
 def screen(table: BrickTable, rows: np.ndarray, problem: SearchProblem, max_extra_pct: float) -> Screen:
@@ -254,11 +272,13 @@ def screen(table: BrickTable, rows: np.ndarray, problem: SearchProblem, max_extr
     if problem.mode_cf == "target":
         tax_up = table.tax_up[rows].sum(axis=1)
         passes = in_budget & (cf_max + refund >= target - tol) & (cf0 - tax_up <= target + tol)
+        cf_gap = np.maximum(target - tol - (cf_max + refund), (cf0 - tax_up) - (target + tol))
     else:
         passes = in_budget & (cf_max + refund >= target)
+        cf_gap = target - (cf_max + refund)
 
     proxy = _roe_proxy(table, rows, X, amin, extra)
-    return Screen(passes=passes, proxy=np.where(passes, proxy, -np.inf))
+    return Screen(passes=passes, proxy=np.where(passes, proxy, -np.inf), cf_gap=cf_gap, cf_best=cf_max + refund)
 
 
 def _fill(K: np.ndarray, C: np.ndarray, need: np.ndarray, money: np.ndarray, pct: float) -> np.ndarray:
@@ -315,6 +335,8 @@ class CandidateEvaluator:
         self.evaluator = evaluator
         self.prepared = list(prepared)
         self.problem = problem
+        # Why the last call returned None: (reason, gap >= 0, after-tax CF or nan). None after an accepted call.
+        self.last_reject: tuple[str, float, float] | None = None
 
     def __call__(self, bricks: tuple[int, ...]) -> tuple[tuple[float, ...], float, dict[str, Any]] | None:
         """Return (extra per brick, pre-tax CF estimate, metrics) of the best accepted allocation, or None.
@@ -329,9 +351,12 @@ class CandidateEvaluator:
         bias = 0.0
         best: tuple[tuple[float, ...], float, dict[str, Any]] | None = None
         seen: set[float] = set()
+        reject: tuple[str, float, float] | None = None
+        self.last_reject = None
         for _ in range(TAX_CORRECTION_ROUNDS):
             plan = self.allocator.plan(P, pb.budget, pb.target_cf + bias, pb.tolerance)
             if not plan.within_budget:
+                self.last_reject = ("budget", max(0.0, plan.apport_total - pb.budget), math.nan)
                 return None
             key = round(plan.apport_total, 2)
             if key in seen:
@@ -341,9 +366,14 @@ class CandidateEvaluator:
             strategy = {"details": details, "apport_total": plan.apport_total}
             _, metrics = self.evaluator.evaluate(strategy, pb.target_cf, pb.tolerance, pb.horizon)
             if "error" in metrics:
+                self.last_reject = None if best is not None else ("evaluator", 0.0, math.nan)
                 return best
             after = float(metrics["cf_monthly_stab"])
             accepted = cf_accepts(after, pb.target_cf, pb.tolerance, pb.mode_cf)
+            if not accepted:
+                gap = pb.target_cf - after if pb.mode_cf in MIN_MODES else abs(after - pb.target_cf) - pb.tolerance
+                if reject is None or gap < reject[1]:
+                    reject = ("cf", max(0.0, gap), after)
             if accepted and (best is None or metrics["fitness"] > best[2]["fitness"]):
                 best = (plan.extra, plan.cf, metrics)
             tax = plan.cf - after  # stabilised monthly income tax (negative = refund)
@@ -353,6 +383,7 @@ class CandidateEvaluator:
             if not accepted and abs(new_bias - bias) < 0.01:
                 break
             bias = new_bias
+        self.last_reject = None if best is not None else reject
         return best
 
 
@@ -373,9 +404,14 @@ def _worker_init(prepared: list[PreparedBrick], problem: SearchProblem, mode_cf:
     _WORKER = CandidateEvaluator(allocator, evaluator, prepared, problem)
 
 
-def _worker_run(chunk: list[tuple[int, ...]]) -> list[tuple[tuple[float, ...], float, dict[str, Any]] | None]:
+def _worker_run(chunk: list[tuple[int, ...]]) -> list[Any]:
+    """(result or None, rejection or None) per candidate."""
     assert _WORKER is not None
-    return [_WORKER(c) for c in chunk]
+    out = []
+    for c in chunk:
+        r = _WORKER(c)
+        out.append((r, _WORKER.last_reject))
+    return out
 
 
 # --------------------------------------------------------------------------- search
@@ -400,6 +436,7 @@ class PortfolioSearch:
         self.evaluator = StrategyEvaluator(simulator, allocator, scorer)
         self.solver_mode = ""
         self.stats: dict[str, Any] = {}
+        self.diagnostics = SearchDiagnostics()
 
     def solve(
         self,
@@ -413,13 +450,16 @@ class PortfolioSearch:
         market = market or {}
         prepared = [self.allocator.prepare(b) for b in all_bricks]
         table = BrickTable(prepared, problem, market)
+        diag = self.diagnostics = SearchDiagnostics(
+            budget=problem.budget, target_cf=problem.target_cf, tolerance=problem.tolerance,
+            max_props=problem.max_props, mode_cf=problem.mode_cf)
 
         if progress_callback:
             progress_callback(SearchProgress(phase=SearchPhase.COMBO_GENERATION, phase_index=2,
                                              message="Génération des combinaisons..."))
 
         t0 = time.perf_counter()
-        candidates, exact = self._screen_all(table, problem)
+        candidates, exact = self._screen_all(table, problem, diag)
         self.stats["screen_s"] = round(time.perf_counter() - t0, 3)
         self.solver_mode = "EXHAUSTIVE" if exact else "SUBSET_PROXY"
         log.info("search_candidates", candidates=len(candidates), mode=self.solver_mode, **self.stats)
@@ -429,25 +469,54 @@ class PortfolioSearch:
         self.stats["evaluate_s"] = round(time.perf_counter() - t0, 3)
 
         strategies = []
-        for bricks, res in zip(candidates, results, strict=True):
+        outcome: dict[tuple[str, ...], list[Any] | None] = {}  # property subset -> rejections, None once accepted
+        for bricks, (res, reject) in zip(candidates, results, strict=True):
+            names = tuple(sorted({prepared[i].nom for i in bricks}))
+            slot = outcome.setdefault(names, [])
             if res is None:
+                if reject is not None and slot is not None:
+                    slot.append(reject)
                 continue
+            outcome[names] = None
             extra, cf_pre, metrics = res
             P = [prepared[i] for i in bricks]
             strategies.append(_to_strategy(self.allocator.details(P, extra), cf_pre, metrics))
+        self._record_evaluated(diag, outcome)
         check_invariants(strategies, problem.budget, problem.max_props)
         log.info("search_finished", evaluated=len(candidates), accepted=len(strategies))
         return strategies
 
+    @staticmethod
+    def _record_evaluated(diag: SearchDiagnostics, outcome: dict[tuple[str, ...], list[Any] | None]) -> None:
+        """Subset-level verdicts of the simulated candidates: accepted, or rejected for its smallest CF gap."""
+        for names, rejects in outcome.items():
+            diag.evaluated += 1
+            if rejects is None:
+                diag.accepted += 1
+                continue
+            cf = [r for r in rejects if r[0] == "cf"]
+            if cf:
+                best = min(cf, key=lambda r: r[1])
+                diag.record(NearMiss("cf", names, best[1], "€/mois", cf=best[2]))
+                diag.add_cf_gap(names, best[1], estimated=False)
+            elif any(r[0] == "evaluator" for r in rejects):
+                diag.record(NearMiss("evaluator", names, 0.0, ""))
+            else:
+                bud = min((r for r in rejects if r[0] == "budget"), key=lambda r: r[1], default=None)
+                diag.record(NearMiss("budget", names, bud[1] if bud else 0.0, "€"))
+                if bud:
+                    diag.add_budget_gap(bud[1])
+
     # ------------------------------------------------------------------ screening
-    def _screen_all(self, table: BrickTable, problem: SearchProblem) -> tuple[list[tuple[int, ...]], bool]:
+    def _screen_all(self, table: BrickTable, problem: SearchProblem,
+                    diag: SearchDiagnostics | None = None) -> tuple[list[tuple[int, ...]], bool]:
         """Candidates to simulate, in deterministic order, and whether the duration choice was exhaustive."""
         if table.n_props == 0 or problem.max_props <= 0:
             self.stats = {"subsets": 0, "assignments": 0}
             return [], True
         pct = self.allocator.max_extra_apport_pct
         by_k: dict[int, list[tuple[int, ...]]] = {}
-        for s in enumerate_subsets(table, problem.budget, problem.max_props):
+        for s in enumerate_subsets(table, problem.budget, problem.max_props, diag):
             by_k.setdefault(len(s), []).append(s)
 
         # Per subset: passing rows (brick-index tuples) with their proxy, in assignment order.
@@ -469,11 +538,14 @@ class PortfolioSearch:
                     sc = screen(table, np.where(rows >= 0, rows, 0), problem, pct)
                     ok = (sc.passes & valid).reshape(ns, g)
                     prox = sc.proxy.reshape(ns, g)
+                    gaps = np.where(valid, sc.cf_gap, np.inf).reshape(ns, g)
                     B3 = B
                     for i in range(ns):
                         idx = np.flatnonzero(ok[i])
                         if idx.size:
                             sub_rows.append((B3[i, idx], prox[i, idx]))
+                        elif diag is not None and np.isfinite(gaps[i]).any():
+                            self._screen_reject(diag, table, S[i], float(gaps[i].min()))
             else:
                 all_exact = False
                 rows = self._greedy_assignments(table, subsets, problem, pct)
@@ -481,6 +553,9 @@ class PortfolioSearch:
                 sc = screen(table, rows, problem, pct)
                 for ii in np.flatnonzero(sc.passes).tolist():
                     sub_rows.append((rows[ii:ii + 1], sc.proxy[ii:ii + 1]))
+                if diag is not None:
+                    for ii in np.flatnonzero(~sc.passes).tolist():
+                        self._screen_reject(diag, table, subsets[ii], float(sc.cf_gap[ii]), float(sc.cf_best[ii]))
 
         n_pass = sum(len(r) for r, _ in sub_rows)
         self.stats = {"subsets": sum(len(v) for v in by_k.values()), "assignments": n_assign, "passing": n_pass}
@@ -497,6 +572,15 @@ class PortfolioSearch:
             out.extend(tuple(int(x) for x in r) for r in rows)
         self.stats["kept_per_subset"] = m_keep
         return out, False
+
+    @staticmethod
+    def _screen_reject(diag: SearchDiagnostics, table: BrickTable, subset: np.ndarray, gap: float,
+                       cf_best: float | None = None) -> None:
+        """A subset none of whose assignments passes the pre-filter: a (lower bound) CF rejection."""
+        names = tuple(table.names[int(p)] for p in subset)
+        gap = max(0.0, gap)
+        diag.record(NearMiss("cf", names, gap, "€/mois", cf=cf_best, estimated=True))
+        diag.add_cf_gap(names, gap, estimated=True)
 
     def _greedy_assignments(self, table: BrickTable, subsets: np.ndarray, problem: SearchProblem,
                             pct: float) -> np.ndarray:
@@ -534,7 +618,7 @@ class PortfolioSearch:
 
         report(0)
         workers = self._workers(n)
-        results: list[Any] = []
+        results: list[Any] = []  # (result or None, rejection or None)
         if workers > 1:
             try:
                 results = self._evaluate_pool(candidates, prepared, problem, market, workers, report)
@@ -546,7 +630,7 @@ class PortfolioSearch:
             step = max(1, n // 100)
             for i, c in enumerate(candidates):
                 r = ev(c)
-                results.append(r)
+                results.append((r, ev.last_reject))
                 found += r is not None
                 if (i + 1) % step == 0:
                     report(i + 1)
