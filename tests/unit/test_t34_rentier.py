@@ -19,7 +19,7 @@ def _bricks() -> list[InvestmentBrick]:
     ]
 
 
-def _run(budget: float, target: float, full: bool, max_props: int = 1) -> list[dict]:
+def _run(budget: float, target: float, full: bool = False, max_props: int = 1) -> list[dict]:
     finder = StrategyFinder(_bricks(), budget, target, max_properties=max_props)
     finder.n_workers = 1
     return finder.find_strategies(eval_params={}, horizon_years=10, top_n=10, use_full_capital_override=full)
@@ -51,3 +51,15 @@ def test_rentier_full_cash_has_no_phantom_loan():
     assert d["credit_final"] == 0.0
     assert d["pmt_total"] == 0.0
     assert d["apport_add_bien"] == 90000.0
+
+
+def test_tax_correction_loop_converges_when_target_is_relaxed():
+    # Regression (T33): with 3 rounds B ended 5 EUR/month short of -260 and was rejected, and A at -200
+    # ended 0.2 EUR short. Both are reachable within the budget and must now be accepted.
+    for target, expected in ((-260.0, {"A", "B"}), (-200.0, {"A"})):
+        strategies = _run(50000, target)
+        assert {s["details"][0]["nom"] for s in strategies} == expected
+        for s in strategies:
+            assert float(s["cf_monthly_stab"]) >= target - 1e-9
+    b = next(s for s in _run(50000, -260.0) if s["details"][0]["nom"] == "B")
+    assert float(b["cf_monthly_stab"]) < -259.0  # B lands on the target

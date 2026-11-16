@@ -102,7 +102,7 @@ def test_same_ranked_results_as_old_exhaustive(name):
 
 
 def test_allocating_case_agrees_where_both_solvers_accept():
-    """Every old result whose after-tax CF meets the target is still found, with the same down payment (±1 %)."""
+    """Every old result whose after-tax CF meets the target is still found, with the same down payment (±1 %, or up to 3 % lower since T34)."""
     case = CASES["P3_min_allocating"]
     old = [r for r in _golden()["P3_min_allocating"] if r["is_acceptable"]]
     new = {tuple(tuple(x) for x in r["sig"]): r for r in _run(case)}
@@ -113,5 +113,8 @@ def test_allocating_case_agrees_where_both_solvers_accept():
         assert names in new_names, f"old accepted portfolio {names} missing from the new results"
         same = new.get(tuple(tuple(x) for x in o["sig"]))
         if same is not None:
-            assert same["apport_total"] == pytest.approx(o["apport_total"], rel=0.01)
+            # T34: the tax-correction loop converges, so it may now need slightly LESS down payment than the golden
+            # (which stopped after 3 rounds, overshooting); never more.
+            assert same["apport_total"] <= o["apport_total"] * 1.01
+            assert same["apport_total"] == pytest.approx(o["apport_total"], rel=0.03)
         assert all(r["cf_monthly_stab"] >= case["cf_cible"] - 1e-6 for r in new.values())
