@@ -51,8 +51,8 @@ Legend: todo · running · done · blocked · skipped
 | T30 CF mode ranking | Sonnet | done | 75e0e0f | | |
 | T31 search rewrite | Opus | done | 2aede1c..b38fc93 (merge f18c1a5) | Empire 5–8 s, deterministic, GA removed | | |
 | T32 absolute scoring + Pareto | Sonnet | done | 671de34 | | |
-| T33 near misses | Sonnet | running | | |
-| T34 Rentier mode | Sonnet | todo | | |
+| T33 near misses | Sonnet | done | eedc125 | | |
+| T34 Rentier mode | Sonnet | running | | + tax-loop convergence + tax sanity check | | |
 | T40 results UI batch | Haiku | done | 260dd2e | | |
 | T41 sensitivity rewrite | Sonnet | done | 448cd08 | | |
 | T42 caching | Sonnet | done | d3c7fd2 | verified with AppTest call counters | | |
@@ -227,6 +227,14 @@ Legend: todo · running · done · blocked · skipped
     - The KPI row `st.columns(6)` and the inline 2.5em fonts in results.py are fixed only through CSS overrides. A native fix is pending (small Haiku task, or fold into T34).
     - There is no budget input in the UI (the rule exists in validation).
     - Evaluator `warnings` exist only on failures.
+- After T33:
+  - `src/application/services/diagnostics.py` and `src/ui/components/diagnostics.py`: `StrategyFinder.last_diagnostics`, near misses, and suggestions computed from the gaps.
+  - The tier code is gone.
+  - Open items:
+    - No "apply suggestion" button: sidebar widgets have no `key=` (do it after T61, in a small UI task).
+    - **The CandidateEvaluator tax-correction loop (3 rounds) doesn't always converge** → T34.
+    - **The simulated income tax looked large on a hand-made instance** (120–215 €/month on 500–1,000 € rent) → T34 checks.
+    - `utils/debug.py` parses a log line that no longer exists (strategy_tiers) → T52.
 - `ruff format` not applied (45 files would be reformatted). Optional later; skip it to avoid merge churn.
 
 ## Log
@@ -259,3 +267,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-16: T32 merged (1191 passed, 1 skipped). T33 launched (T43 still running).
 - 2026-11-16: T43 merged. T34 waits for T33 (both touch the optimizer and strategy_finder).
 - 2026-11-16: T50 merged (1217 passed). T61 launched (T33 still running).
+- 2026-11-16: T33 merged cleanly (1226 passed). T34 launched (T61 still running).
