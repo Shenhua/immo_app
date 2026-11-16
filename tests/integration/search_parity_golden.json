@@ -109,6 +109,28 @@
   {
    "sig": [
     [
+     "T2 (Échirolles - Comboire)",
+     180
+    ],
+    [
+     "T3 Familial (Lyon - Monplaisir)",
+     180
+    ],
+    [
+     "T3 Nu (Grenoble - Teisseire)",
+     180
+    ]
+   ],
+   "apport_total": 40268.0,
+   "enrich_net": 265503.2321879674,
+   "tri_annuel": 2.183874553482368,
+   "cf_monthly_stab": -2923.5249204602637,
+   "balanced_score": 0.6102981999939174,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
      "Studio Étudiant (Chambéry - Jacob)",
      180
     ],
@@ -153,28 +175,6 @@
   {
    "sig": [
     [
-     "T2 (Échirolles - Comboire)",
-     180
-    ],
-    [
-     "T3 Familial (Lyon - Monplaisir)",
-     180
-    ],
-    [
-     "T3 Nu (Grenoble - Teisseire)",
-     240
-    ]
-   ],
-   "apport_total": 40268.0,
-   "enrich_net": 249510.21394475934,
-   "tri_annuel": 2.1455906514704415,
-   "cf_monthly_stab": -2676.096706180489,
-   "balanced_score": 0.5939727936505614,
-   "is_acceptable": true
-  },
-  {
-   "sig": [
-    [
      "Studio Étudiant (Saint‑Martin‑d’Hères - Campus)",
      180
     ],
@@ -206,6 +206,28 @@
    "tri_annuel": 2.3321142455472677,
    "cf_monthly_stab": -2028.4540159334167,
    "balanced_score": 0.5780909706384474,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Lyon - La Doua)",
+     180
+    ],
+    [
+     "T3 Familial (Lyon - Monplaisir)",
+     180
+    ],
+    [
+     "T3 Nu (Grenoble - Teisseire)",
+     180
+    ]
+   ],
+   "apport_total": 41052.0,
+   "enrich_net": 245920.39889904915,
+   "tri_annuel": 1.9735287218751063,
+   "cf_monthly_stab": -3034.7640175641304,
+   "balanced_score": 0.5774520085151608,
    "is_acceptable": true
   },
   {
@@ -268,28 +290,6 @@
    "tri_annuel": 2.0278898767557285,
    "cf_monthly_stab": -2808.5958604332814,
    "balanced_score": 0.5682230342135483,
-   "is_acceptable": true
-  },
-  {
-   "sig": [
-    [
-     "Studio Étudiant (Lyon - La Doua)",
-     180
-    ],
-    [
-     "T3 Familial (Lyon - Monplaisir)",
-     180
-    ],
-    [
-     "T3 Nu (Grenoble - Teisseire)",
-     240
-    ]
-   ],
-   "apport_total": 41052.0,
-   "enrich_net": 229927.3806558411,
-   "tri_annuel": 1.9262600492708115,
-   "cf_monthly_stab": -2787.3358032843557,
-   "balanced_score": 0.5604057826811282,
    "is_acceptable": true
   },
   {

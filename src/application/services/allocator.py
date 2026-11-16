@@ -6,6 +6,8 @@ Converted from legacy `allouer_apport_pour_cf`.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Any
 
 from src.core.defaults import MARKET, MAX_EXTRA_APPORT_PCT, REALISM
@@ -57,8 +59,47 @@ def _get_val(obj: Any, key: str, default: Any = 0.0) -> Any:
             return default
 
 
+@dataclass(frozen=True, slots=True)
+class PreparedBrick:
+    """Per-brick data the allocation needs, computed once per search (T31).
+
+    ``k`` is the monthly debt service (P&I + insurance) per euro borrowed: the payment is linear in the loan,
+    so one more euro of down payment raises the monthly cash flow by exactly ``k``. ``noi_stab`` is the
+    stabilised-year monthly cash flow before debt service and before income tax (same formula as
+    ``PortfolioAllocator.stabilised_monthly_cf``). ``data`` is the brick's ``model_dump()``, taken once.
+    """
+
+    nom: str
+    duree_mois: int
+    apport_min: float
+    capital: float
+    k: float
+    noi_stab: float
+    data: dict[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
+class Allocation:
+    """Result of ``PortfolioAllocator.plan``: extra down payment per brick, in the order given."""
+
+    ok: bool  # the pre-tax estimate meets the target (see glossary.CF_ACCEPTANCE_BASIS)
+    extra: tuple[float, ...]
+    cf: float  # stabilised monthly CF estimate, before income tax
+    apport_total: float
+    within_budget: bool
+
+
 class PortfolioAllocator:
-    """Service for allocating capital across properties."""
+    """Service for allocating capital across properties.
+
+    The allocation is analytic (T31): the stabilised cash flow is linear in each loan amount, so the extra down
+    payment needed to close a cash-flow gap is ``gap / k``. Bricks are filled by decreasing ``k`` (most cash flow
+    per euro first), each up to ``max_extra_apport_pct`` of its loan, or paid fully in cash when the remaining
+    gap needs the whole loan. No step rounding, so the result lands on the target instead of one step short.
+    """
+
+    # Aim this far above the target in "min" mode so float rounding never puts the result a cent below it.
+    MIN_MODE_EPS = 0.01
 
     def __init__(self, mode_cf: str = "target", market: dict[str, float] | None = None):
         self.mode_cf = mode_cf
@@ -71,6 +112,121 @@ class PortfolioAllocator:
         self.max_extra_apport_pct = MAX_EXTRA_APPORT_PCT
         log.info("allocator_initialized", mode=self.mode_cf, max_extra_apport_ratio=self.max_extra_apport_pct)
 
+    # ------------------------------------------------------------------ preparation
+    def prepare(self, brick: InvestmentBrick | dict[str, Any]) -> PreparedBrick:
+        """Flatten a brick once: loan constant, stabilised pre-tax NOI and the dumped dict."""
+        data = brick.model_dump() if hasattr(brick, "model_dump") else dict(brick)
+        capital = float(data.get("capital_emprunte", 0.0) or 0.0)
+        years = int(_get_val(brick, "duree_pret"))
+        rate = float(_get_val(brick, "taux_pret"))
+        ins = float(_get_val(brick, "assurance_ann_pct"))
+        k = k_factor(rate, years, ins) if years > 0 else 0.0
+        noi = self.stabilised_monthly_cf([{**data, "pmt_total": 0.0}])
+        return PreparedBrick(
+            nom=str(_get_val(brick, "nom_bien", "")),
+            duree_mois=years * 12,
+            apport_min=float(_get_val(brick, "apport_min")),
+            capital=capital,
+            k=k,
+            noi_stab=noi,
+            data=data,
+        )
+
+    # ------------------------------------------------------------------ allocation
+    def plan(
+        self,
+        bricks: Sequence[PreparedBrick],
+        apport_disponible: float,
+        target_cf: float,
+        tolerance: float = 100.0,
+        use_full_capital: bool = False,
+    ) -> Allocation:
+        """Smallest extra down payment that brings the pre-tax stabilised CF to the target.
+
+        "min": aim at ``target + MIN_MODE_EPS``. "target": aim at the centre of the window when the CF is below
+        it (a CF above the window cannot be lowered: the down payment is already the minimum).
+        ``use_full_capital`` (min mode only) spends the whole budget instead.
+        """
+        n = len(bricks)
+        apport_min = sum(b.apport_min for b in bricks)
+        cf0 = sum(b.noi_stab - b.k * b.capital for b in bricks)
+        zeros = (0.0,) * n
+        if apport_min > apport_disponible + 1e-6:
+            return Allocation(False, zeros, cf0, apport_min, within_budget=False)
+
+        if use_full_capital and self.mode_cf != "target":
+            need = float("inf")
+        elif self.mode_cf == "target":
+            need = target_cf - cf0 if cf0 < target_cf - tolerance else 0.0
+        else:
+            need = target_cf + self.MIN_MODE_EPS - cf0 if cf0 < target_cf else 0.0
+
+        extra = self._fill(bricks, need, apport_disponible - apport_min) if need > 0 else list(zeros)
+        cf = cf0 + sum(b.k * x for b, x in zip(bricks, extra, strict=True))
+        return Allocation(self._accept_cf(cf, target_cf, tolerance), tuple(extra), cf, apport_min + sum(extra), True)
+
+    def max_cf(self, bricks: Sequence[PreparedBrick], apport_disponible: float) -> float:
+        """Highest pre-tax stabilised CF the budget can buy for these bricks."""
+        apport_min = sum(b.apport_min for b in bricks)
+        cf0 = sum(b.noi_stab - b.k * b.capital for b in bricks)
+        extra = self._fill(bricks, float("inf"), max(0.0, apport_disponible - apport_min))
+        return cf0 + sum(b.k * x for b, x in zip(bricks, extra, strict=True))
+
+    def _fill(self, bricks: Sequence[PreparedBrick], need: float, budget: float) -> list[float]:
+        """Greedy fill of a CF gap ``need`` with at most ``budget`` euros, highest ``k`` first.
+
+        Pass 1: each brick takes ``need / k``, capped at ``max_extra_apport_pct`` of its loan (no near-zero
+        residual loans), except that a brick whose whole loan is needed is paid in cash. Pass 2: if a gap is
+        left, partially paid loans are paid off in full while the budget allows.
+        Ties on ``k`` keep the input order, so the result is deterministic.
+        """
+        extra = [0.0] * len(bricks)
+        order = sorted(range(len(bricks)), key=lambda i: -bricks[i].k)
+        left, money = need, budget
+        for i in order:
+            if left <= 1e-9 or money <= 1e-9:
+                break
+            b = bricks[i]
+            if b.k <= 0 or b.capital <= 0:
+                continue
+            want = left / b.k
+            if want >= b.capital and money >= b.capital:
+                x = b.capital
+            else:
+                x = min(want, self.max_extra_apport_pct * b.capital, money)
+            extra[i] = x
+            left -= b.k * x
+            money -= x
+        if left > 1e-9:
+            for i in order:
+                b = bricks[i]
+                rest = b.capital - extra[i]
+                if left <= 1e-9 or b.k <= 0 or rest <= 0 or money < rest:
+                    continue
+                extra[i] = b.capital
+                left -= b.k * rest
+                money -= rest
+        return extra
+
+    def details(self, bricks: Sequence[PreparedBrick], extra: Sequence[float]) -> list[dict[str, Any]]:
+        """Per-property dicts for the simulation (same keys as the legacy allocator output)."""
+        out = []
+        for b, x in zip(bricks, extra, strict=True):
+            credit = max(0.0, b.capital - x)
+            _, _, pmt = calculate_total_monthly_payment(
+                credit, float(b.data.get("taux_annuel_pct", 0.0)), b.duree_mois,
+                float(b.data.get("assurance_annuelle_pct", 0.0)),
+            )
+            out.append({
+                **b.data,
+                "capital_restant": credit,
+                "pmt_total": pmt,
+                "apport_add_bien": x,
+                "apport_final_bien": b.apport_min + x,
+                "credit_final": credit,
+            })
+        return out
+
     def allocate(
         self,
         bricks: list[InvestmentBrick],
@@ -79,216 +235,17 @@ class PortfolioAllocator:
         tolerance: float = 100.0,
         use_full_capital: bool = False,
     ) -> tuple[bool, list[dict[str, Any]], float, float]:
-        """Allocate capital to maximize cash flow proximity or usage."""
+        """Allocate capital to meet the cash-flow target (pre-tax estimate). Returns (ok, details, cf, apport).
 
+        Convenience wrapper over ``prepare`` + ``plan`` + ``details``. Searches prepare their bricks once instead.
+        A combination whose minimum down payments exceed the budget is never ``ok``.
+        """
         if not bricks:
             return True, [], 0.0, 0.0
-
-        # Initial setup: minimal apport
-        biens: list[dict[str, Any]] = []
-        for b in bricks:
-            # Setup initial state with minimum apport
-            if hasattr(b, "model_dump"):
-                data = b.model_dump()
-            else:
-                data = b.copy()
-
-            # Ensure pmt_total is calculated even if it was 0 in data
-            pmt_pi, pmt_ins, pmt_tot = calculate_total_monthly_payment(
-                data.get("capital_emprunte", 0.0),
-                _get_val(b, "taux_pret"),
-                _get_val(b, "duree_pret") * 12,
-                _get_val(b, "assurance_ann_pct")
-            )
-
-            biens.append({
-                **data,
-                "capital_restant": data.get("capital_emprunte", 0.0),  # Initial loan amount
-                "pmt_total": pmt_tot if pmt_tot > 0 else data.get("pmt_total", 0.0),
-                "apport_add_bien": 0.0,
-            })
-
-        # Initial CF, stabilised-year definition (glossary.STABILISED_YEAR)
-        cf0 = self.stabilised_monthly_cf(biens)
-
-        apport_total_min = sum(_get_val(b, "apport_min") for b in bricks)
-        apport_suppl_max = max(0.0, apport_disponible - apport_total_min)
-
-        # check precise mode
-        is_precise = self.mode_cf == "target"
-
-        # Check if already good
-        # Only return early if we DON'T want to burn full capital OR if we are in strict precise mode
-        if self._accept_cf(cf0, target_cf, tolerance):
-             if not use_full_capital or is_precise or apport_suppl_max < 1.0:
-                log.debug(
-                    "allocation_early_exit",
-                    cf0=cf0,
-                    target=target_cf,
-                    reason="Target met & no aggressive deployment"
-                )
-                details = [
-                    {
-                        **b,
-                        "apport_final_bien": b["apport_min"],
-                        "credit_final": b["capital_restant"]
-                    }
-                    for b in biens
-                ]
-                return True, details, cf0, apport_total_min
-
-        # Iterative greedy allocation
-        apport_rest = apport_suppl_max
-
-        log.debug(
-            "starting_allocation",
-            cf_start=cf0,
-            target=target_cf,
-            apport_rest=apport_rest,
-            use_full_capital=use_full_capital
-        )
-
-        # Sort by efficiency (k-factor)
-        ordre = sorted(
-            biens,
-            key=lambda x: k_factor(
-                _get_val(x, "taux_pret"), _get_val(x, "duree_pret"), _get_val(x, "assurance_ann_pct")
-            ),
-            reverse=True
-        )
-
-        # Convergence loop (Multi-pass for Coarse -> Refine strategy)
-        # Pass 1 may use coarse steps and undershoot (due to truncation).
-        # Pass 2+ will refine with smaller steps to hit target.
-        for _pass_idx in range(5):
-            # Check success at start of pass
-            # Phase 18.2 Fix: Do NOT break if we want to use full capital (Empire mode)
-            if self._accept_cf(cf0, target_cf, tolerance):
-                if not (use_full_capital and not is_precise):
-                    break
-
-            # Recalculate need
-            manque_cf = self._calc_need(cf0, target_cf, tolerance)
-             # If forcing full capital, behave as if we have an infinite need for CF
-            if use_full_capital and not is_precise:
-                manque_cf = 1e9
-
-            # Stop if no need (and not forced)
-            if manque_cf <= 1e-9 and not (use_full_capital and not is_precise):
-                break
-
-            # Allow visiting properties again to fill the gap
-            changes_made = False
-
-            for b in ordre:
-                if apport_rest <= 1e-9:
-                    break
-
-                # Re-check local need inside loop (since others might have filled it)
-                manque_cf = self._calc_need(cf0, target_cf, tolerance)
-                if use_full_capital and not is_precise:
-                    manque_cf = 1e9
-
-                if manque_cf <= 1e-9 and not (use_full_capital and not is_precise):
-                    break
-
-                k = k_factor(_get_val(b, "taux_pret"), _get_val(b, "duree_pret"), _get_val(b, "assurance_ann_pct"))
-                if k <= 0:
-                    continue
-
-                apport_necessaire = manque_cf / k
-                delta = min(apport_rest, apport_necessaire, b["capital_restant"])
-
-                # Cap extra apport to avoid near-zero loans (bank won't give €100 mortgage)
-                # BUT: Allow paying FULL cash (no loan) if delta covers entire remaining capital
-                is_full_cash_payment = delta >= b["capital_restant"] - 1.0
-
-                if not is_full_cash_payment:
-                    # Partial payment: apply 95% cap to prevent tiny residual loans
-                    cap_extra = self.max_extra_apport_pct * float(_get_val(b, "capital_emprunte"))
-                    deja = float(_get_val(b, "apport_add_bien", 0.0))
-                    reste_cap = max(0.0, cap_extra - deja)
-
-                    if delta > reste_cap:
-                        delta = reste_cap
-                # else: full cash payment allowed, no cap
-
-                # Adaptive step size (Expert Recommendation Part 4)
-                # Avoid jumping over the target window
-                # Approx k ~ 150-250 for typical loans. Using 200 as proxy if not calcable.
-                k_proxy = k if k > 0 else 200.0
-
-                if is_precise:
-                    # Dynamic Refinement (Coarse -> Fine):
-                    # If gap is huge, stride big. If close, tiptoe.
-                    # This implements "Coarse then Refine" inside the loop efficiently.
-                    current_gap = abs(manque_cf)
-                    fine_step = max(1.0, (0.5 * tolerance) / k_proxy)
-
-                    if current_gap > 5 * tolerance:
-                        # Coarse mode: go fast (10x fine step or generic coarse)
-                        step_size = max(fine_step * 10.0, apport_disponible / 1000.0)
-                    else:
-                        # Refine mode: go precise
-                        step_size = fine_step
-                else:
-                    # In min mode (>= target), coarser steps are efficient
-                    # But kept reasonable to not overshoot massive amounts
-                    step_size = max(apport_disponible / 2000, 10.0)
-
-                # Round delta
-                if step_size > 0:
-                    # Use int() to floor/truncate.
-                    # Rounding up (nearest) risks overshooting the target in an additive-only process.
-                    # It's safer to under-step and let the next iteration finish the job.
-                    delta = int(delta / step_size) * step_size
-
-                # Safety cap against overspending
-                if delta > apport_rest:
-                    delta = apport_rest
-
-                if delta < 0.01:
-                    continue
-
-                # Update state
-                b["capital_restant"] = max(1.0, b["capital_restant"] - delta)
-
-                # Recompute payment
-                _, _, p_tot = calculate_total_monthly_payment(
-                    b["capital_restant"],
-                    _get_val(b, "taux_pret"),
-                    _get_val(b, "duree_pret") * 12,
-                    _get_val(b, "assurance_ann_pct")
-                )
-                b["pmt_total"] = p_tot
-                b["apport_add_bien"] = _get_val(b, "apport_add_bien", 0.0) + delta
-                changes_made = True
-
-                apport_rest -= delta
-
-                # Recompute global CF
-                cf0 = self.stabilised_monthly_cf(biens)
-                # log.debug("step_allocation", delta=delta,  new_cf=cf0, property=b.get("nom_bien"))
-
-            if not changes_made:
-                # If we iterated all properties and made no changes, we are stuck. Stop.
-                break
-
-        success = self._accept_cf(cf0, target_cf, tolerance)
-
-        log.debug("allocation_finished", final_cf=cf0, success=success, remaining_apport=apport_rest)
-
-        details = [
-            {
-                **b,
-                "apport_final_bien": b["apport_min"] + b.get("apport_add_bien", 0.0),
-                "credit_final": b["capital_restant"]
-            }
-            for b in biens
-        ]
-
-        total_apport_final = sum(d["apport_final_bien"] for d in details)
-        return success, details, cf0, total_apport_final
+        prepared = [self.prepare(b) for b in bricks]
+        alloc = self.plan(prepared, apport_disponible, target_cf, tolerance, use_full_capital)
+        log.debug("allocation_finished", final_cf=alloc.cf, success=alloc.ok, apport=alloc.apport_total)
+        return alloc.ok, self.details(prepared, alloc.extra), alloc.cf, alloc.apport_total
 
     def stabilised_monthly_cf(self, biens: list[dict[str, Any]]) -> float:
         """Monthly cash-flow estimate for the stabilised year (year 2), before income tax.

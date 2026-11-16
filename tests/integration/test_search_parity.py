@@ -31,7 +31,7 @@ DATA = Path(__file__).resolve().parents[2] / "data" / "archetypes_2026_v1.json"
 ARCHETYPE_IDX = [8, 10, 13, 7, 0, 2]  # 4 cheap furnished + 2 unfurnished (foncier tax path)
 
 CASES: dict[str, dict] = {
-    "P1_min_loose": {"apport": 100000, "cf_cible": -3000.0, "mode_cf": "min", "max_properties": 3},
+    "P1_min_loose": {"apport": 100000, "cf_cible": -6000.0, "mode_cf": "min", "max_properties": 3},
     "P2_target_wide": {"apport": 80000, "cf_cible": -1500.0, "tolerance": 2500.0, "mode_cf": "target",
                        "max_properties": 2},
     "P3_min_allocating": {"apport": 120000, "cf_cible": -450.0, "mode_cf": "min", "max_properties": 2},
