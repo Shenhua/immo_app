@@ -64,7 +64,9 @@ EVAL_BUDGET = 12_000
 PARALLEL_MIN_EVALS = 2_000
 MAX_WORKERS = 16  # capped further at cpu_count - 1
 # Rounds of "simulate, measure the income tax, re-allocate" per candidate.
-TAX_CORRECTION_ROUNDS = 3
+TAX_CORRECTION_ROUNDS = 6
+# Extra CF (EUR/month) aimed at when a round falls short, so the next one is accepted rather than a cent short.
+CONVERGENCE_MARGIN = 0.05
 # An accepted allocation is re-run with less down payment only if the tax refund frees this much CF (EUR/month).
 MIN_REFUND_SAVING = 5.0
 # Rows screened per numpy batch (memory bound: rows x k floats per array).
@@ -98,6 +100,8 @@ class SearchProblem:
     horizon: int
     max_props: int
     mode_cf: str
+    # Rentier mode: spend the whole budget (up to the per-brick cap) to maximise the CF; the target is a floor.
+    use_full_capital: bool = False
     # Bounds on the monthly income tax of the stabilised year, used only to widen the pre-tax pre-filter:
     # after-tax CF <= pre-tax CF + refund_max (déficit foncier on global income), >= pre-tax CF - rent * tax_rate_max.
     refund_max: float = 0.0
@@ -259,7 +263,9 @@ def screen(table: BrickTable, rows: np.ndarray, problem: SearchProblem, max_extr
     money = np.maximum(money, 0.0)
     target, tol = problem.target_cf, problem.tolerance
 
-    if problem.mode_cf == "target":
+    if problem.use_full_capital and problem.mode_cf != "target":
+        need = np.full(n, np.inf)
+    elif problem.mode_cf == "target":
         need = np.where(cf0 < target - tol, target - cf0, 0.0)
     else:
         need = np.where(cf0 < target, target + PortfolioAllocator.MIN_MODE_EPS - cf0, 0.0)
@@ -344,17 +350,19 @@ class CandidateEvaluator:
         Round 1 allocates for the target on the pre-tax estimate. If the simulated after-tax CF differs from the
         estimate by the stabilised-year income tax ``t``, the next round allocates for ``target + t``, so the
         after-tax CF lands on the target (or, with a refund, the down payment shrinks). Stops when accepted
-        with nothing left to save, when the allocation repeats, or after ``TAX_CORRECTION_ROUNDS``.
+        with nothing left to save, when the allocation repeats, or after ``TAX_CORRECTION_ROUNDS``.  Rejected rounds use an Aitken extrapolation to converge in a few rounds.
         """
         pb = self.problem
         P = [self.prepared[i] for i in bricks]
         bias = 0.0
         best: tuple[tuple[float, ...], float, dict[str, Any]] | None = None
         seen: set[float] = set()
+        prev_gap: float | None = None  # CF shortfall of the previous (rejected) round
         reject: tuple[str, float, float] | None = None
         self.last_reject = None
         for _ in range(TAX_CORRECTION_ROUNDS):
-            plan = self.allocator.plan(P, pb.budget, pb.target_cf + bias, pb.tolerance)
+            plan = self.allocator.plan(P, pb.budget, pb.target_cf + bias, pb.tolerance,
+                                       pb.use_full_capital)
             if not plan.within_budget:
                 self.last_reject = ("budget", max(0.0, plan.apport_total - pb.budget), math.nan)
                 return None
@@ -370,14 +378,22 @@ class CandidateEvaluator:
                 return best
             after = float(metrics["cf_monthly_stab"])
             accepted = cf_accepts(after, pb.target_cf, pb.tolerance, pb.mode_cf)
+            gap = pb.target_cf - after if pb.mode_cf in MIN_MODES else abs(after - pb.target_cf) - pb.tolerance
             if not accepted:
-                gap = pb.target_cf - after if pb.mode_cf in MIN_MODES else abs(after - pb.target_cf) - pb.tolerance
                 if reject is None or gap < reject[1]:
                     reject = ("cf", max(0.0, gap), after)
             if accepted and (best is None or metrics["fitness"] > best[2]["fitness"]):
                 best = (plan.extra, plan.cf, metrics)
             tax = plan.cf - after  # stabilised monthly income tax (negative = refund)
             new_bias = tax
+            if not accepted and prev_gap is not None and gap > 0.0:
+                # The income tax moves with the down payment, so ``target + tax`` converges geometrically
+                # (error ratio rho per round). Aitken extrapolation: add the whole remaining series gap/(1-rho).
+                rho = min(max(gap / prev_gap, 0.0), 0.8)
+                new_bias = bias + gap / (1.0 - rho)
+            if not accepted:
+                new_bias += CONVERGENCE_MARGIN  # lands just inside the target instead of a cent short
+            prev_gap = gap if not accepted else None
             if accepted and (sum(plan.extra) <= 0.0 or new_bias >= bias - MIN_REFUND_SAVING):
                 break
             if not accepted and abs(new_bias - bias) < 0.01:
