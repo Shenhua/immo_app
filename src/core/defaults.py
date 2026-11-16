@@ -223,6 +223,13 @@ def preset_weights(preset: PresetId | str | None) -> dict[str, float]:
 
 
 # --------------------------------------------------------------------------- #
+# Scoring benchmarks (T25)
+# --------------------------------------------------------------------------- #
+# Capital efficiency (net enrichment / total down payment) scored on a fixed 0..5x scale.
+CAP_EFF_BENCHMARK_MAX: float = 5.0
+
+
+# --------------------------------------------------------------------------- #
 # Environment (read once, at import)
 # --------------------------------------------------------------------------- #
 # Disk side effects are opt-in.

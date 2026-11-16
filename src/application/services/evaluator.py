@@ -8,7 +8,7 @@ from typing import Any
 
 import structlog
 
-from src.core.defaults import BASE_WEIGHTS, SEARCH
+from src.core.defaults import BASE_WEIGHTS, CAP_EFF_BENCHMARK_MAX, SEARCH
 from src.core.glossary import calculate_cashflow_metrics, calculate_enrichment_metrics
 from src.domain.calculator.financial import generate_amortization_schedule
 from src.domain.calculator.scoring import calculate_qualitative_score
@@ -188,7 +188,8 @@ class StrategyEvaluator:
         Returns:
             Finance score between 0.0 and 1.0
         """
-        w = self.weights
+        # Weights come from the scorer / presets; keys missing from a custom dict fall back to BASE_WEIGHTS.
+        w = {**BASE_WEIGHTS, **self.weights}
 
         # 1. TRI (Internal Rate of Return) - target 12%
         # A failed IRR (None) scores 0 here and is flagged in evaluate(); it is never read as 0 %.
@@ -206,6 +207,10 @@ class StrategyEvaluator:
         target_roe = (1.05 ** horizon_years) - 1.0
         s_enrich = max(0.0, min(1.0, roe / target_roe))
 
+        # 2b. Capital efficiency = net enrichment (cash flow included, T24) per euro of down payment,
+        # on a fixed 0..CAP_EFF_BENCHMARK_MAX scale (defaults.py). Replaces the old proxy that reused s_enrich.
+        s_cap_eff = max(0.0, min(1.0, roe / CAP_EFF_BENCHMARK_MAX))
+
         # 3. DSCR - target 1.15
         dscr = float(bilan.get("dscr_y1", 0.0) or 0.0)
         s_dscr = max(0.0, min(1.0, dscr / 1.15))
@@ -217,11 +222,11 @@ class StrategyEvaluator:
 
         # Weighted average
         score = (
-            w.get("irr", 0.25) * s_tri +
-            w.get("enrich_net", 0.30) * s_enrich +
-            w.get("dscr", 0.15) * s_dscr +
-            w.get("cf_proximity", 0.20) * s_cf +
-            w.get("cap_eff", 0.10) * s_enrich  # cap_eff uses enrichment as proxy
+            w["irr"] * s_tri +
+            w["enrich_net"] * s_enrich +
+            w["dscr"] * s_dscr +
+            w["cf_proximity"] * s_cf +
+            w["cap_eff"] * s_cap_eff
         )
 
         return score

@@ -216,7 +216,8 @@ class TestCalculateFinanceScore:
         score = evaluator.calculate_finance_score(bilan, cf_metrics, 100000.0, 100.0)
 
         # Should be in good range (> 0.7) as 10% IRR is now close to 12% target
-        assert 0.7 < score < 0.95
+        # T25: cap_eff is now a real 1x / 5x = 0.2 instead of a copy of s_enrich, so the score is lower.
+        assert 0.6 < score < 0.95
 
 
 class TestCalculateQualityScore:

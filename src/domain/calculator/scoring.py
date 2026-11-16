@@ -9,6 +9,8 @@ from typing import Any
 
 from src.core.defaults import SEARCH
 
+ENC_NEUTRAL = 0.6  # rent-cap margin score for a non-regulated property or a rent exactly at the cap
+
 # Default weights for qualitative scoring
 DEFAULT_QUAL_WEIGHTS = {
     "tension": 0.25,       # Market tension (high = low vacancy)
@@ -82,11 +84,17 @@ def calculate_property_qualitative_score(
     if source.get("soumis_encadrement") and cap:
         try:
             cap_val = float(cap)
-            enc_marge = max(0.0, min(1.0, (cap_val - loyer) / max(1e-6, cap_val)))
+            # Rent at the cap is neutral (same as non-regulated), above it scores 0,
+            # below it scales linearly from neutral up to 1 (rent 0).
+            if loyer > cap_val:
+                enc_marge = 0.0
+            else:
+                enc_marge = ENC_NEUTRAL + (1.0 - ENC_NEUTRAL) * (cap_val - loyer) / max(1e-6, cap_val)
+                enc_marge = max(0.0, min(1.0, enc_marge))
         except (TypeError, ValueError):
-            enc_marge = 0.6
+            enc_marge = ENC_NEUTRAL
     else:
-        enc_marge = 0.6  # Neutral if not regulated
+        enc_marge = ENC_NEUTRAL  # Neutral if not regulated
 
     # Vacancy proxy: Use actual vacancy_pct if available, else derive from tension
     # High tension = low vacancy = good (invert for positive scoring)

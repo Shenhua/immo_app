@@ -10,6 +10,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field, computed_field
 
+from src.core.defaults import FINANCING
+
 
 class InvestmentBrick(BaseModel):
     """Investment brick with full financial breakdown.
@@ -35,7 +37,7 @@ class InvestmentBrick(BaseModel):
     capital_emprunte: float = Field(default=0.0, ge=0, description="Loan amount in €")
     duree_credit_mois: int = Field(default=240, gt=0, description="Loan term in months")
     taux_annuel_pct: float = Field(default=3.5, ge=0, description="Annual interest rate %")
-    assurance_annuelle_pct: float = Field(default=0.36, ge=0, description="Annual insurance rate %")
+    assurance_annuelle_pct: float = Field(default=FINANCING.assurance_ann_pct, ge=0, description="Annual insurance rate %")
     pmt_principal_interet: float = Field(default=0.0, description="Monthly P&I payment in €")
     pmt_assurance: float = Field(default=0.0, description="Monthly insurance in €")
 

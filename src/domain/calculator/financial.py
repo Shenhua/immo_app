@@ -10,6 +10,8 @@ from typing import Any
 
 import numpy_financial as npf
 
+from src.core.defaults import FINANCING
+
 
 def calculate_monthly_payment(
     principal: float,
@@ -59,7 +61,7 @@ def calculate_total_monthly_payment(
     principal: float,
     annual_rate_pct: float,
     duration_months: int,
-    annual_insurance_pct: float = 0.36,
+    annual_insurance_pct: float = FINANCING.assurance_ann_pct,
 ) -> tuple[float, float, float]:
     """Calculate complete monthly payment breakdown.
 
@@ -116,7 +118,7 @@ def generate_amortization_schedule(
     principal: float,
     annual_rate_pct: float,
     duration_months: int,
-    annual_insurance_pct: float = 0.36,
+    annual_insurance_pct: float = FINANCING.assurance_ann_pct,
 ) -> dict[str, Any]:
     """Generate full loan amortization schedule.
 
@@ -156,7 +158,6 @@ def generate_amortization_schedule(
 
     # Build full schedule from cached data
     n = duration_months
-    pmt_total - pmt_ins
 
     return {
         "mois": list(range(1, n + 1)),
