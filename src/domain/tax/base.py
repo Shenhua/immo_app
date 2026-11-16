@@ -169,7 +169,6 @@ class ExitContext:
     years_held: int
     properties: tuple[PropertyExit, ...]
     nb_owners: int = 1
-    tmi_pct: float = 30.0
     debt_repaid: float = 0.0  # CRD + IRA of the category's properties
     cum_cash_flow: float = 0.0  # sum of after-tax yearly cash flows of the category
     apport: float = 0.0  # down payment of the category's properties

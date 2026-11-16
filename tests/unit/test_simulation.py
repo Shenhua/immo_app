@@ -170,7 +170,7 @@ def _t24_run(strategy, years=4, charges_idx=0.0):
 def test_cfe_furnished_only_year1_exempt_and_indexed():
     df, _ = _t24_run(_t24_strategy(True), charges_idx=2.0)
     df_nu, _ = _t24_run(_t24_strategy(False), charges_idx=2.0)
-    diffs = (df["Charges Déductibles"] - df_nu["Charges Déductibles"]).abs().tolist()
+    diffs = (df["Charges d'exploitation"] - df_nu["Charges d'exploitation"]).abs().tolist()
     assert diffs[0] == pytest.approx(0.0)
     assert diffs[1] == pytest.approx(300.0 * 1.02)
     assert diffs[2] == pytest.approx(300.0 * 1.02**2)
@@ -180,7 +180,7 @@ def test_cfe_exempt_below_5000_receipts():
     df, _ = _t24_run(_t24_strategy(True, rent=300.0))  # 3,600 EUR/yr, rent growth keeps it below 5,000
     df_nu, _ = _t24_run(_t24_strategy(False, rent=300.0))
     # Compare charges, not after-tax CF: since T23 the unfurnished twin is taxed under revenus fonciers.
-    assert df["Charges Déductibles"].tolist() == pytest.approx(df_nu["Charges Déductibles"].tolist())
+    assert df["Charges d'exploitation"].tolist() == pytest.approx(df_nu["Charges d'exploitation"].tolist())
 
 
 def test_wealth_includes_cash_flows():

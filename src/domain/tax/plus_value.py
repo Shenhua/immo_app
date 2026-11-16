@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 
-# CGI 200 B: 19 % IR on real-estate plus-values of individuals.
-IR_PV_RATE_PCT = 19.0
-# CSS L136-7 I 2: 17.2 % social contributions on real-estate plus-values (CSG kept at 9.2 %, LFSS 2026 art. 12).
-PS_PV_RATE_PCT = 17.2
+from src.core.defaults import TAX_RATES
+
+# Rates come from TAX_RATES: ir_plus_value_pct (CGI 200 B) and ps_plus_value_pct
+# (CSS L136-7 I 2, CSG kept at 9.2 %, LFSS 2026 art. 12).
 # BOI-RFPI-PVI-20-10-20-20: flat rates on the acquisition price.
 FORFAIT_FRAIS_ACQ_PCT = 7.5  # acquisition costs (CGI 150 VB II 1)
 FORFAIT_TRAVAUX_PCT = 15.0  # works, sale more than 5 years after purchase (CGI 150 VB II 4)
@@ -143,8 +143,8 @@ def compute_plus_value(
         abattement_ps_pct=a_ps,
         base_ir=base_ir,
         base_ps=base_ps,
-        ir_pv=base_ir * IR_PV_RATE_PCT / 100.0,
-        ps_pv=base_ps * PS_PV_RATE_PCT / 100.0,
+        ir_pv=base_ir * TAX_RATES.ir_plus_value_pct / 100.0,
+        ps_pv=base_ps * TAX_RATES.ps_plus_value_pct / 100.0,
         surtax=owners * surtax(base_ir / owners),
     )
 

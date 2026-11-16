@@ -110,6 +110,7 @@ class TaxRates:
     # Prélèvements sociaux per income category (LFSS 2026, loi 2025-1403 art. 12; TAX_SPEC 2, 11.1).
     ps_bic_pct: float = 18.6  # LMNP / micro-BIC income (CSS L136-6, CSG 10.6 % from 2025 income)
     ps_foncier_pct: float = 17.2  # revenus fonciers (CSG kept at 9.2 %, L136-8 IV)
+    ir_plus_value_pct: float = 19.0  # IR on real-estate plus-values of individuals (CGI 200 B)
     ps_plus_value_pct: float = 17.2  # real-estate plus-values of individuals (L136-7 I 2°)
     # PFU on dividends / boni de liquidation: 12.8 % IR (CGI 200 A) + 18.6 % PS (L136-7, from 2026).
     pfu_ir_pct: float = 12.8

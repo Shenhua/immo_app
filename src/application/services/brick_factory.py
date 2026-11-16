@@ -12,6 +12,7 @@ from src.core.defaults import FINANCING, OPERATING, REALISM, TAX
 from src.core.logging import get_logger
 from src.domain.calculator.financial import calculate_total_monthly_payment
 from src.domain.calculator.scoring import calculate_property_qualitative_score
+from src.domain.models.archetype import is_furnished
 from src.domain.models.brick import InvestmentBrick
 
 log = get_logger(__name__)
@@ -130,7 +131,7 @@ def create_investment_bricks(
             prov_mth0 +
             loyer_mth0 * (1.0 - vacance_pct / 100.0) * (operating.gli_pct / 100.0) +
             maintenance_ann / 12.0 +
-            (operating.cfe_par_bien_ann / 12.0 if archetype.get("meuble", True) else 0.0)
+            (operating.cfe_par_bien_ann / 12.0 if is_furnished(archetype) else 0.0)
         )
 
         # 5. Calculate qualitative score for this property
