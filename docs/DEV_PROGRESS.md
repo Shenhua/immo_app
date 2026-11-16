@@ -41,9 +41,9 @@ Legend: todo · running · done · blocked · skipped
 | T24 wealth/IRR/CFE | Sonnet | done | 0eaa978 | | |
 | T23 tax regime engine | Opus | done | f44af5b..ef88a02 | golden C1–C9 all pass | | after T20 approved |
 | T25 scoring fixes | Sonnet | done | b702d05 | | |
-| T26a realistic assumptions | Sonnet | running | | after T23 |
+| T26a realistic assumptions | Sonnet | done | 83e4029 | | after T23 |
 | T26b data recalibration | Sonnet | done | ee96023 | TF/charges/caps unverified | | web research |
-| Gate P2 review | Opus | todo | | |
+| Gate P2 review | Opus | running | | diff 3f035af..HEAD | | |
 | T30 CF mode ranking | Sonnet | done | 75e0e0f | | |
 | T31 search rewrite | Opus | todo | | |
 | T32 absolute scoring + Pareto | Sonnet | todo | | |
@@ -157,6 +157,13 @@ Legend: todo · running · done · blocked · skipped
   - At the cap, the rent-cap margin scores neutral (0.6).
   - **For T32:** `StrategyScorer` in `strategy_finder.py` still has its own min-max `cap_eff` normalization.
   - `cap_eff` and `s_enrich` remain correlated. Revisit the weights in T32.
+- After T26a:
+  - Vacancy and works months reduce receipts; the vacancy slider is a floor.
+  - The `REALISM` block in defaults.py holds maintenance, GLI, works months and TF growth.
+  - The new widgets are in app.py (Frais & Charges expander).
+  - Open items:
+    - The search-stage CF estimate (`depenses_mensuelles_hors_credit_initial`) ignores works months and TF growth.
+    - Default vacancy is inconsistent: archetype 2.0, `OperatingConfig.provision_pct` 5.0, UI 3.0.
 - `ruff format` not applied (45 files would be reformatted). Optional later; skip it to avoid merge churn.
 
 ## Log
@@ -177,3 +184,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-13: The usage limit interrupted T25 (uncommitted edits in worktree agent-a0b0f095f0fbb0865) and T26a (no changes).
 - 2026-11-16: T25 and T26a resumed via SendMessage. If this session dies, inspect those worktrees: commit or keep the edits, then relaunch with a "continue from this worktree" note.
 - 2026-11-16: T25 merged (984 passed). Waiting for T26a.
+- 2026-11-16: T26a merged (985 passed). Phase 2 implementation complete. Gate P2 review launched (Opus, read-only).
