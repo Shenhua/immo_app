@@ -1,12 +1,13 @@
-"""Sensitivity analysis component."""
+"""Sensitivity analysis component (thin streamlit rendering; the computation is in services.sensitivity)."""
 
-import copy
+import json
 from typing import Any
 
+import plotly.graph_objects as go
 import streamlit as st
 
 from src.application.run_context import RunContext
-from src.application.services.simulation import simulate_long_term_strategy
+from src.application.services.sensitivity import Deltas, run_sensitivity, tornado_data
 from src.ui.helpers import format_euro, format_pct
 
 
@@ -16,66 +17,49 @@ def run_sensitivity_simulation(
     delta_vacance_pct: float,
     delta_travaux_pct: float,
     ctx: RunContext,
+    delta_taux_pts: float = 0.0,
+    delta_appreciation_pts: float = 0.0,
 ) -> dict[str, Any]:
-    """Run simulation with modified parameters."""
-    # Deep copy to avoid mutating original
-    modified = copy.deepcopy(strategy)
+    """Run the simulation with modified parameters (thin wrapper over the pure function)."""
+    deltas = Deltas(delta_loyer_pct, delta_vacance_pct, delta_travaux_pct, delta_taux_pts, delta_appreciation_pts)
+    return run_sensitivity(strategy, deltas, ctx)
 
-    # Apply modifiers
-    for brick in modified.get("details", []):
-        # Loyer
-        if delta_loyer_pct != 0:
-            brick["loyer_mensuel_initial"] *= (1.0 + delta_loyer_pct / 100.0)
 
-        # Vacance (Provision)
-        if delta_vacance_pct != 0:
-            # Add to provision_pct (additive)
-            current = brick["provision_pct"]
-            brick["provision_pct"] = max(0.0, current + delta_vacance_pct)
+def _strategy_key(strategy: dict[str, Any]) -> str:
+    return json.dumps(strategy, sort_keys=True, default=str)
 
-        # Travaux
-        if delta_travaux_pct != 0:
-            budget = brick.get("budget_travaux", 0.0)
-            brick["budget_travaux"] = budget * (1.0 + delta_travaux_pct / 100.0)
-            # Update total cost and financing needs
-            brick["cout_total"] += (brick["budget_travaux"] - budget)
-            # Assuming extra cost is funded by apport if loan is fixed?
-            # Or proportional?
-            # For simplicity, let's assume extra cost is added to loan if possible or apport.
-            # But changing loan changes schedule.
-            # To keep it simple/fast: Assume Apport absorbs the difference.
-            diff = (brick["budget_travaux"] - budget)
-            brick["apport_min"] += diff
-            modified["apport_total"] += diff
 
-    # Run simulation
-    df, bilan = simulate_long_term_strategy(
-        modified,
-        duration_years=ctx.horizon_ans,
-        market_hypotheses=ctx.market_hypotheses,
-        tax_params=ctx.to_tax_params(),
-    )
+@st.cache_data(show_spinner=False, max_entries=64)
+def _cached_run(strategy_json: str, ctx_json: str, deltas: tuple[float, ...]) -> dict[str, Any]:
+    return run_sensitivity(json.loads(strategy_json), Deltas(*deltas), RunContext.model_validate_json(ctx_json))
 
-    # Construct result dict similar to strategy dict
-    if not df.empty:
-        final_row = df.iloc[-1] if not df.empty else {}
-        first_row = df.iloc[0] if not df.empty else {}
 
-        # Calculate DSCR Y1
-        ds = first_row["Capital Remboursé"] + first_row["Intérêts & Assurance"]
-        noi = first_row["Loyers Bruts"] + (first_row["Charges d'exploitation"] + first_row["Intérêts & Assurance"])
-        dscr = (noi / ds) if ds > 1 else 0.0
+@st.cache_data(show_spinner=False, max_entries=16)
+def _cached_tornado(strategy_json: str, ctx_json: str) -> list[dict[str, Any]]:
+    return tornado_data(json.loads(strategy_json), RunContext.model_validate_json(ctx_json))
 
-        return {
-            "cash_flow_final": final_row.get("Cash-Flow Net d'Impôt", 0), # Wait, CF Final is ambiguous. Use Avg or Year 1?
-            # StrategyFinder uses mean? Or Year 1?
-            # Let's use first year CF for "Monthly CF" usually displayed
-            "cash_flow_mensuel": first_row.get("Cash-Flow Net d'Impôt", 0) / 12.0,
-            "tri_annuel": bilan.get("tri_annuel", 0),
-            "liquidation_nette": bilan.get("liquidation_nette", 0),
-            "dscr_y1": dscr,
-        }
-    return {}
+
+def _tornado_figure(rows: list[dict[str, Any]], prefix: str, title: str, unit: str) -> go.Figure:
+    fig = go.Figure()
+    labels = [r["driver"] for r in rows]
+    for tag, name, color in (("down", "-1", "#d9534f"), ("up", "+1", "#2e7d32")):
+        fig.add_bar(y=labels, x=[r[f"{prefix}_{tag}"] or 0.0 for r in rows], name=name, orientation="h", marker_color=color)
+    fig.update_layout(barmode="relative", title=title, xaxis_title=unit, height=300, margin={"t": 40, "b": 30})
+    return fig
+
+
+def _show_impact(label: str, original: Any, new: Any, fmt_func: Any) -> None:
+    cols = st.columns([0.4, 0.3, 0.3])
+    cols[0].write(label)
+    cols[1].write(fmt_func(original))
+    if original is None or new is None:  # failed IRR: nothing to compare
+        cols[2].write(fmt_func(new))
+        return
+    delta = new - original
+    if abs(delta) > 0.01:
+        cols[2].markdown(f"**:{'green' if delta >= 0 else 'red'}[{fmt_func(new)}]**")
+    else:
+        cols[2].write("—")
 
 
 def render_sensitivity_analysis(strategy: dict[str, Any], ctx: RunContext, key: str = "0") -> None:
@@ -96,43 +80,25 @@ def render_sensitivity_analysis(strategy: dict[str, Any], ctx: RunContext, key: 
         d_loyer = st.slider("Loyer", -30, 30, 0, 5, format="%+d%%", key=f"sens_rent_{key}")
         d_vacance = st.slider("Vacance (pts)", -5, 15, 0, 1, format="%+d pt", key=f"sens_vac_{key}")
         d_travaux = st.slider("Budget Travaux", -20, 50, 0, 10, format="%+d%%", key=f"sens_works_{key}")
+        d_taux = st.slider("Taux de crédit (pts)", -2.0, 4.0, 0.0, 0.25, format="%+.2f pt", key=f"sens_rate_{key}")
+        d_appr = st.slider("Appréciation (pts)", -3.0, 3.0, 0.0, 0.5, format="%+.1f pt", key=f"sens_appr_{key}")
 
-    # Recalculate on fly
-    if d_loyer != 0 or d_vacance != 0 or d_travaux != 0:
-        res = run_sensitivity_simulation(strategy, d_loyer, d_vacance, d_travaux, ctx)
+    s_json, c_json = _strategy_key(strategy), ctx.model_dump_json()
+    base = _cached_run(s_json, c_json, (0.0,) * 5)
 
-        # Display comparison
-        with col_res:
+    with col_res:
+        if d_loyer or d_vacance or d_travaux or d_taux or d_appr:
+            res = _cached_run(s_json, c_json, (float(d_loyer), float(d_vacance), float(d_travaux), float(d_taux), float(d_appr)))
             st.markdown("**Impact Projeté**")
-
-            # Helper to show delta
-            def show_impact(label, original, new, fmt_func):
-                if original is None or new is None:  # failed IRR: nothing to compare
-                    cols = st.columns([0.4, 0.3, 0.3])
-                    cols[0].write(label)
-                    cols[1].write(fmt_func(original))
-                    cols[2].write(fmt_func(new))
-                    return
-                delta = new - original
-                color = "green" if delta >= 0 else "red"
-                # Invert color for cost/risk metrics? None here.
-                # Actually DSCR lower is bad (red). Cashflow lower is bad (red).
-                # So green if positive is correct.
-
-                cols = st.columns([0.4, 0.3, 0.3])
-                cols[0].write(label)
-                cols[1].write(fmt_func(original))
-                if abs(delta) > 0.01:
-                    code = f":{color}[{fmt_func(new)}]"
-                    cols[2].markdown(f"**{code}**")
-                else:
-                    cols[2].write("—")
-
-            show_impact("CF Mensuel", strategy.get("cash_flow_final", 0) / 12.0, res.get("cash_flow_mensuel", 0), format_euro)
-            show_impact("TRI", strategy.get("tri_annuel", 0), res.get("tri_annuel", 0), format_pct)
-            show_impact("Enrichissement", strategy.get("liquidation_nette", 0), res.get("liquidation_nette", 0), format_euro)
-            show_impact("DSCR Y1", strategy.get("dscr_y1", 0), res.get("dscr_y1", 0), lambda x: f"{x:.2f}")
-
-    else:
-        with col_res:
+            _show_impact("CF Mensuel (stabilisé)", base.get("cf_stab_mensuel"), res.get("cf_stab_mensuel"), format_euro)
+            _show_impact("TRI", base.get("tri_annuel"), res.get("tri_annuel"), format_pct)
+            _show_impact("Enrichissement", base.get("enrichissement_net"), res.get("enrichissement_net"), format_euro)
+            _show_impact("DSCR (stabilisé)", base.get("dscr_stab"), res.get("dscr_stab"), lambda x: f"{x:.2f}")
+        else:
             st.info("👈 Modifiez les curseurs pour voir l'impact.")
+
+    with st.expander("Tornade : ±1 point sur chaque hypothèse"):
+        rows = _cached_tornado(s_json, c_json)
+        c1, c2 = st.columns(2)
+        c1.plotly_chart(_tornado_figure(rows, "tri", "Impact sur le TRI", "pts de TRI"), use_container_width=True)
+        c2.plotly_chart(_tornado_figure(rows, "cf", "Impact sur le CF mensuel stabilisé", "EUR/mois"), use_container_width=True)
