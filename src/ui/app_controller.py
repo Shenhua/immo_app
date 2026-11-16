@@ -147,6 +147,8 @@ def run_strategy_search(
     if run_info is not None:
         run_info["bricks_count"] = len(bricks)
         run_info["solver_mode"] = finder.solver_mode
+        run_info["diagnostics"] = finder.last_diagnostics
+    st.session_state["search_diagnostics"] = finder.last_diagnostics  # read by ui.components.diagnostics
 
     log.info("analysis_completed", strategies_found=len(strategies))
 

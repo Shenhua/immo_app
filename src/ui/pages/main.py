@@ -21,6 +21,7 @@ from src.ui.components.charts import (
     render_simulation_chart,
     render_strategy_radar,
 )
+from src.ui.components.diagnostics import render_search_diagnostics
 from src.ui.components.results import (
     render_kpi_summary,
     render_strategy_card,
@@ -267,9 +268,11 @@ def render_main_content(
     """
     if not strategies or ctx is None:
         render_no_results()
+        render_search_diagnostics(strategies, ctx)  # T33: which constraint, suggestions
         return
 
     st.success(f"✅ {len(strategies)} stratégie(s) trouvée(s)")
+    render_search_diagnostics(strategies, ctx)  # T33: near misses when fewer than top_n
 
     if show_comparison:
         render_comparison_panel(strategies, ctx.horizon_ans)

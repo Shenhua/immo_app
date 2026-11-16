@@ -26,6 +26,7 @@ from src.core.logging import get_logger
 from src.domain.models.brick import InvestmentBrick
 
 from .allocator import PortfolioAllocator
+from .diagnostics import SearchDiagnostics
 from .optimizer import PortfolioSearch, SearchProblem, check_invariants, tax_bounds
 from .scoring import assign_pareto_ranks, score_components
 
@@ -198,6 +199,8 @@ class StrategyFinder:
         self.qualite_weight = qualite_weight
         self.mode_cf = mode_cf
         self.max_properties = max_properties
+        # Why portfolios were rejected in the last find_strategies call (T33): counts, near misses, suggestions.
+        self.last_diagnostics: SearchDiagnostics = SearchDiagnostics()
         # Solver used by the last find_strategies call: "EXHAUSTIVE" (every duration set simulated),
         # "SUBSET_PROXY" (best duration sets per subset by proxy, see optimizer.py) or "" (not run yet).
         self.solver_mode: str = ""
@@ -281,11 +284,12 @@ class StrategyFinder:
         strategies = search.solve(self.bricks, problem, market=ep.hypotheses_marche,
                                   progress_callback=progress_callback)
         self.solver_mode = search.solver_mode
+        self.last_diagnostics = search.diagnostics
         log.info("search_solver", mode=self.solver_mode, **search.stats)
 
         log.info("optimization_finished", count=len(strategies))
 
-        # Guard against empty results from optimizer
+        # Guard against empty results from optimizer (the UI explains why from ``last_diagnostics``)
         if not strategies:
             log.warning("no_strategies_found",
                         reason="optimizer_returned_empty",
@@ -306,49 +310,7 @@ class StrategyFinder:
         # We re-run relative scoring on the "Elite" set to populate UI-friendly normalized fields (A-score, etc.)
         self.scorer.score_strategies(strategies, self.cash_flow_cible, horizon_years)
 
-        # Tiered ranking instead of hard-filter
-        # Tier 1: Feasible (allocation_ok=True)
-        # Tier 2: Near-feasible (within 2x tolerance)
-        # Tier 3: Infeasible (show a few for transparency)
-        for s in strategies:
-            if s.get("allocation_ok", False):
-                s["tier"] = 1
-                s["tier_label"] = "Réalisable"
-            else:
-                cf_gap = abs(s.get("cash_flow_final", -9999) - self.cash_flow_cible)
-                if cf_gap <= self.tolerance * 3:
-                    s["tier"] = 2
-                    s["tier_label"] = "Proche"
-                    s["fitness"] = s.get("fitness", 0) * 0.7  # 30% penalty
-                else:
-                    s["tier"] = 3
-                    s["tier_label"] = "Difficile"
-                    s["fitness"] = s.get("fitness", 0) * 0.3  # 70% penalty
-
-        # Sort by tier then fitness (best first within each tier)
-        strategies.sort(key=lambda x: (x.get("tier", 3), -x.get("fitness", 0)))
-
-        # Log tier distribution
-        tier_counts = {1: 0, 2: 0, 3: 0}
-        for s in strategies:
-            tier_counts[s.get("tier", 3)] = tier_counts.get(s.get("tier", 3), 0) + 1
-        log.info("strategy_tiers", tier_1=tier_counts[1], tier_2=tier_counts[2], tier_3=tier_counts[3])
-
-        # STRICT FILTER: Remove Tier 3 ("Difficile") strategies
-        # User Feedback: "remove results that are totally out of scope"
-        # We only keep Tier 1 (Feasible) and Tier 2 (Near-Feasible, within 3x tolerance)
-        pre_filter_count = len(strategies)
-        strategies = [s for s in strategies if s.get("tier", 3) < 3]
-
-        # Log when all strategies were filtered
-        if not strategies and pre_filter_count > 0:
-            log.warning("all_strategies_infeasible",
-                        tier_3_count=tier_counts[3],
-                        target_cf=self.cash_flow_cible,
-                        tolerance=self.tolerance,
-                        hint="Consider relaxing tolerance or adjusting cash flow target")
-
-        # Dedupe (preserving tier order)
+        # Dedupe
         # Report Phase 5: Deduplication
         if progress_callback:
             progress_callback(SearchProgress(
@@ -411,10 +373,9 @@ class StrategyFinder:
                 grouped[sig] = []
             grouped[sig].append(s)
 
-        # Sort each group by tier first, then score descending
+        # Sort each group by score descending
         for sig in grouped:
             grouped[sig].sort(key=lambda x: (
-                x.get("tier", 3),  # Tier 1 first
                 -x.get("balanced_score", -float("inf")),
                 strategy_key(x),  # explicit tie-breaker
             ))
@@ -429,8 +390,8 @@ class StrategyFinder:
             best_item = items[0]
             final_list.append(best_item)
 
-        # Re-sort final list by tier then score
-        final_list.sort(key=lambda x: (x.get("tier", 3), -x.get("balanced_score", 0), strategy_key(x)))
+        # Re-sort final list by score
+        final_list.sort(key=lambda x: (-x.get("balanced_score", 0), strategy_key(x)))
 
         return final_list
 
@@ -451,11 +412,6 @@ class StrategyFinder:
         preset = PresetId.parse(preset_name)
 
         def sort_key(x: dict[str, Any]) -> tuple:
-            # CRITICAL FIX: Always prioritize Tier first!
-            # We sort reverse=True (Descending).
-            # Tier 1 (Best) > Tier 3 (Worst).
-            # So we use negative tier: -1 > -3.
-            tier_score = -x.get("tier", 3)
             pareto = -x.get("pareto_rank", PARETO_MAX_RANK + 1)  # last key before the signature
 
             # CF proximity as final tiebreaker (higher is better)
@@ -465,22 +421,22 @@ class StrategyFinder:
 
             if preset is PresetId.SECURITY:
                 # Safety profile: prioritize DSCR, then finance_score
-                return (tier_score, x.get("dscr_norm", 0), finance, cf_prox, pareto)
+                return (x.get("dscr_norm", 0), finance, cf_prox, pareto)
 
             if preset is PresetId.IRR:
                 # IRR profile: prioritize TRI, then finance_score
-                return (tier_score, x.get("tri_norm", 0), finance, cf_prox, pareto)
+                return (x.get("tri_norm", 0), finance, cf_prox, pareto)
 
             if preset is PresetId.CASHFLOW:
                 # Cash-flow profile: prioritize CF proximity, then DSCR for safety
-                return (tier_score, cf_prox, x.get("dscr_norm", 0), finance, pareto)
+                return (cf_prox, x.get("dscr_norm", 0), finance, pareto)
 
             if preset is PresetId.WEALTH:
                 # Wealth-building profile: prioritize enrichment, then IRR
-                return (tier_score, x.get("enrich_norm", 0), x.get("tri_norm", 0), balanced, pareto)
+                return (x.get("enrich_norm", 0), x.get("tri_norm", 0), balanced, pareto)
 
             # Default "Équilibré": use balanced_score which combines finance + quality
-            return (tier_score, balanced, finance, cf_prox, pareto)
+            return (balanced, finance, cf_prox, pareto)
 
         # Explicit tie-breaker: pre-sort by signature; the stable reverse sort keeps that order among equal keys.
         by_signature = sorted(strategies, key=strategy_key)
