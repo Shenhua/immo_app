@@ -44,9 +44,9 @@ Legend: todo · running · done · blocked · skipped
 | T26a realistic assumptions | Sonnet | done | 83e4029 | | after T23 |
 | T26b data recalibration | Sonnet | done | ee96023 | TF/charges/caps unverified | | web research |
 | Gate P2 review | Opus | done | | docs/review/phase2/README.md: tax engine sound; C1 critical |
-| T27 search/detail parity | Sonnet | running | | C1 (critical) |
-| T28 tax hygiene + multi-prop tests | Sonnet | todo | | after T27 |
-| T29 stabilised-year metrics | Sonnet | todo | | after T27, parallel with T28 | | |
+| T27 search/detail parity | Sonnet | done | 8ac2698 | C1 fixed; parity tests in 3 tax modes |
+| T28 tax hygiene + multi-prop tests | Sonnet | running | | after T27 |
+| T29 stabilised-year metrics | Sonnet | running | | after T27, parallel with T28 | | |
 | T30 CF mode ranking | Sonnet | done | 75e0e0f | | |
 | T31 search rewrite | Opus | todo | | |
 | T32 absolute scoring + Pareto | Sonnet | todo | | |
@@ -167,6 +167,14 @@ Legend: todo · running · done · blocked · skipped
   - Open items:
     - The search-stage CF estimate (`depenses_mensuelles_hors_credit_initial`) ignores works months and TF growth.
     - Default vacancy is inconsistent: archetype 2.0, `OperatingConfig.provision_pct` 5.0, UI 3.0.
+- After T27:
+  - `simulation.build_engine(market_hypotheses, tax_params)` is the single engine builder (`RunContext.build_engine()` wraps it).
+  - `EvaluationParams.to_tax_params()` exists.
+  - `MarketHypotheses.tf_growth_pct` defaults to `REALISM.tf_growth_pct`.
+  - The amortization durations are in `defaults.TAX`.
+  - Parity tests are in `tests/integration/test_search_detail_parity.py`.
+  - The golden adapter passes `tf_growth_pct` = charges indexation.
+  - `docs/review/` is excluded from ruff.
 - `ruff format` not applied (45 files would be reformatted). Optional later; skip it to avoid merge churn.
 
 ## Log
@@ -189,3 +197,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-16: T25 merged (984 passed). Waiting for T26a.
 - 2026-11-16: T26a merged (993 passed). Phase 2 implementation complete. Gate P2 review launched (Opus, read-only).
 - 2026-11-16: Gate P2 done (verdict: fix C1 first). T27/T28/T29 added to the plan. T27 launched.
+- 2026-11-16: T27 merged; `docs/review` excluded from ruff. T28 and T29 launched in parallel.

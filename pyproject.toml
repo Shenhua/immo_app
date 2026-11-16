@@ -53,6 +53,7 @@ line-length = 120
 exclude = [
     ".git",
     ".venv",
+    "docs/review",
     "env",
     "__pycache__",
     "*.egg-info",
