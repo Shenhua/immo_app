@@ -98,6 +98,8 @@ class SearchProblem:
     horizon: int
     max_props: int
     mode_cf: str
+    # Rentier mode: spend the whole budget (up to the per-brick cap) to maximise the CF; the target is a floor.
+    use_full_capital: bool = False
     # Bounds on the monthly income tax of the stabilised year, used only to widen the pre-tax pre-filter:
     # after-tax CF <= pre-tax CF + refund_max (déficit foncier on global income), >= pre-tax CF - rent * tax_rate_max.
     refund_max: float = 0.0
@@ -259,7 +261,9 @@ def screen(table: BrickTable, rows: np.ndarray, problem: SearchProblem, max_extr
     money = np.maximum(money, 0.0)
     target, tol = problem.target_cf, problem.tolerance
 
-    if problem.mode_cf == "target":
+    if problem.use_full_capital and problem.mode_cf != "target":
+        need = np.full(n, np.inf)
+    elif problem.mode_cf == "target":
         need = np.where(cf0 < target - tol, target - cf0, 0.0)
     else:
         need = np.where(cf0 < target, target + PortfolioAllocator.MIN_MODE_EPS - cf0, 0.0)
@@ -354,7 +358,8 @@ class CandidateEvaluator:
         reject: tuple[str, float, float] | None = None
         self.last_reject = None
         for _ in range(TAX_CORRECTION_ROUNDS):
-            plan = self.allocator.plan(P, pb.budget, pb.target_cf + bias, pb.tolerance)
+            plan = self.allocator.plan(P, pb.budget, pb.target_cf + bias, pb.tolerance,
+                                       pb.use_full_capital)
             if not plan.within_budget:
                 self.last_reject = ("budget", max(0.0, plan.apport_total - pb.budget), math.nan)
                 return None

@@ -44,11 +44,12 @@ def render_objectives_section() -> dict[str, Any]:
     st.sidebar.markdown("### 🎯 Stratégie d'Investissement")
     strategy_mode = st.sidebar.radio(
         "Mode d'allocation",
-        # Rentier mode is hidden until T34 restores it (its backend flag stays in place).
-        ["Classique (Levier)", "Empire (Max Volume)"],
+        ["Classique (Levier)", "Rentier (Max Cash-Flow)", "Empire (Max Volume)"],
         index=0,
         help=(
             "**Classique (Levier)** : Cherche l'équilibre. Utilise l'apport minimum pour maximiser le retour sur investissement (TRI).\n\n"
+            "**Rentier (Max Cash-Flow)** : Investit tout l'apport disponible (jusqu'à 95 % du prêt de chaque bien, ou "
+            "achat comptant) pour maximiser le cash-flow mensuel. La cible de cash-flow reste un plancher à respecter.\n\n"
             "**Empire (Max Volume)** : Cherche à acquérir le plus grand parc immobilier possible avec votre apport.\n\n"
             "Le nombre maximum de biens se règle séparément ci-dessous (le changement de mode le repositionne "
             "à sa valeur habituelle : 3 en Classique, 5 en Empire)."
@@ -111,22 +112,18 @@ def render_objectives_section() -> dict[str, Any]:
             help="Capital total que vous êtes prêt à investir (frais de notaire + apport bancaire)."
         )
 
-        # In Rentier mode, CF Target is irrelevant because we maximize it.
-        # In other modes, we let user set a minimum target.
+        # The CF target is always an input: in Rentier mode it is the floor the maximised CF must respect.
         c_target, c_tol = st.columns(2)
         with c_target:
-             if not is_rentier:
-                cf_cible = st.number_input(
-                    "Cash-Flow Cible (/mois)",
-                    min_value=-2000.0,
-                    max_value=2000.0,
-                    value=float(SEARCH.cf_cible),
-                    step=50.0,
-                    help="Le cash-flow net minimum que vous visez (négatif = effort d'épargne)."
-                )
-             else:
-                cf_cible = 0.0
-                st.info("Rentier:\nMaximisation Auto")
+            cf_cible = st.number_input(
+                "Cash-Flow Cible (/mois)",
+                min_value=-2000.0,
+                max_value=2000.0,
+                value=float(SEARCH.cf_cible),
+                step=50.0,
+                help="Le cash-flow net minimum que vous visez (négatif = effort d'épargne). "
+                     "En mode Rentier, c'est un plancher : l'apport est investi pour dépasser ce niveau."
+            )
 
         # Precise Targeting:
         # - Rentier: Forced to False (Min Mode / Maximize)

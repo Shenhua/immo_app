@@ -213,7 +213,7 @@ class StrategyFinder:
         eval_params: dict[str, Any] | None = None,
         horizon_years: int = 25,
         top_n: int = 10,
-        use_full_capital_override: bool = False,  # Reserved for future use
+        use_full_capital_override: bool = False,
         progress_callback: Any = None,
     ) -> list[dict[str, Any]]:
         """Find top strategies matching criteria.
@@ -272,6 +272,7 @@ class StrategyFinder:
             horizon=int(horizon_years),
             max_props=int(self.max_properties),
             mode_cf=self.mode_cf,
+            use_full_capital=bool(use_full_capital_override),
             refund_max=refund_max,
             tax_rate_max=tax_rate_max,
             appreciation_pct=float(ep.hypotheses_marche.get("appreciation_bien_pct", MARKET.appreciation_bien_pct)),
