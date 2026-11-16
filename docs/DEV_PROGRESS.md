@@ -223,3 +223,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-16: T28 merged (1020 passed); glossary column name fixed by the conductor. T29 relaunched after a classifier outage, still running.
 - 2026-11-16: T29 merged (1171 passed; glossary conflict resolved via `CHARGES_COL`). **Phase 2 complete.** T31 launched (Opus).
 - 2026-11-16: T41 merged (1176 passed). T31 still running; the second slot is kept free (T42 and T43 touch files T31 may change).
+- 2026-11-16 13:42: The usage limit interrupted T31 (worktree agent-a5ecae762d3a2520b: commits 2aede1c and 8223cbe, plus uncommitted optimizer.py). Resumed via SendMessage. If the session dies, relaunch T31 with "continue from branch worktree-agent-a5ecae762d3a2520b".
