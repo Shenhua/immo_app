@@ -47,9 +47,9 @@ Legend: todo · running · done · blocked · skipped
 | Gate P2 review | Opus | done | | docs/review/phase2/README.md: tax engine sound; C1 critical |
 | T27 search/detail parity | Sonnet | done | 8ac2698 | C1 fixed; parity tests in 3 tax modes |
 | T28 tax hygiene + multi-prop tests | Sonnet | done | 8760fd6 | | after T27 |
-| T29 stabilised-year metrics | Sonnet | running | | after T27, parallel with T28 | | |
+| T29 stabilised-year metrics | Sonnet | done | 762c5c6 (merge 23e1e3d) | stabilised = year 2 | | after T27, parallel with T28 | | |
 | T30 CF mode ranking | Sonnet | done | 75e0e0f | | |
-| T31 search rewrite | Opus | todo | | |
+| T31 search rewrite | Opus | running | | |
 | T32 absolute scoring + Pareto | Sonnet | todo | | |
 | T33 near misses | Sonnet | todo | | |
 | T34 Rentier mode | Sonnet | todo | | |
@@ -181,6 +181,17 @@ Legend: todo · running · done · blocked · skipped
   - The yearly-table column was renamed to "Charges d'exploitation". The conductor fixed `glossary.py:98` after the merge. **T29 was branched before the rename: when merging T29, keep "Charges d'exploitation" in glossary.py.**
   - The plus-value flat rates (7.5 %, 15 %, surtax scale) are still module constants (low priority).
   - In docs/review/phase2/README.md, the `e.py` and `g.py` labels are swapped.
+- After T29:
+  - Stabilised year = simulation **year 2** (`glossary.STABILISED_YEAR`, `cf_stabilised_monthly`).
+  - The allocator takes `market=`, and `stabilised_monthly_cf()` is its CF estimate.
+  - The bilan has `dscr_y1` and `dscr_stab`; the evaluator exposes `cf_monthly_y1`, `dscr_y1`, `cf_monthly_stab`, `dscr_stab` and `warnings`.
+  - `glossary.CHARGES_COL` is the column name.
+  - Exceptions: only ValueError, ZeroDivisionError and SimulationError are caught.
+  - Open items:
+    - **T31:** the allocator CF is before tax, while the evaluator CF is after tax. In "target" mode a déficit-foncier refund can push the CF out of the window (−724 pre-tax, −622 after-tax, target −800 ±100).
+    - **T31:** allocator step truncation in min mode (−1,501 vs a −1,500 target).
+    - **T33/T43:** the evaluator's `warnings` are not shown in the UI.
+    - **T41:** the sensitivity DSCR is computed ad hoc on year 1.
 - `ruff format` not applied (45 files would be reformatted). Optional later; skip it to avoid merge churn.
 
 ## Log
@@ -205,3 +216,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-16: Gate P2 done (verdict: fix C1 first). T27/T28/T29 added to the plan. T27 launched.
 - 2026-11-16: T27 merged; `docs/review` excluded from ruff. T28 and T29 launched in parallel.
 - 2026-11-16: T28 merged (1020 passed); glossary column name fixed by the conductor. T29 relaunched after a classifier outage, still running.
+- 2026-11-16: T29 merged (1171 passed; glossary conflict resolved via `CHARGES_COL`). **Phase 2 complete.** T31 launched (Opus).
