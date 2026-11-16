@@ -1,0 +1,1212 @@
+{
+ "P1_min_loose": [
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Saint‑Martin‑d’Hères - Campus)",
+     180
+    ],
+    [
+     "T2 (Échirolles - Comboire)",
+     180
+    ],
+    [
+     "T3 Familial (Lyon - Monplaisir)",
+     180
+    ]
+   ],
+   "apport_total": 31676.0,
+   "enrich_net": 253087.70826609625,
+   "tri_annuel": 2.6835451294319412,
+   "cf_monthly_stab": -2194.9442152159468,
+   "balanced_score": 0.6513603166988089,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Lyon - La Doua)",
+     180
+    ],
+    [
+     "T2 (Échirolles - Comboire)",
+     180
+    ],
+    [
+     "T3 Familial (Lyon - Monplaisir)",
+     180
+    ]
+   ],
+   "apport_total": 35756.0,
+   "enrich_net": 269194.894605391,
+   "tri_annuel": 2.5021950386633796,
+   "cf_monthly_stab": -2546.35603143073,
+   "balanced_score": 0.650939025374385,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Chambéry - Jacob)",
+     180
+    ],
+    [
+     "T2 (Échirolles - Comboire)",
+     180
+    ],
+    [
+     "T3 Familial (Lyon - Monplaisir)",
+     180
+    ]
+   ],
+   "apport_total": 33132.0,
+   "enrich_net": 258686.75048058195,
+   "tri_annuel": 2.611724997089504,
+   "cf_monthly_stab": -2320.187874299881,
+   "balanced_score": 0.6462174186817756,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "T2 (Échirolles - Comboire)",
+     180
+    ],
+    [
+     "T3 Familial (Lyon - Monplaisir)",
+     180
+    ]
+   ],
+   "apport_total": 27756.0,
+   "enrich_net": 218882.61407812376,
+   "tri_annuel": 2.656114981688873,
+   "cf_monthly_stab": -1917.2149188295498,
+   "balanced_score": 0.6197417860464249,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Lyon - La Doua)",
+     180
+    ],
+    [
+     "Studio Étudiant (Saint‑Martin‑d’Hères - Campus)",
+     180
+    ],
+    [
+     "T3 Familial (Lyon - Monplaisir)",
+     180
+    ]
+   ],
+   "apport_total": 32460.0,
+   "enrich_net": 233504.87497717835,
+   "tri_annuel": 2.398365892263521,
+   "cf_monthly_stab": -2306.1833123198135,
+   "balanced_score": 0.6127405856502852,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Chambéry - Jacob)",
+     180
+    ],
+    [
+     "Studio Étudiant (Lyon - La Doua)",
+     180
+    ],
+    [
+     "T3 Familial (Lyon - Monplaisir)",
+     180
+    ]
+   ],
+   "apport_total": 33916.0,
+   "enrich_net": 239103.91719166382,
+   "tri_annuel": 2.3420014577949733,
+   "cf_monthly_stab": -2431.426971403748,
+   "balanced_score": 0.6085362538997978,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Chambéry - Jacob)",
+     180
+    ],
+    [
+     "Studio Étudiant (Saint‑Martin‑d’Hères - Campus)",
+     180
+    ],
+    [
+     "T3 Familial (Lyon - Monplaisir)",
+     180
+    ]
+   ],
+   "apport_total": 29836.0,
+   "enrich_net": 222996.7308523694,
+   "tri_annuel": 2.5105067521370428,
+   "cf_monthly_stab": -2080.015155188965,
+   "balanced_score": 0.6080114932262399,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "T2 (Échirolles - Comboire)",
+     180
+    ],
+    [
+     "T3 Familial (Lyon - Monplaisir)",
+     180
+    ],
+    [
+     "T3 Nu (Grenoble - Teisseire)",
+     240
+    ]
+   ],
+   "apport_total": 40268.0,
+   "enrich_net": 249510.21394475934,
+   "tri_annuel": 2.1455906514704415,
+   "cf_monthly_stab": -2676.096706180489,
+   "balanced_score": 0.5939727936505614,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Saint‑Martin‑d’Hères - Campus)",
+     180
+    ],
+    [
+     "T3 Familial (Lyon - Monplaisir)",
+     180
+    ]
+   ],
+   "apport_total": 24460.0,
+   "enrich_net": 183192.5944499113,
+   "tri_annuel": 2.5377822755001445,
+   "cf_monthly_stab": -1677.0421997186334,
+   "balanced_score": 0.5812328316258815,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Lyon - La Doua)",
+     180
+    ],
+    [
+     "T3 Familial (Lyon - Monplaisir)",
+     180
+    ]
+   ],
+   "apport_total": 28540.0,
+   "enrich_net": 199299.78078920586,
+   "tri_annuel": 2.3321142455472677,
+   "cf_monthly_stab": -2028.4540159334167,
+   "balanced_score": 0.5780909706384474,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Chambéry - Jacob)",
+     180
+    ],
+    [
+     "T3 Familial (Lyon - Monplaisir)",
+     180
+    ]
+   ],
+   "apport_total": 25916.0,
+   "enrich_net": 188791.63666439703,
+   "tri_annuel": 2.454252187365835,
+   "cf_monthly_stab": -1802.285858802568,
+   "balanced_score": 0.5734028434226981,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Saint‑Martin‑d’Hères - Campus)",
+     180
+    ],
+    [
+     "T3 Familial (Lyon - Monplaisir)",
+     180
+    ],
+    [
+     "T3 Nu (Grenoble - Teisseire)",
+     180
+    ]
+   ],
+   "apport_total": 36972.0,
+   "enrich_net": 229813.21255975496,
+   "tri_annuel": 2.0637703132859286,
+   "cf_monthly_stab": -2683.3522013493475,
+   "balanced_score": 0.5695961679588712,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Chambéry - Jacob)",
+     180
+    ],
+    [
+     "T3 Familial (Lyon - Monplaisir)",
+     180
+    ],
+    [
+     "T3 Nu (Grenoble - Teisseire)",
+     180
+    ]
+   ],
+   "apport_total": 38428.0,
+   "enrich_net": 235412.2547742406,
+   "tri_annuel": 2.0278898767557285,
+   "cf_monthly_stab": -2808.5958604332814,
+   "balanced_score": 0.5682230342135483,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Lyon - La Doua)",
+     180
+    ],
+    [
+     "T3 Familial (Lyon - Monplaisir)",
+     180
+    ],
+    [
+     "T3 Nu (Grenoble - Teisseire)",
+     240
+    ]
+   ],
+   "apport_total": 41052.0,
+   "enrich_net": 229927.3806558411,
+   "tri_annuel": 1.9262600492708115,
+   "cf_monthly_stab": -2787.3358032843557,
+   "balanced_score": 0.5604057826811282,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Chambéry - Jacob)",
+     180
+    ],
+    [
+     "Studio Étudiant (Saint‑Martin‑d’Hères - Campus)",
+     180
+    ],
+    [
+     "T2 (Échirolles - Comboire)",
+     180
+    ]
+   ],
+   "apport_total": 16512.0,
+   "enrich_net": 143904.3444066157,
+   "tri_annuel": 2.8391928066914263,
+   "cf_monthly_stab": -1198.6042673540414,
+   "balanced_score": 0.5494550247466733,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Lyon - La Doua)",
+     180
+    ],
+    [
+     "Studio Étudiant (Saint‑Martin‑d’Hères - Campus)",
+     180
+    ],
+    [
+     "T2 (Échirolles - Comboire)",
+     180
+    ]
+   ],
+   "apport_total": 19136.0,
+   "enrich_net": 154412.48853142443,
+   "tri_annuel": 2.6078978970424105,
+   "cf_monthly_stab": -1424.7724244848903,
+   "balanced_score": 0.5493144075347385,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "T3 Familial (Lyon - Monplaisir)",
+     180
+    ]
+   ],
+   "apport_total": 20540.0,
+   "enrich_net": 148987.5002619389,
+   "tri_annuel": 2.471333141932841,
+   "cf_monthly_stab": -1399.3129033322366,
+   "balanced_score": 0.5474810317021618,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Chambéry - Jacob)",
+     180
+    ],
+    [
+     "Studio Étudiant (Lyon - La Doua)",
+     180
+    ],
+    [
+     "T2 (Échirolles - Comboire)",
+     180
+    ]
+   ],
+   "apport_total": 20592.0,
+   "enrich_net": 160011.5307459102,
+   "tri_annuel": 2.5026500518363637,
+   "cf_monthly_stab": -1550.0160835688248,
+   "balanced_score": 0.5392691721062661,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Saint‑Martin‑d’Hères - Campus)",
+     180
+    ],
+    [
+     "T2 (Échirolles - Comboire)",
+     180
+    ]
+   ],
+   "apport_total": 11136.0,
+   "enrich_net": 104100.20800415766,
+   "tri_annuel": 3.057428746487223,
+   "cf_monthly_stab": -795.63131188371,
+   "balanced_score": 0.5382624169416447,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "T3 Familial (Lyon - Monplaisir)",
+     180
+    ],
+    [
+     "T3 Nu (Grenoble - Teisseire)",
+     180
+    ]
+   ],
+   "apport_total": 33052.0,
+   "enrich_net": 195608.11837178265,
+   "tri_annuel": 1.9667258268104337,
+   "cf_monthly_stab": -2405.6229049629505,
+   "balanced_score": 0.5306345750480597,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Chambéry - Jacob)",
+     180
+    ],
+    [
+     "T2 (Échirolles - Comboire)",
+     180
+    ]
+   ],
+   "apport_total": 12592.0,
+   "enrich_net": 109699.25021864317,
+   "tri_annuel": 2.8288781896769644,
+   "cf_monthly_stab": -920.8749709676446,
+   "balanced_score": 0.5146134929284842,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "T2 (Échirolles - Comboire)",
+     180
+    ]
+   ],
+   "apport_total": 7216.0,
+   "enrich_net": 69895.11381618507,
+   "tri_annuel": 3.1566179744985545,
+   "cf_monthly_stab": -517.9020154973132,
+   "balanced_score": 0.5136395018530501,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Lyon - La Doua)",
+     180
+    ],
+    [
+     "T2 (Échirolles - Comboire)",
+     180
+    ]
+   ],
+   "apport_total": 15216.0,
+   "enrich_net": 120207.39434345198,
+   "tri_annuel": 2.5413107799965973,
+   "cf_monthly_stab": -1147.0431280984933,
+   "balanced_score": 0.513052352060005,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Lyon - La Doua)",
+     180
+    ],
+    [
+     "T2 (Échirolles - Comboire)",
+     180
+    ],
+    [
+     "T3 Nu (Grenoble - Teisseire)",
+     180
+    ]
+   ],
+   "apport_total": 27728.0,
+   "enrich_net": 170634.39709090203,
+   "tri_annuel": 1.9887706718882514,
+   "cf_monthly_stab": -2153.353129729207,
+   "balanced_score": 0.49909223353612764,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Chambéry - Jacob)",
+     180
+    ],
+    [
+     "Studio Étudiant (Lyon - La Doua)",
+     180
+    ],
+    [
+     "Studio Étudiant (Saint‑Martin‑d’Hères - Campus)",
+     180
+    ]
+   ],
+   "apport_total": 17296.0,
+   "enrich_net": 124321.51111769743,
+   "tri_annuel": 2.3150956586879268,
+   "cf_monthly_stab": -1309.8433644579084,
+   "balanced_score": 0.4932998700449309,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Saint‑Martin‑d’Hères - Campus)",
+     180
+    ],
+    [
+     "T2 (Échirolles - Comboire)",
+     180
+    ],
+    [
+     "T3 Nu (Grenoble - Teisseire)",
+     180
+    ]
+   ],
+   "apport_total": 23648.0,
+   "enrich_net": 154527.2107516076,
+   "tri_annuel": 2.1299217769848777,
+   "cf_monthly_stab": -1801.9413135144239,
+   "balanced_score": 0.49305092184263366,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Chambéry - Jacob)",
+     180
+    ],
+    [
+     "T2 (Échirolles - Comboire)",
+     180
+    ],
+    [
+     "T3 Nu (Grenoble - Teisseire)",
+     180
+    ]
+   ],
+   "apport_total": 25104.0,
+   "enrich_net": 160126.25296609337,
+   "tri_annuel": 2.072027037693247,
+   "cf_monthly_stab": -1927.1849725983584,
+   "balanced_score": 0.48893105379732904,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Saint‑Martin‑d’Hères - Campus)",
+     180
+    ]
+   ],
+   "apport_total": 3920.0,
+   "enrich_net": 34205.09418797253,
+   "tri_annuel": 2.872812568189853,
+   "cf_monthly_stab": -277.7292963863968,
+   "balanced_score": 0.46492741310479707,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Chambéry - Jacob)",
+     180
+    ],
+    [
+     "Studio Étudiant (Saint‑Martin‑d’Hères - Campus)",
+     180
+    ]
+   ],
+   "apport_total": 9296.0,
+   "enrich_net": 74009.23059043068,
+   "tri_annuel": 2.592866614471223,
+   "cf_monthly_stab": -680.7022518567284,
+   "balanced_score": 0.46356440341556826,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Lyon - La Doua)",
+     180
+    ],
+    [
+     "Studio Étudiant (Saint‑Martin‑d’Hères - Campus)",
+     180
+    ]
+   ],
+   "apport_total": 11920.0,
+   "enrich_net": 84517.37471523929,
+   "tri_annuel": 2.28030839818123,
+   "cf_monthly_stab": -906.870408987577,
+   "balanced_score": 0.46324975730596984,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Lyon - La Doua)",
+     180
+    ],
+    [
+     "Studio Étudiant (Saint‑Martin‑d’Hères - Campus)",
+     180
+    ],
+    [
+     "T3 Nu (Grenoble - Teisseire)",
+     180
+    ]
+   ],
+   "apport_total": 24432.0,
+   "enrich_net": 134944.3774626893,
+   "tri_annuel": 1.785641114167369,
+   "cf_monthly_stab": -1913.1804106182908,
+   "balanced_score": 0.4505389821787147,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Chambéry - Jacob)",
+     180
+    ],
+    [
+     "Studio Étudiant (Lyon - La Doua)",
+     180
+    ],
+    [
+     "T3 Nu (Grenoble - Teisseire)",
+     180
+    ]
+   ],
+   "apport_total": 25888.0,
+   "enrich_net": 140543.41967717482,
+   "tri_annuel": 1.7502555104670359,
+   "cf_monthly_stab": -2038.4240697022253,
+   "balanced_score": 0.44815476168795254,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Chambéry - Jacob)",
+     180
+    ],
+    [
+     "Studio Étudiant (Lyon - La Doua)",
+     180
+    ]
+   ],
+   "apport_total": 13376.0,
+   "enrich_net": 90116.41692972498,
+   "tri_annuel": 2.1564112816957692,
+   "cf_monthly_stab": -1032.1140680715116,
+   "balanced_score": 0.447888466893797,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "T2 (Échirolles - Comboire)",
+     180
+    ],
+    [
+     "T3 Nu (Grenoble - Teisseire)",
+     180
+    ]
+   ],
+   "apport_total": 19728.0,
+   "enrich_net": 120322.11656363524,
+   "tri_annuel": 1.9839630401978559,
+   "cf_monthly_stab": -1524.212017128027,
+   "balanced_score": 0.44675210561961476,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Chambéry - Jacob)",
+     180
+    ],
+    [
+     "Studio Étudiant (Saint‑Martin‑d’Hères - Campus)",
+     180
+    ],
+    [
+     "T3 Nu (Grenoble - Teisseire)",
+     180
+    ]
+   ],
+   "apport_total": 21808.0,
+   "enrich_net": 124436.23333788075,
+   "tri_annuel": 1.8557068220007356,
+   "cf_monthly_stab": -1687.012253487442,
+   "balanced_score": 0.4381896410482321,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Lyon - La Doua)",
+     180
+    ]
+   ],
+   "apport_total": 8000.0,
+   "enrich_net": 50312.28052726676,
+   "tri_annuel": 2.0003363875068514,
+   "cf_monthly_stab": -629.1411126011801,
+   "balanced_score": 0.4105955833541438,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Chambéry - Jacob)",
+     180
+    ]
+   ],
+   "apport_total": 5376.0,
+   "enrich_net": 39804.13640245811,
+   "tri_annuel": 2.3926475557363602,
+   "cf_monthly_stab": -402.9729554703315,
+   "balanced_score": 0.40619882062483026,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Lyon - La Doua)",
+     180
+    ],
+    [
+     "T3 Nu (Grenoble - Teisseire)",
+     180
+    ]
+   ],
+   "apport_total": 20512.0,
+   "enrich_net": 100739.2832747167,
+   "tri_annuel": 1.582285108836512,
+   "cf_monthly_stab": -1635.451114231894,
+   "balanced_score": 0.40023414033183663,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Saint‑Martin‑d’Hères - Campus)",
+     180
+    ],
+    [
+     "T3 Nu (Grenoble - Teisseire)",
+     180
+    ]
+   ],
+   "apport_total": 16432.0,
+   "enrich_net": 84632.09693542257,
+   "tri_annuel": 1.6782978166063334,
+   "cf_monthly_stab": -1284.0392980171107,
+   "balanced_score": 0.38818024742303026,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Chambéry - Jacob)",
+     180
+    ],
+    [
+     "T3 Nu (Grenoble - Teisseire)",
+     180
+    ]
+   ],
+   "apport_total": 17888.0,
+   "enrich_net": 90231.13914990835,
+   "tri_annuel": 1.6359689036217429,
+   "cf_monthly_stab": -1409.2829571010452,
+   "balanced_score": 0.38417484343056774,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "T3 Nu (Grenoble - Teisseire)",
+     180
+    ]
+   ],
+   "apport_total": 12512.0,
+   "enrich_net": 50427.002747449995,
+   "tri_annuel": 1.3087412738759685,
+   "cf_monthly_stab": -1006.3100016307138,
+   "balanced_score": 0.3196890881272817,
+   "is_acceptable": true
+  }
+ ],
+ "P2_target_wide": [
+  {
+   "sig": [
+    [
+     "T2 (Échirolles - Comboire)",
+     180
+    ],
+    [
+     "T3 Familial (Lyon - Monplaisir)",
+     240
+    ]
+   ],
+   "apport_total": 27756.0,
+   "enrich_net": 194233.1391772207,
+   "tri_annuel": 2.614313052293804,
+   "cf_monthly_stab": -1541.7993056747935,
+   "balanced_score": 0.6173412370711426,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Saint‑Martin‑d’Hères - Campus)",
+     240
+    ],
+    [
+     "T3 Familial (Lyon - Monplaisir)",
+     180
+    ]
+   ],
+   "apport_total": 24460.0,
+   "enrich_net": 175677.15190734115,
+   "tri_annuel": 2.4897457167000203,
+   "cf_monthly_stab": -1599.7116164263816,
+   "balanced_score": 0.577302283059004,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Chambéry - Jacob)",
+     180
+    ],
+    [
+     "T3 Familial (Lyon - Monplaisir)",
+     240
+    ]
+   ],
+   "apport_total": 25916.0,
+   "enrich_net": 164142.16176349402,
+   "tri_annuel": 2.383067885266721,
+   "cf_monthly_stab": -1426.870245647812,
+   "balanced_score": 0.5756194807601265,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "T3 Familial (Lyon - Monplaisir)",
+     180
+    ]
+   ],
+   "apport_total": 20540.0,
+   "enrich_net": 148987.5002619389,
+   "tri_annuel": 2.471333141932841,
+   "cf_monthly_stab": -1399.3129033322366,
+   "balanced_score": 0.5720095936153815,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Lyon - La Doua)",
+     180
+    ],
+    [
+     "T3 Familial (Lyon - Monplaisir)",
+     240
+    ]
+   ],
+   "apport_total": 28540.0,
+   "enrich_net": 174650.30588830292,
+   "tri_annuel": 2.255090829891193,
+   "cf_monthly_stab": -1653.0384027786604,
+   "balanced_score": 0.5479475192964937,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "T3 Familial (Lyon - Monplaisir)",
+     180
+    ],
+    [
+     "T3 Nu (Grenoble - Teisseire)",
+     180
+    ]
+   ],
+   "apport_total": 33052.0,
+   "enrich_net": 195608.11837178265,
+   "tri_annuel": 1.9667258268104337,
+   "cf_monthly_stab": -2405.6229049629505,
+   "balanced_score": 0.4953259883680096,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Lyon - La Doua)",
+     180
+    ],
+    [
+     "T2 (Échirolles - Comboire)",
+     180
+    ]
+   ],
+   "apport_total": 15216.0,
+   "enrich_net": 120207.39434345198,
+   "tri_annuel": 2.5413107799965973,
+   "cf_monthly_stab": -1147.0431280984933,
+   "balanced_score": 0.4875591657020738,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Saint‑Martin‑d’Hères - Campus)",
+     180
+    ],
+    [
+     "T2 (Échirolles - Comboire)",
+     180
+    ]
+   ],
+   "apport_total": 11136.0,
+   "enrich_net": 104100.20800415766,
+   "tri_annuel": 3.057428746487223,
+   "cf_monthly_stab": -795.63131188371,
+   "balanced_score": 0.48263620108389504,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Chambéry - Jacob)",
+     180
+    ],
+    [
+     "T2 (Échirolles - Comboire)",
+     180
+    ]
+   ],
+   "apport_total": 12592.0,
+   "enrich_net": 109699.25021864317,
+   "tri_annuel": 2.8288781896769644,
+   "cf_monthly_stab": -920.8749709676446,
+   "balanced_score": 0.4602304402356149,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "T2 (Échirolles - Comboire)",
+     180
+    ],
+    [
+     "T3 Nu (Grenoble - Teisseire)",
+     180
+    ]
+   ],
+   "apport_total": 19728.0,
+   "enrich_net": 120322.11656363524,
+   "tri_annuel": 1.9839630401978559,
+   "cf_monthly_stab": -1524.212017128027,
+   "balanced_score": 0.4533998491125226,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "T2 (Échirolles - Comboire)",
+     180
+    ]
+   ],
+   "apport_total": 7216.0,
+   "enrich_net": 69895.11381618507,
+   "tri_annuel": 3.1566179744985545,
+   "cf_monthly_stab": -517.9020154973132,
+   "balanced_score": 0.45041868114739647,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Lyon - La Doua)",
+     180
+    ],
+    [
+     "Studio Étudiant (Saint‑Martin‑d’Hères - Campus)",
+     180
+    ]
+   ],
+   "apport_total": 11920.0,
+   "enrich_net": 84517.37471523929,
+   "tri_annuel": 2.28030839818123,
+   "cf_monthly_stab": -906.870408987577,
+   "balanced_score": 0.40327553761538726,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Chambéry - Jacob)",
+     180
+    ],
+    [
+     "Studio Étudiant (Lyon - La Doua)",
+     180
+    ]
+   ],
+   "apport_total": 13376.0,
+   "enrich_net": 90116.41692972498,
+   "tri_annuel": 2.1564112816957692,
+   "cf_monthly_stab": -1032.1140680715116,
+   "balanced_score": 0.4023488042788216,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Chambéry - Jacob)",
+     180
+    ],
+    [
+     "Studio Étudiant (Saint‑Martin‑d’Hères - Campus)",
+     180
+    ]
+   ],
+   "apport_total": 9296.0,
+   "enrich_net": 74009.23059043068,
+   "tri_annuel": 2.592866614471223,
+   "cf_monthly_stab": -680.7022518567284,
+   "balanced_score": 0.4012570458048215,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Chambéry - Jacob)",
+     180
+    ],
+    [
+     "T3 Nu (Grenoble - Teisseire)",
+     180
+    ]
+   ],
+   "apport_total": 17888.0,
+   "enrich_net": 90231.13914990835,
+   "tri_annuel": 1.6359689036217429,
+   "cf_monthly_stab": -1409.2829571010452,
+   "balanced_score": 0.39750677967452586,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Lyon - La Doua)",
+     180
+    ],
+    [
+     "T3 Nu (Grenoble - Teisseire)",
+     240
+    ]
+   ],
+   "apport_total": 20512.0,
+   "enrich_net": 85705.21850013349,
+   "tri_annuel": 1.466693779495265,
+   "cf_monthly_stab": -1388.0228999521194,
+   "balanced_score": 0.3937979638608339,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Saint‑Martin‑d’Hères - Campus)",
+     180
+    ]
+   ],
+   "apport_total": 3920.0,
+   "enrich_net": 34205.09418797253,
+   "tri_annuel": 2.872812568189853,
+   "cf_monthly_stab": -277.7292963863968,
+   "balanced_score": 0.3937822874812662,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Saint‑Martin‑d’Hères - Campus)",
+     180
+    ],
+    [
+     "T3 Nu (Grenoble - Teisseire)",
+     180
+    ]
+   ],
+   "apport_total": 16432.0,
+   "enrich_net": 84632.09693542257,
+   "tri_annuel": 1.6782978166063334,
+   "cf_monthly_stab": -1284.0392980171107,
+   "balanced_score": 0.38738909906983127,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Lyon - La Doua)",
+     180
+    ]
+   ],
+   "apport_total": 8000.0,
+   "enrich_net": 50312.28052726676,
+   "tri_annuel": 2.0003363875068514,
+   "cf_monthly_stab": -629.1411126011801,
+   "balanced_score": 0.34302675881565736,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Chambéry - Jacob)",
+     180
+    ]
+   ],
+   "apport_total": 5376.0,
+   "enrich_net": 39804.13640245811,
+   "tri_annuel": 2.3926475557363602,
+   "cf_monthly_stab": -402.9729554703315,
+   "balanced_score": 0.3362968581661797,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "T3 Nu (Grenoble - Teisseire)",
+     180
+    ]
+   ],
+   "apport_total": 12512.0,
+   "enrich_net": 50427.002747449995,
+   "tri_annuel": 1.3087412738759685,
+   "cf_monthly_stab": -1006.3100016307138,
+   "balanced_score": 0.2654881316682193,
+   "is_acceptable": true
+  }
+ ],
+ "P3_min_allocating": [
+  {
+   "sig": [
+    [
+     "T2 (Échirolles - Comboire)",
+     240
+    ]
+   ],
+   "apport_total": 7216.0,
+   "enrich_net": 56127.159176787914,
+   "tri_annuel": 2.938280924369985,
+   "cf_monthly_stab": -376.08558986643806,
+   "balanced_score": 0.6947893090793439,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Saint‑Martin‑d’Hères - Campus)",
+     180
+    ]
+   ],
+   "apport_total": 3920.0,
+   "enrich_net": 34205.09418797253,
+   "tri_annuel": 2.872812568189853,
+   "cf_monthly_stab": -277.7292963863968,
+   "balanced_score": 0.5614636467340448,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Chambéry - Jacob)",
+     180
+    ]
+   ],
+   "apport_total": 5376.0,
+   "enrich_net": 39804.13640245811,
+   "tri_annuel": 2.3926475557363602,
+   "cf_monthly_stab": -402.9729554703315,
+   "balanced_score": 0.5201098381263392,
+   "is_acceptable": true
+  },
+  {
+   "sig": [
+    [
+     "Studio Étudiant (Lyon - La Doua)",
+     300
+    ]
+   ],
+   "apport_total": 8000.0,
+   "enrich_net": 17983.140792335937,
+   "tri_annuel": 0.9610682457032116,
+   "cf_monthly_stab": -404.1340932210876,
+   "balanced_score": 0.28534553509934174,
+   "is_acceptable": true
+  }
+ ]
+}
