@@ -61,7 +61,8 @@ Legend: todo · running · done · blocked · skipped
 | T51 AppTest | Sonnet | todo | | |
 | T52 typing + coverage | Sonnet | todo | | |
 | T53 README/docs | Haiku | todo | | |
-| T61 DPE rental ban | Sonnet | running | | |
+| T61 DPE rental ban | Sonnet | partial | 0cc60bc | search not wired → T35 |
+| T35 RunContext→search parity guard | Sonnet | todo | | after T34; DPE fields into EvaluationParams + generic test |
 | T60, T62–T68 features | mixed | todo | | see plan; T66 = offline files, no API |
 
 ## Next waves
@@ -235,6 +236,13 @@ Legend: todo · running · done · blocked · skipped
     - **The CandidateEvaluator tax-correction loop (3 rounds) doesn't always converge** → T34.
     - **The simulated income tax looked large on a hand-made instance** (120–215 €/month on 500–1,000 € rent) → T34 checks.
     - `utils/debug.py` parses a log line that no longer exists (strategy_tiers) → T52.
+- After T61:
+  - `src/domain/dpe.py` holds the DPE helpers; `defaults.DPE` holds the ban years and the 150 €/m²/class cost.
+  - RunContext has `dpe_policy` and `dpe_cout_m2_par_classe`.
+  - A property with `renovation_energetique` > 0 (the "Reno E→D" option, default ON) is treated as class D, so it is never banned.
+  - Renovation is one event per ban (incremental class jumps).
+  - **Parity break:** `EvaluationParams` (strategy_finder) doesn't carry the DPE fields, so the search ignores the ban. → T35: add them, plus a generic test that every tax- or engine-relevant RunContext field reaches the search engine.
+  - **USER VALIDATION:** the 150 €/m²/class cost assumption, and treating G as banned for all leases.
 - `ruff format` not applied (45 files would be reformatted). Optional later; skip it to avoid merge churn.
 
 ## Log
@@ -268,3 +276,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-16: T43 merged. T34 waits for T33 (both touch the optimizer and strategy_finder).
 - 2026-11-16: T50 merged (1217 passed). T61 launched (T33 still running).
 - 2026-11-16: T33 merged cleanly (1226 passed). T34 launched (T61 still running).
+- 2026-11-16: T61 merged (partial: the search is not wired). T35 added. T34 still running.
