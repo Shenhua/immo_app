@@ -95,7 +95,7 @@ def calculate_dscr_metric(df_sim: pd.DataFrame) -> float:
     row = df_sim.iloc[0]
     ds = row.get("Capital Remboursé", 0.0) + row.get("Intérêts & Assurance", 0.0)
 
-    charges = row.get("Charges Déductibles", 0.0)
+    charges = row.get("Charges d'exploitation", 0.0)
     interest = row.get("Intérêts & Assurance", 0.0)
     rent = row.get("Loyers Bruts", 0.0)
 

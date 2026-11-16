@@ -10,6 +10,7 @@ Plan: `docs/DEV_PLAN.md` · Agent brief: `docs/AGENT_BRIEF.md`
 3. Pick the next wave from "Next waves" below. Launch **at most 2 agents at a time**.
 
 ## Conductor protocol
+- Shell hygiene: chain commands with `&&` (never `;`) after a `cd`, so that a failed `cd` cannot run git commands in the main repo.
 - Integration branch: `develop` (created from `main`). `main` stays untouched until the user decides to merge.
 - Each agent runs with `isolation: worktree` and gets `docs/AGENT_BRIEF.md` + its task ID(s) + conductor notes. The model is the one the plan names.
 - When an agent finishes:
@@ -45,7 +46,7 @@ Legend: todo · running · done · blocked · skipped
 | T26b data recalibration | Sonnet | done | ee96023 | TF/charges/caps unverified | | web research |
 | Gate P2 review | Opus | done | | docs/review/phase2/README.md: tax engine sound; C1 critical |
 | T27 search/detail parity | Sonnet | done | 8ac2698 | C1 fixed; parity tests in 3 tax modes |
-| T28 tax hygiene + multi-prop tests | Sonnet | running | | after T27 |
+| T28 tax hygiene + multi-prop tests | Sonnet | done | 8760fd6 | | after T27 |
 | T29 stabilised-year metrics | Sonnet | running | | after T27, parallel with T28 | | |
 | T30 CF mode ranking | Sonnet | done | 75e0e0f | | |
 | T31 search rewrite | Opus | todo | | |
@@ -175,6 +176,11 @@ Legend: todo · running · done · blocked · skipped
   - Parity tests are in `tests/integration/test_search_detail_parity.py`.
   - The golden adapter passes `tf_growth_pct` = charges indexation.
   - `docs/review/` is excluded from ruff.
+- After T28:
+  - `archetype.is_furnished()` is the single furnished rule.
+  - The yearly-table column was renamed to "Charges d'exploitation". The conductor fixed `glossary.py:98` after the merge. **T29 was branched before the rename: when merging T29, keep "Charges d'exploitation" in glossary.py.**
+  - The plus-value flat rates (7.5 %, 15 %, surtax scale) are still module constants (low priority).
+  - In docs/review/phase2/README.md, the `e.py` and `g.py` labels are swapped.
 - `ruff format` not applied (45 files would be reformatted). Optional later; skip it to avoid merge churn.
 
 ## Log
@@ -198,3 +204,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-16: T26a merged (993 passed). Phase 2 implementation complete. Gate P2 review launched (Opus, read-only).
 - 2026-11-16: Gate P2 done (verdict: fix C1 first). T27/T28/T29 added to the plan. T27 launched.
 - 2026-11-16: T27 merged; `docs/review` excluded from ruff. T28 and T29 launched in parallel.
+- 2026-11-16: T28 merged (1020 passed); glossary column name fixed by the conductor. T29 relaunched after a classifier outage, still running.
