@@ -50,8 +50,8 @@ Legend: todo · running · done · blocked · skipped
 | T29 stabilised-year metrics | Sonnet | done | 762c5c6 (merge 23e1e3d) | stabilised = year 2 | | after T27, parallel with T28 | | |
 | T30 CF mode ranking | Sonnet | done | 75e0e0f | | |
 | T31 search rewrite | Opus | done | 2aede1c..b38fc93 (merge f18c1a5) | Empire 5–8 s, deterministic, GA removed | | |
-| T32 absolute scoring + Pareto | Sonnet | running | | |
-| T33 near misses | Sonnet | todo | | |
+| T32 absolute scoring + Pareto | Sonnet | done | 671de34 | | |
+| T33 near misses | Sonnet | running | | |
 | T34 Rentier mode | Sonnet | todo | | |
 | T40 results UI batch | Haiku | done | 260dd2e | | |
 | T41 sensitivity rewrite | Sonnet | done | 448cd08 | | |
@@ -210,6 +210,13 @@ Legend: todo · running · done · blocked · skipped
   - `src/ui/cached.py` holds the cache wrappers. The detail simulation is cached by (strategy JSON, ctx JSON).
   - The search runs only on the button click.
   - **Product issue for T33/T43: the default sidebar values give only 1 strategy.** Investigate which constraint binds and retune the defaults.
+- After T32:
+  - `src/application/services/scoring.py` is the single scoring implementation, with fixed benchmarks in defaults.
+  - `pareto_rank` is always computed and used as a tie-breaker, not a filter (ranks > 10 become 11).
+  - `StrategyScorer` requires `mode_cf`; the `StrategyFinder` default is "min".
+  - The search-parity golden was regenerated (intended ranking change).
+  - **USER QUESTION:** the "Patrimoine" preset ranks on ROE (wealth / down payment, saturating at 1.0). Should it favour absolute euros of wealth instead?
+  - The tier code in the finder is untouched → T33.
 - `ruff format` not applied (45 files would be reformatted). Optional later; skip it to avoid merge churn.
 
 ## Log
@@ -239,3 +246,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-16 13:42: The usage limit interrupted T31 (worktree agent-a5ecae762d3a2520b: commits 2aede1c and 8223cbe, plus uncommitted optimizer.py). Resumed via SendMessage. If the session dies, relaunch T31 with "continue from branch worktree-agent-a5ecae762d3a2520b".
 - 2026-11-16: T31 merged (1189 passed). Phase 3 continues: T32 and T42 launched in parallel.
 - 2026-11-16: T42 merged (1192 passed). T43 launched alongside T32.
+- 2026-11-16: T32 merged (1191 passed, 1 skipped). T33 launched (T43 still running).
