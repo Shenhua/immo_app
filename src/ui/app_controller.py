@@ -15,17 +15,13 @@ import pandas as pd
 import streamlit as st
 
 from src.application.run_context import RunContext
-from src.application.services.brick_factory import (
-    build_financing_config,
-    build_operating_config,
-    create_investment_bricks,
-)
 from src.application.services.simulation import simulate_long_term_strategy
 from src.application.services.strategy_finder import StrategyFinder
 from src.core import defaults
 from src.core.exceptions import SimulationError
 from src.core.logging import get_logger
 from src.domain.models.archetype import ArchetypeV2
+from src.ui.cached import cached_archetypes_from_file, cached_bricks, file_signature
 from src.ui.state import SessionManager
 
 log = get_logger(__name__)
@@ -82,7 +78,7 @@ def load_archetypes() -> list[dict[str, Any]]:
         if not archetypes:
             path = os.path.join(os.path.dirname(__file__), "../../data/archetypes_2026_v1.json")
             path = os.path.normpath(path)
-            archetypes = load_archetypes_from_disk(path)
+            archetypes = cached_archetypes_from_file(*file_signature(path))
             SessionManager.set_archetypes(archetypes)
         else:
             log.debug("archetypes_loaded_from_session", count=len(archetypes))
@@ -127,12 +123,7 @@ def run_strategy_search(
     )
 
     # 1. Create investment bricks
-    fin_config = build_financing_config(ctx.to_credit_params())
-    op_config = build_operating_config(
-        ctx.gestion_pct, ctx.vacance_pct, ctx.cfe_par_bien_ann,
-        maintenance_m2_an=ctx.maintenance_m2_an, gli_pct=ctx.gli_pct, mois_travaux=ctx.mois_travaux,
-    )
-    bricks = create_investment_bricks(archetypes, fin_config, op_config)
+    bricks = cached_bricks(archetypes, ctx)
 
     # 2. Find strategies
     finder = StrategyFinder(
@@ -191,10 +182,38 @@ def run_strategy_search(
     return strategies
 
 
+def _strategy_key(strategy: dict[str, Any]) -> str:
+    return json.dumps(strategy, sort_keys=True, default=str)
+
+
+@st.cache_data(show_spinner=False, max_entries=64)
+def _cached_simulation(strategy_json: str, ctx_json: str) -> tuple[pd.DataFrame | None, str | None]:
+    """Detail simulation keyed by (strategy, RunContext). Returns (frame, error message); copies on every hit."""
+    strategy = json.loads(strategy_json)
+    ctx = RunContext.model_validate_json(ctx_json)
+    try:
+        df_sim, bilan = simulate_long_term_strategy(
+            strategy,
+            duration_years=ctx.horizon_ans,
+            market_hypotheses=ctx.market_hypotheses,
+            tax_params=ctx.to_tax_params(),
+        )
+    except (ValueError, ZeroDivisionError, SimulationError) as e:
+        # Expected failures (invalid inputs rejected by a regime or the schedule check). Any other
+        # exception is a bug and propagates (and is not cached).
+        log.warning("simulation_failed", error=str(e))
+        return None, str(e)
+    # Regime actually applied and why a choice was overridden (micro ceilings, LMP flag).
+    df_sim.attrs["tax_regimes"] = bilan.get("regimes", {})
+    df_sim.attrs["tax_warnings"] = bilan.get("tax_warnings", [])
+    return df_sim, None
+
+
 def simulate_selected_strategy(strategy: dict[str, Any], ctx: RunContext) -> pd.DataFrame | None:
     """Run detailed simulation for a selected strategy, with the parameters of its run.
 
-    Creates yearly projection data for charts.
+    Cached by (strategy, ctx): reruns caused by row selection or tab switches do not recompute it.
+    The returned frame is a private copy.
 
     Args:
         strategy: Strategy to simulate
@@ -203,24 +222,10 @@ def simulate_selected_strategy(strategy: dict[str, Any], ctx: RunContext) -> pd.
     Returns:
         DataFrame with yearly projections or None on error
     """
-    try:
-        df_sim, bilan = simulate_long_term_strategy(
-            strategy,
-            duration_years=ctx.horizon_ans,
-            market_hypotheses=ctx.market_hypotheses,
-            tax_params=ctx.to_tax_params(),
-        )
-        # Regime actually applied and why a choice was overridden (micro ceilings, LMP flag).
-        df_sim.attrs["tax_regimes"] = bilan.get("regimes", {})
-        df_sim.attrs["tax_warnings"] = bilan.get("tax_warnings", [])
-        return df_sim
-
-    except (ValueError, ZeroDivisionError, SimulationError) as e:
-        # Expected failures (invalid inputs rejected by a regime or the schedule check). Shown to the user;
-        # any other exception is a bug and propagates.
-        log.warning("simulation_failed", error=str(e))
-        st.warning(f"Simulation détaillée impossible : {e}")
-        return None
+    df_sim, error = _cached_simulation(_strategy_key(strategy), ctx.model_dump_json())
+    if error is not None:
+        st.warning(f"Simulation détaillée impossible : {error}")
+    return df_sim
 
 
 def autosave_results(

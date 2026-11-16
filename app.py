@@ -15,7 +15,6 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from src.application.progress import SearchPhase, SearchProgress
 from src.application.run_context import RunContext
-from src.application.services.brick_factory import apply_rent_caps
 from src.core.defaults import OPERATING, REALISM, SEARCH, TAX
 from src.core.logging import get_logger
 from src.ui.app_controller import (
@@ -24,7 +23,8 @@ from src.ui.app_controller import (
     run_strategy_search,
     simulate_selected_strategy,
 )
-from src.ui.components.filters import filter_archetypes, render_property_filters
+from src.ui.cached import filter_and_caps
+from src.ui.components.filters import render_property_filters
 from src.ui.components.sidebar import (
     render_credit_params_tab,
     render_market_hypotheses,
@@ -266,12 +266,9 @@ def main() -> None:
         return
 
     # 4. Apply filters & compliance
-    filtered = filter_archetypes(
-        params["raw_archetypes"],
-        params["selected_villes"],
-        params["selected_types"],
+    compliant = filter_and_caps(
+        params["raw_archetypes"], params["selected_villes"], params["selected_types"], params["apply_cap"]
     )
-    compliant = apply_rent_caps(filtered, params["apply_cap"])
 
     # 5. Snapshot of the current sidebar. Used for the search and for the stale check only.
     current_ctx = RunContext.from_sidebar(params, compliant)
