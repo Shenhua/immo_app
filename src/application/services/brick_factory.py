@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from src.core.defaults import FINANCING, OPERATING, TAX
+from src.core.defaults import FINANCING, OPERATING, REALISM, TAX
 from src.core.logging import get_logger
 from src.domain.calculator.financial import calculate_total_monthly_payment
 from src.domain.calculator.scoring import calculate_property_qualitative_score
@@ -38,6 +38,10 @@ class OperatingConfig:
     frais_gestion_pct: float = OPERATING.gestion_pct
     provision_pct: float = OPERATING.provision_pct
     cfe_par_bien_ann: float = OPERATING.cfe_par_bien_ann
+    # T26a. ``provision_pct`` is the vacancy slider: a FLOOR on each archetype's own ``vacance_pct``.
+    maintenance_m2_an: float = REALISM.maintenance_m2_an
+    gli_pct: float = REALISM.gli_pct
+    mois_travaux: int = REALISM.mois_travaux
 
 
 def create_investment_bricks(
@@ -109,7 +113,11 @@ def create_investment_bricks(
         gestion_raw = archetype.get("frais_gestion_pct")
         gestion_pct = float(gestion_raw if gestion_raw is not None else operating.frais_gestion_pct)
         vacance_raw = archetype.get("vacance_pct")
-        vacance_pct = float(vacance_raw if vacance_raw is not None else operating.provision_pct)
+        # The sidebar vacancy is a floor, not a default: effective = max(archetype, slider).
+        vacance_pct = max(float(vacance_raw), operating.provision_pct) if vacance_raw is not None else operating.provision_pct
+        has_works = (travaux + reno) > 0
+        mois_travaux = int(operating.mois_travaux) if has_works else 0
+        maintenance_ann = surface * operating.maintenance_m2_an
 
         gest_mth0 = loyer_mth0 * (gestion_pct / 100.0)
         prov_mth0 = loyer_mth0 * (vacance_pct / 100.0)
@@ -120,6 +128,8 @@ def create_investment_bricks(
             taxe_fonciere_mth0 +
             gest_mth0 +
             prov_mth0 +
+            loyer_mth0 * (1.0 - vacance_pct / 100.0) * (operating.gli_pct / 100.0) +
+            maintenance_ann / 12.0 +
             (operating.cfe_par_bien_ann / 12.0 if archetype.get("meuble", True) else 0.0)
         )
 
@@ -182,7 +192,10 @@ def create_investment_bricks(
                 "charges_const_mth0": charges_mth0,
                 "tf_const_mth0": taxe_fonciere_mth0,
                 "frais_gestion_pct": gestion_pct,
-                "provision_pct": vacance_pct,
+                "provision_pct": vacance_pct,  # vacancy: reduces receipts (TAX_SPEC 1.8), not a charge
+                "gli_pct": float(operating.gli_pct),
+                "maintenance_m2_an": float(operating.maintenance_m2_an),
+                "mois_travaux": mois_travaux,
                 "depenses_mensuelles_hors_credit_initial": depenses_mth0,
 
                 # Qualitative score
@@ -326,12 +339,19 @@ def build_financing_config(credit_params: dict[str, Any]) -> FinancingConfig:
     return config
 
 
-def build_operating_config(gestion: float, vacance: float, cfe: float) -> OperatingConfig:
+def build_operating_config(
+    gestion: float,
+    vacance: float,
+    cfe: float,
+    maintenance_m2_an: float = REALISM.maintenance_m2_an,
+    gli_pct: float = REALISM.gli_pct,
+    mois_travaux: int = REALISM.mois_travaux,
+) -> OperatingConfig:
     """Build OperatingConfig from sidebar values.
 
     Args:
         gestion: Management fee percentage
-        vacance: Vacancy/unpaid provision percentage
+        vacance: Vacancy floor (%), applied as max(archetype vacance_pct, vacance)
         cfe: Annual CFE per property
 
     Returns:
@@ -341,4 +361,7 @@ def build_operating_config(gestion: float, vacance: float, cfe: float) -> Operat
         frais_gestion_pct=gestion,
         provision_pct=vacance,
         cfe_par_bien_ann=cfe,
+        maintenance_m2_an=maintenance_m2_an,
+        gli_pct=gli_pct,
+        mois_travaux=mois_travaux,
     )

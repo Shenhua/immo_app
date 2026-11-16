@@ -210,3 +210,103 @@ class TestPresetRanking:
         # IRR preset should prefer high TRI
         ranked_irr = finder.rank_strategies(strategies, "Rendement / IRR")
         assert ranked_irr[0]["tri_norm"] == 0.9
+
+
+# --------------------------------------------------------------------------- #
+# T26a: realistic assumptions
+# --------------------------------------------------------------------------- #
+def _sim_strategy(**over: Any) -> dict[str, Any]:
+    prop = {
+        "prix_achat_bien": 100_000.0, "frais_notaire": 8_000.0, "budget_travaux": 0.0,
+        "renovation_energetique": 0.0, "mobilier": 0.0, "ratio_terrain_pct": 15.0, "surface": 30.0,
+        "credit_final": 90_000.0, "taux_pret": 3.5, "duree_pret": 20, "assurance_ann_pct": 0.3,
+        "loyer_mensuel_initial": 600.0, "charges_const_mth0": 50.0, "tf_const_mth0": 50.0,
+        "frais_gestion_pct": 7.0, "provision_pct": 0.0, "meuble": False,
+    }
+    prop.update(over)
+    return {"apport_total": 20_000.0, "details": [prop]}
+
+
+def _run(regime_foncier: str = "reel", market: dict[str, float] | None = None, **over: Any):
+    from src.application.services.simulation import simulate_long_term_strategy
+
+    mk = {"appreciation_bien_pct": 2.0, "revalo_loyer_pct": 0.0, "inflation_charges_pct": 0.0}
+    mk.update(market or {})
+    return simulate_long_term_strategy(
+        _sim_strategy(**over), 10, mk,
+        {"regime_foncier": regime_foncier, "tmi_pct": 30.0, "apply_ira": False},
+    )
+
+
+class TestRealisticAssumptions:
+    def test_maintenance_lowers_cash_flow_and_tax_base(self):
+        df0, b0 = _run(maintenance_m2_an=0.0)
+        df1, b1 = _run(maintenance_m2_an=10.0)
+        assert df1.iloc[0]["Cash-Flow Net d'Impôt"] < df0.iloc[0]["Cash-Flow Net d'Impôt"]
+        # Deductible under foncier reel: taxable base falls.
+        assert df1.iloc[0]["Résultat Fiscal"] < df0.iloc[0]["Résultat Fiscal"]
+        assert b1["enrichissement_net"] < b0["enrichissement_net"]
+        drop = df0.iloc[0]["Cash-Flow Net d'Impôt"] - df1.iloc[0]["Cash-Flow Net d'Impôt"]
+        assert 0 < drop <= 300.0  # 10 EUR x 30 m2
+
+    def test_gli_lowers_cash_flow(self):
+        df0, _ = _run(gli_pct=0.0)
+        df1, _ = _run(gli_pct=3.0)
+        gap = df0.iloc[0]["Cash-Flow Net d'Impôt"] - df1.iloc[0]["Cash-Flow Net d'Impôt"]
+        assert 0 < gap <= 7200 * 0.03
+
+    def test_works_months_remove_year_1_rent_only(self):
+        df0, _ = _run(budget_travaux=10_000.0, mois_travaux=0)
+        df3, _ = _run(budget_travaux=10_000.0, mois_travaux=3)
+        assert df3.iloc[0]["Loyers Bruts"] == pytest.approx(df0.iloc[0]["Loyers Bruts"] * 9 / 12)
+        assert df3.iloc[1]["Loyers Bruts"] == pytest.approx(df0.iloc[1]["Loyers Bruts"])
+        assert df3.iloc[0]["Cash-Flow Net d'Impôt"] < df0.iloc[0]["Cash-Flow Net d'Impôt"]
+
+    def test_tf_growth_raises_later_charges(self):
+        df_lo, _ = _run(market={"tf_growth_pct": 0.0})
+        df_hi, _ = _run(market={"tf_growth_pct": 3.0})
+        assert df_hi.iloc[0]["Cash-Flow Net d'Impôt"] == pytest.approx(df_lo.iloc[0]["Cash-Flow Net d'Impôt"])
+        assert df_hi.iloc[9]["Cash-Flow Net d'Impôt"] < df_lo.iloc[9]["Cash-Flow Net d'Impôt"]
+
+    def test_vacancy_reduces_receipts_and_micro_base(self):
+        """Vacancy lowers the gross receipts, so the micro-foncier base (70 % of receipts) drops with it."""
+        kw = {"regime_foncier": "micro", "charges_const_mth0": 0.0, "tf_const_mth0": 0.0}
+        df0, _ = _run(provision_pct=0.0, **kw)
+        df10, _ = _run(provision_pct=10.0, **kw)
+        assert df10.iloc[0]["Loyers Bruts"] == pytest.approx(df0.iloc[0]["Loyers Bruts"] * 0.9)
+        assert df10.iloc[0]["Résultat Fiscal"] == pytest.approx(df0.iloc[0]["Résultat Fiscal"] * 0.9)
+
+    def test_new_defaults(self):
+        from src.core.defaults import OPERATING, REALISM
+
+        assert OPERATING.gestion_pct == 7.0
+        assert (REALISM.maintenance_m2_an, REALISM.gli_pct, REALISM.mois_travaux, REALISM.tf_growth_pct) == (
+            10.0, 3.0, 3, 3.0,
+        )
+
+    def test_vacancy_slider_is_a_floor(self, sample_archetypes):
+        arch = [{**sample_archetypes[0], "vacance_pct": 4.0}]
+        fin = FinancingConfig(credit_rates={20: 3.5})
+
+        def effective(slider: float) -> float:
+            return create_investment_bricks(arch, fin, OperatingConfig(provision_pct=slider))[0].provision_pct
+
+        assert effective(2.0) == 4.0  # slider below the archetype: archetype wins
+        assert effective(8.0) == 8.0  # slider above: slider wins
+
+    def test_brick_factory_parameters_flow(self, sample_archetypes):
+        fin = FinancingConfig(credit_rates={20: 3.5})
+        base = create_investment_bricks(sample_archetypes, fin, OperatingConfig(maintenance_m2_an=0, gli_pct=0))[0]
+        more = create_investment_bricks(sample_archetypes, fin, OperatingConfig(maintenance_m2_an=20, gli_pct=5))[0]
+        assert more.depenses_mensuelles_hors_credit_initial > base.depenses_mensuelles_hors_credit_initial
+        assert more.maintenance_m2_an == 20 and more.gli_pct == 5
+        assert more.mois_travaux == 3  # archetype 1 has works
+        fin_nw = FinancingConfig(credit_rates={20: 3.5}, inclure_travaux=False, inclure_reno_ener=False)
+        assert create_investment_bricks(sample_archetypes, fin_nw, OperatingConfig())[0].mois_travaux == 0
+
+    def test_run_context_carries_new_params(self):
+        from src.application.run_context import RunContext
+
+        ctx = RunContext(maintenance_m2_an=15.0, gli_pct=4.0, mois_travaux=2, tf_growth_pct=5.0)
+        assert ctx.market_hypotheses["tf_growth_pct"] == 5.0
+        assert RunContext.from_dict(ctx.to_dict()) == ctx

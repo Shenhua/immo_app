@@ -127,7 +127,10 @@ def run_strategy_search(
 
     # 1. Create investment bricks
     fin_config = build_financing_config(ctx.to_credit_params())
-    op_config = build_operating_config(ctx.gestion_pct, ctx.vacance_pct, ctx.cfe_par_bien_ann)
+    op_config = build_operating_config(
+        ctx.gestion_pct, ctx.vacance_pct, ctx.cfe_par_bien_ann,
+        maintenance_m2_an=ctx.maintenance_m2_an, gli_pct=ctx.gli_pct, mois_travaux=ctx.mois_travaux,
+    )
     bricks = create_investment_bricks(archetypes, fin_config, op_config)
 
     # 2. Find strategies
