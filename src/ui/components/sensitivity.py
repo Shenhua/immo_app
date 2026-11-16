@@ -30,7 +30,7 @@ def run_sensitivity_simulation(
         # Vacance (Provision)
         if delta_vacance_pct != 0:
             # Add to provision_pct (additive)
-            current = brick.get("provision_pct", 5.0)
+            current = brick["provision_pct"]
             brick["provision_pct"] = max(0.0, current + delta_vacance_pct)
 
         # Travaux

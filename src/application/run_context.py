@@ -12,11 +12,14 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.core.defaults import DEFAULT_PRESET, FINANCING, MARKET, OPERATING, REALISM, SEARCH, TAX, preset_weights
+
+if TYPE_CHECKING:
+    from src.application.services.simulation import SimulationEngine
 
 
 def hash_archetypes(archetypes: list[dict[str, Any]]) -> str:
@@ -158,6 +161,12 @@ class RunContext(BaseModel):
             "inflation_charges_pct": self.inflation_charges_pct,
             "tf_growth_pct": self.tf_growth_pct,
         }
+
+    def build_engine(self) -> SimulationEngine:
+        """Simulation engine for this run (the same builder the search uses)."""
+        from src.application.services.simulation import build_engine
+
+        return build_engine(self.market_hypotheses, self.to_tax_params())
 
     def to_credit_params(self) -> dict[str, Any]:
         """Dict expected by ``build_financing_config`` and ``IRACalculator``."""
