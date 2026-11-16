@@ -188,6 +188,28 @@ REALISM = RealismDefaults()
 
 
 # --------------------------------------------------------------------------- #
+# DPE rental ban (T61)
+# --------------------------------------------------------------------------- #
+@dataclass(frozen=True)
+class DpeDefaults:
+    """DPE rental ban (loi Climat et Résilience 2021-1104, art. 160, via the "logement décent" rules).
+
+    Source: service-public.fr / ecologie.gouv.fr "Ce que vous devez savoir sur la location des logements mal
+    isolés": class G is indecent (so unrentable) from 1 Jan 2025, F from 1 Jan 2028, E from 1 Jan 2034.
+    Simplification: the ban is applied to the property from that date (in law it bites at new or renewed leases).
+    """
+
+    ban_years: tuple[tuple[str, int], ...] = (("G", 2025), ("F", 2028), ("E", 2034))
+    # Assumption (ADEME / Effinergie order of magnitude for a global renovation: 150-300 EUR/m2 for 1-2 classes).
+    cout_m2_par_classe: float = 150.0
+    policy: str = "renover"  # "renover" (works before the ban) or "ne_pas_renover" (rent 0 from the ban year)
+    first_year: int = 2026  # calendar year of simulation year 1 (TAX_SPEC 1.1 / 4.5)
+
+
+DPE = DpeDefaults()
+
+
+# --------------------------------------------------------------------------- #
 # Scoring presets
 # --------------------------------------------------------------------------- #
 class PresetId(str, Enum):

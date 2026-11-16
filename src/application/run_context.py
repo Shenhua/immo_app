@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.core.defaults import DEFAULT_PRESET, FINANCING, MARKET, OPERATING, REALISM, SEARCH, TAX, preset_weights
+from src.core.defaults import DEFAULT_PRESET, DPE, FINANCING, MARKET, OPERATING, REALISM, SEARCH, TAX, preset_weights
 
 if TYPE_CHECKING:
     from src.application.services.simulation import SimulationEngine
@@ -66,6 +66,10 @@ class RunContext(BaseModel):
     gli_pct: float = REALISM.gli_pct
     mois_travaux: int = REALISM.mois_travaux
     tf_growth_pct: float = REALISM.tf_growth_pct
+
+    # DPE rental ban (T61): "renover" = works before the ban year, "ne_pas_renover" = rent 0 from the ban year.
+    dpe_policy: Literal["renover", "ne_pas_renover"] = DPE.policy  # type: ignore[assignment]
+    dpe_cout_m2_par_classe: float = DPE.cout_m2_par_classe
 
     # Tax: one regime per income category (TAX_SPEC 8). ``regime_fiscal`` = furnished regime
     # ("lmnp" | "microbic"), ``regime_foncier`` = unfurnished regime ("reel" | "micro"),
@@ -129,6 +133,8 @@ class RunContext(BaseModel):
             gli_pct=params.get("gli_pct", REALISM.gli_pct),
             mois_travaux=int(params.get("mois_travaux", REALISM.mois_travaux)),
             tf_growth_pct=params.get("tf_growth_pct", REALISM.tf_growth_pct),
+            dpe_policy=credit.get("dpe_policy", DPE.policy),
+            dpe_cout_m2_par_classe=float(credit.get("dpe_cout_m2_par_classe", DPE.cout_m2_par_classe)),
             regime_fiscal=params["regime"],
             regime_foncier=params.get("regime_foncier", TAX.regime_foncier),
             sci_is=bool(params.get("sci_is", TAX.sci_is)),
@@ -217,4 +223,6 @@ class RunContext(BaseModel):
             "frais_vente_pct": self.frais_vente_pct,
             "ratio_terrain_pct": self.ratio_terrain_pct,
             "nb_owners": self.nb_owners,
+            "dpe_policy": self.dpe_policy,
+            "dpe_cout_m2_par_classe": self.dpe_cout_m2_par_classe,
         }

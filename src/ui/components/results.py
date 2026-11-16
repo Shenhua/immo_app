@@ -7,6 +7,7 @@ from typing import Any
 
 import streamlit as st
 
+from src.domain.dpe import property_ban_warning
 from src.ui.helpers import format_euro, format_pct, get_taxonomy_badge
 
 
@@ -123,6 +124,10 @@ def render_strategy_card(
             st.markdown("<div style='font-size: 0.9em; color: gray;'>Enrichissement</div>", unsafe_allow_html=True)
             st.markdown(f"<div style='font-size: 2.5em;'>{format_euro(enrich)}</div>", unsafe_allow_html=True)
 
+        for bien in strategy.get("details", []):
+            if (warn := property_ban_warning(bien, horizon)):
+                st.warning(f"{bien.get('nom_bien', 'Bien')} : {warn}", icon="⚠️")
+
         # Footer Actions
         st.markdown("") # Spacer
 
@@ -157,6 +162,8 @@ def render_strategy_details(strategy: dict[str, Any], horizon: int = 25) -> None
 
     for i, bien in enumerate(details, 1):
         with st.expander(f"**{bien.get('nom_bien', f'Bien {i}')}** - {bien.get('ville', '?')}"):
+            if (warn := property_ban_warning(bien, horizon)):
+                st.warning(warn, icon="⚠️")
             col1, col2, col3 = st.columns(3)
 
             with col1:

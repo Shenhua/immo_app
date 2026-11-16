@@ -13,8 +13,9 @@ from typing import Any
 import numpy_financial as npf
 import pandas as pd
 
-from src.core.defaults import FINANCING, MARKET, OPERATING, REALISM, TAX
+from src.core.defaults import DPE, FINANCING, MARKET, OPERATING, REALISM, TAX
 from src.core.exceptions import SimulationError
+from src.domain.dpe import RenovationEvent, ban_year, renovation_plan
 from src.domain.models.archetype import is_furnished
 from src.domain.tax import (
     PropertyExit,
@@ -180,7 +181,15 @@ class SimulationEngine:
         ratio_terrain_pct: float = TAX.ratio_terrain_pct,
         amort_works_years: int = TAX.amort_works_years,
         nb_owners: int = TAX.nb_owners,
+        dpe_policy: str = DPE.policy,
+        dpe_cout_m2_par_classe: float = DPE.cout_m2_par_classe,
+        first_year: int = DPE.first_year,
     ):
+        if dpe_policy not in ("renover", "ne_pas_renover"):
+            raise ValueError("dpe_policy must be 'renover' or 'ne_pas_renover'")
+        self.dpe_policy = dpe_policy
+        self.dpe_cout_m2_par_classe = float(dpe_cout_m2_par_classe)
+        self.first_year = first_year
         self.market = market
         self.tax = tax
         self.ira = ira
@@ -202,6 +211,21 @@ class SimulationEngine:
         self.amort_immo_years = amort_immo_years
         self.amort_works_years = amort_works_years
         self.amort_mobilier_years = amort_mobilier_years
+
+    def _dpe_plan(self, p: dict[str, Any]) -> tuple[list[tuple[int, float]], int | None]:
+        """DPE ban handling of one property (T61): (renovations as (simulation year, cost), no-rent-from year).
+
+        A property already renovated to D at purchase (``renovation_energetique`` > 0, the "Reno E→D" option) is
+        treated as class D: that option and this one are the same works, never paid twice. Simulation year 1 =
+        calendar ``first_year`` (2026). Costs and rent stop are expressed in simulation years.
+        """
+        dpe = "D" if float(p.get("renovation_energetique", 0.0) or 0.0) > 0 else p.get("dpe_initial")
+        if self.dpe_policy == "ne_pas_renover":
+            by = ban_year(dpe)
+            return [], (None if by is None else by - self.first_year + 1)
+        surface = float(p.get("surface", 0.0) or 0.0)
+        evs: list[RenovationEvent] = renovation_plan(dpe, self.first_year)
+        return [(e.pay_year - self.first_year + 1, e.jumps * surface * self.dpe_cout_m2_par_classe) for e in evs], None
 
     def build_household(self, projets: list[dict[str, Any]], horizon_years: int) -> TaxHousehold:
         """Regime of each income category, with the micro ceilings checked on the horizon's receipts."""
@@ -244,7 +268,11 @@ class SimulationEngine:
 
         household = self.build_household(projets, horizons_years)
         valeur_biens = sum(p["prix_achat_bien"] for p in projets)
-        flux = [-float(strategy["apport_total"])]
+        # DPE ban (T61): the renovation due at purchase comes out of the down payment; later ones in their year.
+        for p in projets:
+            p["_dpe_renos"], p["_dpe_no_rent_from"] = self._dpe_plan(p)
+        reno_at_purchase = sum(c for p in projets for y, c in p["_dpe_renos"] if y <= 1)
+        flux = [-(float(strategy["apport_total"]) + reno_at_purchase)]
         cum_cash_flow = 0.0
         results: list[YearResult] = []
 
@@ -311,6 +339,10 @@ class SimulationEngine:
                 p["loyer_mth_courant"] * (12 - works_months)
                 * (1.0 - float(p.get("provision_pct", 0.0) or 0.0) / 100.0)
             )
+            # DPE ban without renovation: no rent from the ban year; charges, TF and the loan go on (T61).
+            no_rent_from = p.get("_dpe_no_rent_from")
+            if no_rent_from is not None and year >= no_rent_from:
+                loyer_ann = 0.0
             gest_ann = loyer_ann * (p["frais_gestion_pct"] / 100.0)
             # GLI / unpaid rent: insurance premium on collected rent (deductible in reel, inside the micro allowance).
             gli_ann = loyer_ann * (float(p.get("gli_pct", 0.0) or 0.0) / 100.0)
@@ -352,6 +384,14 @@ class SimulationEngine:
             base_batiment = (p["prix_achat_bien"] + p.get("frais_notaire", 0.0)) * (1.0 - ratio_terrain / 100.0)
             energy_works = float(p.get("renovation_energetique", 0.0) or 0.0)
             base_travaux = p["budget_travaux"] + energy_works
+            # DPE renovations (T61), tax like energy works (TAX_SPEC 4.5): deducted under foncier réel, amortized over
+            # the works duration under LMNP réel / SCI IS. Paid in cash in their year, except at purchase (down payment).
+            dpe_paid = sum(c for y, c in p.get("_dpe_renos", []) if y == year)
+            dpe_amort = sum(
+                c / self.amort_works_years for y, c in p.get("_dpe_renos", []) if y <= year < y + self.amort_works_years
+            )
+            if year > 1:
+                cf_ann -= dpe_paid
             year_ctxs.append(
                 YearContext(
                     year=year,
@@ -361,13 +401,14 @@ class SimulationEngine:
                     interest=interets,
                     loan_insurance=assurance,
                     # Works are paid at t0, i.e. in year 1 (TAX_SPEC 1.9); deductible under foncier réel (4.5).
-                    works_paid=base_travaux if year == 1 else 0.0,
-                    energy_works_paid=energy_works if year == 1 else 0.0,
+                    works_paid=(base_travaux if year == 1 else 0.0) + dpe_paid,
+                    energy_works_paid=(energy_works if year == 1 else 0.0) + dpe_paid,
                     amort_building=(
                         base_batiment / self.amort_immo_years if amortizes and year <= self.amort_immo_years else 0.0
                     ),
                     amort_works=(
-                        base_travaux / self.amort_works_years if amortizes and year <= self.amort_works_years else 0.0
+                        (base_travaux / self.amort_works_years if year <= self.amort_works_years else 0.0) + dpe_amort
+                        if amortizes else 0.0
                     ),
                     amort_furniture=(
                         p["mobilier"] / self.amort_mobilier_years
@@ -436,7 +477,8 @@ class SimulationEngine:
                     name=str(p.get("nom_bien", p.get("nom", f"bien_{i + 1}"))),
                     price=p["prix_achat_bien"],
                     notary_fees=p.get("frais_notaire", 0.0),
-                    works=p["budget_travaux"] + p.get("renovation_energetique", 0.0),
+                    works=p["budget_travaux"] + p.get("renovation_energetique", 0.0)
+                    + sum(c for _, c in p.get("_dpe_renos", [])),
                     furniture=p.get("mobilier", 0.0),
                     sale_price=sale_price,
                     sale_fees=sale_price * self.frais_vente_pct / 100.0,
@@ -554,6 +596,8 @@ def build_engine(
         frais_vente_pct=tax_dict.get("frais_vente_pct", TAX.frais_vente_pct),
         ratio_terrain_pct=_ratio_terrain_or_default(tax_dict.get("ratio_terrain_pct")),
         nb_owners=int(tax_dict.get("nb_owners", TAX.nb_owners)),
+        dpe_policy=str(tax_dict.get("dpe_policy", DPE.policy)),
+        dpe_cout_m2_par_classe=float(tax_dict.get("dpe_cout_m2_par_classe", DPE.cout_m2_par_classe)),
         amort_immo_years=int(tax_dict.get("amort_immo_years", TAX.amort_immo_years)),
         amort_mobilier_years=int(tax_dict.get("amort_mobilier_years", TAX.amort_mobilier_years)),
     )
