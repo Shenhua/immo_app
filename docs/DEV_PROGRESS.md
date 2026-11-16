@@ -63,7 +63,9 @@ Legend: todo · running · done · blocked · skipped
 | T53 README/docs | Haiku | todo | | |
 | T61 DPE rental ban | Sonnet | partial | 0cc60bc | search not wired → T35 |
 | T35 RunContext→search parity guard | Sonnet | running | | after T34; DPE fields into EvaluationParams + generic test |
-| T60, T62–T68 features | mixed | todo | | see plan; T66 = offline files, no API |
+| T62 regime comparison | Sonnet | done | dea9a99 | new tab |
+| T63 export PDF/Excel | Sonnet | running | | |
+| T60, T64–T68 features | mixed | todo | | see plan; T66 = offline files, no API |
 
 ## Next waves
 1. **W1:** T01 (alone; touches many files)
@@ -286,3 +288,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-16: T33 merged cleanly (1226 passed). T34 launched (T61 still running).
 - 2026-11-16: T61 merged (partial: the search is not wired). T35 added. T34 still running.
 - 2026-11-16: T34 merged (1231 passed). **Phase 3 complete.** T35 launched (T62 still running).
+- 2026-11-16: T62 merged (1238 passed). T63 launched (T35 still running).
