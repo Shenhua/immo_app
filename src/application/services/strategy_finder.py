@@ -6,8 +6,6 @@ Provides combination generation, scoring, and ranking.
 
 from __future__ import annotations
 
-import math
-from collections.abc import Iterator
 from dataclasses import dataclass, field
 from math import isfinite
 from typing import Any
@@ -28,11 +26,22 @@ from src.core.logging import get_logger
 from src.domain.models.brick import InvestmentBrick
 
 from .allocator import PortfolioAllocator
-from .optimizer import ExhaustiveOptimizer, GeneticOptimizer
+from .optimizer import PortfolioSearch, SearchProblem, check_invariants, tax_bounds
 
 log = get_logger(__name__)
 
 
+
+
+def strategy_key(strategy: dict[str, Any]) -> tuple[tuple[str, int], ...]:
+    """Explicit tie-breaker (T31): the sorted (property name, loan months) pairs of a strategy."""
+    out = []
+    for d in strategy.get("details", []):
+        if isinstance(d, dict):
+            out.append((str(d.get("nom", d.get("nom_bien", ""))), int(d.get("duree_credit_mois", 0) or 0)))
+        else:
+            out.append((str(d.nom), int(d.duree_credit_mois)))
+    return tuple(sorted(out))
 
 
 def _tri_or_worst(tri: float | None) -> float:
@@ -199,58 +208,6 @@ class StrategyScorer:
             s["balanced_score"] = self.compute_balanced_score(s)
 
 
-class CombinationGenerator:
-    """Generates valid property combinations within budget using bounded enumeration."""
-
-    def __init__(self, max_properties: int = 3):
-        self.max_properties = max_properties
-
-    def generate(
-        self,
-        bricks: list[InvestmentBrick],
-        apport_disponible: float,
-    ) -> Iterator[tuple[InvestmentBrick, ...]]:
-        """Generate all valid combinations using bounded enumeration.
-
-        Yields:
-            Valid combinations as tuples of InvestmentBrick.
-        """
-        # Pre-filter unaffordable bricks
-        affordable_bricks = [b for b in bricks if b.apport_min <= apport_disponible]
-
-        if not affordable_bricks:
-            return
-
-        # Sort by cost ASCENDING
-        sorted_bricks = sorted(affordable_bricks, key=lambda b: b.apport_min)
-
-        def _backtrack(start_idx: int, current_combo: list[InvestmentBrick], current_cost: float, used_names: set[str]):
-            # Base case: we have a valid combo (yield it)
-            if current_combo:
-                yield tuple(current_combo)
-
-            # Stop if we reached max size
-            if len(current_combo) >= self.max_properties:
-                return
-
-            for i in range(start_idx, len(sorted_bricks)):
-                brick = sorted_bricks[i]
-                new_cost = current_cost + brick.apport_min
-
-                # Pruning: Cost exceeds budget
-                if new_cost > apport_disponible:
-                    break  # Since sorted by cost, following bricks will also fail
-
-                # Pruning: No duplicate names
-                if brick.nom in used_names:
-                    continue
-
-                # Recurse
-                yield from _backtrack(i + 1, current_combo + [brick], new_cost, used_names | {brick.nom})
-
-        yield from _backtrack(0, [], 0.0, set())
-
-
 class StrategyFinder:
     """Service for finding optimal investment strategies.
 
@@ -274,10 +231,11 @@ class StrategyFinder:
         self.qualite_weight = qualite_weight
         self.mode_cf = mode_cf
         self.max_properties = max_properties
-        # Solver used by the last find_strategies call: "EXHAUSTIVE", "GENETIC" or "" (not run yet).
+        # Solver used by the last find_strategies call: "EXHAUSTIVE" (every duration set simulated),
+        # "SUBSET_PROXY" (best duration sets per subset by proxy, see optimizer.py) or "" (not run yet).
         self.solver_mode: str = ""
-
-        self.combo_generator = CombinationGenerator(max_properties=max_properties)
+        # Evaluation workers: None = automatic (process pool for large searches), 1 = serial.
+        self.n_workers: int | None = None
         self.scorer = StrategyScorer(qualite_weight=qualite_weight, mode_cf=mode_cf)
 
     def find_strategies(
@@ -335,103 +293,28 @@ class StrategyFinder:
                 message=f"{len(self.bricks)} briques créées"
             ))
 
-        # 2. Hybrid Solver Logic (Phase 21)
-        # Check problem size to decide between Brute Force (Exhaustive) and Genetic Algorithm
-        n_bricks = len(self.bricks)
-        max_k = self.max_properties
-
-        total_combinations = 0
-        for k in range(1, max_k + 1):
-            total_combinations += math.comb(n_bricks, k)
-
-        # Threshold: With smart bounded enumeration, exhaustive is now efficient
-        # for most realistic scenarios. Set very high to prefer exhaustive.
-        # The actual number of evaluated combos will be much lower due to pruning.
-        THRESHOLD_EXHAUSTIVE = 1_000_000  # Cap at 1M to prevent freezes/OOM
-
-        strategies = []
-
-        # Hybrid Solver Selection
-        if total_combinations < THRESHOLD_EXHAUSTIVE:
-            # --- EXHAUSTIVE MODE (v1 Fidelity) ---
-            self.solver_mode = "EXHAUSTIVE"
-            log.info("hybrid_solver_selected",
-                     mode="EXHAUSTIVE",
-                     combos=total_combinations,
-                     threshold=THRESHOLD_EXHAUSTIVE)
-
-            # Report Phase 2: Combination generation
-            if progress_callback:
-                progress_callback(SearchProgress(
-                    phase=SearchPhase.COMBO_GENERATION,
-                    phase_index=2,
-                    message="Génération des combinaisons..."
-                ))
-
-            optimizer: ExhaustiveOptimizer | GeneticOptimizer = ExhaustiveOptimizer(
-                allocator=allocator,
-                simulator=engine,
-                scorer=self.scorer
-            )
-
-            strategies = optimizer.solve(
-                all_bricks=self.bricks,
-                budget=self.apport_disponible,
-                target_cf=self.cash_flow_cible,
-                tolerance=self.tolerance,
-                horizon=horizon_years,
-                max_combinations=THRESHOLD_EXHAUSTIVE,
-                max_props=self.max_properties,
-                progress_callback=progress_callback
-            )
-
-        else:
-            # --- GENETIC MODE (v2 Scalability) ---
-            # Adaptive GA parameters based on search space size
-            # Larger search space = more exploration needed
-            self.solver_mode = "GENETIC"
-            if total_combinations > 5_000_000:
-                pop_size = 200
-                generations = 50
-                elite_size = 20
-            elif total_combinations > 1_000_000:
-                pop_size = 150
-                generations = 40
-                elite_size = 15
-            else:
-                pop_size = 100
-                generations = 30
-                elite_size = 10
-
-            log.info("hybrid_solver_selected",
-                     mode="GENETIC",
-                     combos=total_combinations,
-                     threshold=THRESHOLD_EXHAUSTIVE,
-                     pop_size=pop_size,
-                     generations=generations)
-
-            optimizer = GeneticOptimizer(
-                population_size=pop_size,
-                generations=generations,
-                elite_size=elite_size,
-                max_properties=self.max_properties,
-                allocator=allocator,
-                simulator=engine,
-                scorer=self.scorer
-            )
-
-            # Phase 17 Review: Deep Diversity
-            # Request larger pool for dedupe
-            pool_size = max(500, top_n * 5)
-
-            strategies = optimizer.evolve(
-                all_bricks=self.bricks,
-                budget=self.apport_disponible,
-                target_cf=self.cash_flow_cible,
-                tolerance=self.tolerance,
-                horizon=horizon_years,
-                top_n=pool_size
-            )
+        # 2. Subset search (T31): deterministic, every result within budget with unique properties.
+        refund_max, tax_rate_max = tax_bounds(ep.to_tax_params())
+        problem = SearchProblem(
+            budget=float(self.apport_disponible),
+            target_cf=float(self.cash_flow_cible),
+            tolerance=float(self.tolerance),
+            horizon=int(horizon_years),
+            max_props=int(self.max_properties),
+            mode_cf=self.mode_cf,
+            refund_max=refund_max,
+            tax_rate_max=tax_rate_max,
+            appreciation_pct=float(ep.hypotheses_marche.get("appreciation_bien_pct", MARKET.appreciation_bien_pct)),
+            frais_vente_pct=float(ep.frais_vente_pct),
+        )
+        search = PortfolioSearch(
+            allocator=allocator, simulator=engine, scorer=self.scorer,
+            engine_spec=(ep.hypotheses_marche, ep.to_tax_params()), n_workers=self.n_workers,
+        )
+        strategies = search.solve(self.bricks, problem, market=ep.hypotheses_marche,
+                                  progress_callback=progress_callback)
+        self.solver_mode = search.solver_mode
+        log.info("search_solver", mode=self.solver_mode, **search.stats)
 
         log.info("optimization_finished", count=len(strategies))
 
@@ -516,6 +399,7 @@ class StrategyFinder:
              strategies = self._pareto_filter(strategies)
 
         top_strategies = self.rank_strategies(strategies, ep.finance_preset_name, top_n)
+        check_invariants(top_strategies, self.apport_disponible, self.max_properties)
         log.info("strategy_search_completed",
                  total_evaluated=len(strategies),
                  top_kept=len(top_strategies))
@@ -566,7 +450,8 @@ class StrategyFinder:
         for sig in grouped:
             grouped[sig].sort(key=lambda x: (
                 x.get("tier", 3),  # Tier 1 first
-                -x.get("balanced_score", -float("inf"))
+                -x.get("balanced_score", -float("inf")),
+                strategy_key(x),  # explicit tie-breaker
             ))
 
         # Selection logic: Strictly keep only the best variation per signature
@@ -580,7 +465,7 @@ class StrategyFinder:
             final_list.append(best_item)
 
         # Re-sort final list by tier then score
-        final_list.sort(key=lambda x: (x.get("tier", 3), -x.get("balanced_score", 0)))
+        final_list.sort(key=lambda x: (x.get("tier", 3), -x.get("balanced_score", 0), strategy_key(x)))
 
         return final_list
 
@@ -598,7 +483,7 @@ class StrategyFinder:
           - Yield (Higher is better)
         """
         # Sort by cost ascending to make comparison easier
-        sorted_s = sorted(strategies, key=lambda x: x.get("apport_total", 0))
+        sorted_s = sorted(strategies, key=lambda x: (x.get("apport_total", 0), strategy_key(x)))
 
         keep = []
 
@@ -672,6 +557,8 @@ class StrategyFinder:
             # Default "Équilibré": use balanced_score which combines finance + quality
             return (tier_score, balanced, finance, cf_prox)
 
-        sorted_strategies = sorted(strategies, key=sort_key, reverse=True)
+        # Explicit tie-breaker: pre-sort by signature; the stable reverse sort keeps that order among equal keys.
+        by_signature = sorted(strategies, key=strategy_key)
+        sorted_strategies = sorted(by_signature, key=sort_key, reverse=True)
         return sorted_strategies[:top_n]
 

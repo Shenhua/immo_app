@@ -1,8 +1,8 @@
 """
 Strategy Evaluator - Shared evaluation logic for strategy optimization.
 
-This module consolidates the evaluation pipeline used by both GeneticOptimizer
-and ExhaustiveOptimizer, reducing code duplication and ensuring consistency.
+This module holds the evaluation pipeline used by the portfolio search (optimizer.py)
+and by the detail / parity checks.
 """
 from typing import Any
 
@@ -28,8 +28,7 @@ class StrategyEvaluator:
     """
     Evaluates investment strategies by running simulation and scoring.
 
-    Consolidates shared logic previously duplicated in GeneticOptimizer
-    and ExhaustiveOptimizer.
+    Shared by the portfolio search (optimizer.py) and the tests.
     """
 
     # Default scoring weights (from scoring_constants)

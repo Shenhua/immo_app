@@ -174,7 +174,7 @@ def save_search_stats(
 
     Args:
         bricks_count: Number of investment bricks actually searched
-        solver_mode: Solver the finder used ("EXHAUSTIVE", "GENETIC" or "")
+        solver_mode: Solver the finder used ("EXHAUSTIVE", "SUBSET_PROXY" or "")
     """
     from src.application.progress import SearchStats
     from src.ui.state import set_state

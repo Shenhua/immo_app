@@ -27,6 +27,20 @@ MIN_MODES = frozenset({"min", "≥"})
 # "année 1 (avec travaux)", for display only: ``cf_monthly_y1`` and ``dscr_y1``.
 STABILISED_YEAR = 2
 
+# --- Cash-flow acceptance basis (T31) ---------------------------------------------------------------
+# DEFINITION: a strategy meets the cash-flow objective iff ``cf_accepts`` holds for the stabilised-year
+# monthly cash flow AFTER income tax (column "Cash-Flow Net d'Impôt" of year STABILISED_YEAR, exposed as
+# ``cf_monthly_stab``). This is the only acceptance test of the search.
+#
+# The allocator (``PortfolioAllocator``) estimates the same year BEFORE income tax: it is a sizing tool and
+# a pre-filter only. The search (``optimizer.CandidateEvaluator``) allocates for the target, simulates,
+# measures the stabilised income tax t = pre-tax estimate - after-tax CF, and re-allocates for target + t
+# (a déficit-foncier refund gives t < 0, so less down payment is needed). The pre-filter is widened by the
+# largest possible refund / tax (``optimizer.tax_bounds``), so it never drops a portfolio the after-tax
+# test would accept, and nothing the search returns can be rejected later for basis reasons.
+# ``cash_flow_final`` on a strategy remains the pre-tax allocator estimate (display and scorer input).
+CF_ACCEPTANCE_BASIS = "stabilised_after_tax"
+
 # Yearly-table column holding the operating charges + interest (negative). Single constant so a column
 # rename is a one-line change.
 CHARGES_COL = "Charges d'exploitation"
