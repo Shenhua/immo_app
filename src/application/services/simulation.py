@@ -33,6 +33,9 @@ class MarketHypotheses:
     appreciation_bien_pct: float = MARKET.appreciation_bien_pct
     revalo_loyer_pct: float = MARKET.revalo_loyer_pct
     inflation_charges_pct: float = MARKET.inflation_charges_pct
+    # Taxe foncière growth (T26a). None = follow ``inflation_charges_pct`` (legacy behaviour, TAX_SPEC 1.8);
+    # RunContext always passes an explicit value (default REALISM.tf_growth_pct).
+    tf_growth_pct: float | None = None
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> MarketHypotheses:
@@ -40,6 +43,7 @@ class MarketHypotheses:
             appreciation_bien_pct=d.get("appreciation_bien_pct", MARKET.appreciation_bien_pct),
             revalo_loyer_pct=d.get("revalo_loyer_pct", MARKET.revalo_loyer_pct),
             inflation_charges_pct=d.get("inflation_charges_pct", MARKET.inflation_charges_pct),
+            tf_growth_pct=d.get("tf_growth_pct"),
         )
 
 
@@ -205,7 +209,7 @@ class SimulationEngine:
         g = 1.0 + self.market.revalo_loyer_pct / 100.0
         max_receipts: dict[str, float] = {}
         for cat, flag in (("furnished", True), ("unfurnished", False)):
-            base = sum(p["loyer_mensuel_initial"] * 12 for p, f in zip(projets, furnished, strict=True) if f == flag)
+            base = sum(p["loyer_mensuel_initial"] * 12 * (1.0 - float(p.get("provision_pct", 0.0) or 0.0) / 100.0) for p, f in zip(projets, furnished, strict=True) if f == flag)
             # Receipts move monotonically with the years, so the maximum is in year 1 or in year H.
             max_receipts[cat] = max(base, base * g ** max(0, horizon_years - 1))
         return TaxHousehold.build(self.tax.to_config(self.nb_owners), furnished, max_receipts)
@@ -258,6 +262,11 @@ class SimulationEngine:
         df = pd.DataFrame([r.to_dict() for r in results])
         return df, bilan
 
+    @property
+    def _tf_growth_pct(self) -> float:
+        tf = self.market.tf_growth_pct
+        return self.market.inflation_charges_pct if tf is None else tf
+
     def _cfe_for_year(self, p: dict[str, Any], year: int, receipts: float) -> float:
         """CFE of one property for one year (TAX_SPEC 5).
 
@@ -289,15 +298,29 @@ class SimulationEngine:
             # Update rents and charges
             if year == 1:
                 p["loyer_mth_courant"] = p["loyer_mensuel_initial"]
-                p["charges_fix_mth_courant"] = p["charges_const_mth0"] + p["tf_const_mth0"]
+                p["charges_fix_mth_courant"] = p["charges_const_mth0"]
+                p["tf_mth_courant"] = p["tf_const_mth0"]
             else:
                 p["loyer_mth_courant"] *= (1.0 + self.market.revalo_loyer_pct / 100.0)
                 p["charges_fix_mth_courant"] *= (1.0 + self.market.inflation_charges_pct / 100.0)
+                p["tf_mth_courant"] *= (1.0 + self._tf_growth_pct / 100.0)
 
-            loyer_ann = p["loyer_mth_courant"] * 12
+            # Receipts = scheduled rent minus vacancy, and minus the works months in year 1 (TAX_SPEC 1.8).
+            # Vacancy reduces the gross receipts; it is not a deductible charge.
+            works_months = min(12, max(0, int(p.get("mois_travaux", 0) or 0))) if year == 1 else 0
+            loyer_ann = (
+                p["loyer_mth_courant"] * (12 - works_months)
+                * (1.0 - float(p.get("provision_pct", 0.0) or 0.0) / 100.0)
+            )
             gest_ann = loyer_ann * (p["frais_gestion_pct"] / 100.0)
-            prov_ann = loyer_ann * (p["provision_pct"] / 100.0)
-            charges_fixes_ann = p["charges_fix_mth_courant"] * 12
+            # GLI / unpaid rent: insurance premium on collected rent (deductible in reel, inside the micro allowance).
+            gli_ann = loyer_ann * (float(p.get("gli_pct", 0.0) or 0.0) / 100.0)
+            # Maintenance / capex provision: EUR/m2/yr, indexed like fixed charges, deductible in reel regimes.
+            maint_ann = (
+                float(p.get("maintenance_m2_an", 0.0) or 0.0) * float(p.get("surface", 0.0) or 0.0)
+                * (1.0 + self.market.inflation_charges_pct / 100.0) ** (year - 1)
+            )
+            charges_fixes_ann = (p["charges_fix_mth_courant"] + p["tf_mth_courant"]) * 12
             cfe_ann = self._cfe_for_year(p, year, loyer_ann)
 
             # Loan schedule
@@ -316,7 +339,7 @@ class SimulationEngine:
                 else p["credit_final"] if sch["nmois"] == 0 else 0.0
             )
 
-            operating = charges_fixes_ann + gest_ann + prov_ann + cfe_ann
+            operating = charges_fixes_ann + gest_ann + gli_ann + maint_ann + cfe_ann
             loyers_bruts_pf += loyer_ann
             charges_deductibles_pf += operating + interets + assurance
 

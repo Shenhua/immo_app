@@ -179,8 +179,8 @@ class TestGoldenSimulation:
 
         df, bilan = engine.simulate(golden_strategy, 25, schedules)
 
-        # Year 1 rent should be 600 × 12 = 7,200
-        assert abs(df.iloc[0]["Loyers Bruts"] - 7_200) < 1.0
+        # Year 1 rent = 600 x 12 = 7,200, minus 3 % vacancy: vacancy reduces receipts (T26a, TAX_SPEC 1.8)
+        assert abs(df.iloc[0]["Loyers Bruts"] - 7_200 * 0.97) < 1.0
 
     def test_property_appreciation_over_25_years(self, golden_strategy):
         """Property should appreciate at 2% annually for 25 years."""

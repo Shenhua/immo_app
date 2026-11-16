@@ -56,7 +56,7 @@ class OperatingDefaults:
     """Operating cost defaults."""
 
     cfe_par_bien_ann: float = 300.0  # per furnished property; 0 in year 1 and when receipts <= 5,000 (TAX_SPEC 5)
-    gestion_pct: float = 5.0
+    gestion_pct: float = 7.0  # T26a: realistic agency fee (was 5)
     vacance_pct: float = 3.0
     provision_pct: float = 5.0
 
@@ -141,6 +141,22 @@ OPERATING = OperatingDefaults()
 TAX = TaxDefaults()
 TAX_RATES = TaxRates()
 SEARCH = SearchDefaults()
+
+
+# --------------------------------------------------------------------------- #
+# T26a: realistic assumptions (separate block)
+# --------------------------------------------------------------------------- #
+@dataclass(frozen=True)
+class RealismDefaults:
+    """Costs a naive model forgets: capex provision, unpaid rent insurance, works vacancy, TF growth."""
+
+    maintenance_m2_an: float = 10.0  # EUR/m2/year, provision for repairs and capex (cash outflow, deductible in reel)
+    gli_pct: float = 3.0  # % of collected rent: unpaid-rent insurance (GLI) / unpaid rent
+    mois_travaux: int = 3  # months without rent in year 1 when the property has works
+    tf_growth_pct: float = 3.0  # %/year taxe fonciere growth (separate from charges inflation)
+
+
+REALISM = RealismDefaults()
 
 
 # --------------------------------------------------------------------------- #

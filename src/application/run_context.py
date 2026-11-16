@@ -16,7 +16,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.core.defaults import DEFAULT_PRESET, FINANCING, MARKET, OPERATING, SEARCH, TAX, preset_weights
+from src.core.defaults import DEFAULT_PRESET, FINANCING, MARKET, OPERATING, REALISM, SEARCH, TAX, preset_weights
 
 
 def hash_archetypes(archetypes: list[dict[str, Any]]) -> str:
@@ -58,6 +58,11 @@ class RunContext(BaseModel):
     gestion_pct: float = OPERATING.gestion_pct
     vacance_pct: float = OPERATING.vacance_pct
     frais_vente_pct: float = TAX.frais_vente_pct
+    # T26a realistic assumptions. ``vacance_pct`` is a floor on each archetype's own vacancy.
+    maintenance_m2_an: float = REALISM.maintenance_m2_an
+    gli_pct: float = REALISM.gli_pct
+    mois_travaux: int = REALISM.mois_travaux
+    tf_growth_pct: float = REALISM.tf_growth_pct
 
     # Tax: one regime per income category (TAX_SPEC 8). ``regime_fiscal`` = furnished regime
     # ("lmnp" | "microbic"), ``regime_foncier`` = unfurnished regime ("reel" | "micro"),
@@ -117,6 +122,10 @@ class RunContext(BaseModel):
             gestion_pct=params["gestion"],
             vacance_pct=params["vacance"],
             frais_vente_pct=params["frais_vente"],
+            maintenance_m2_an=params.get("maintenance_m2_an", REALISM.maintenance_m2_an),
+            gli_pct=params.get("gli_pct", REALISM.gli_pct),
+            mois_travaux=int(params.get("mois_travaux", REALISM.mois_travaux)),
+            tf_growth_pct=params.get("tf_growth_pct", REALISM.tf_growth_pct),
             regime_fiscal=params["regime"],
             regime_foncier=params.get("regime_foncier", TAX.regime_foncier),
             sci_is=bool(params.get("sci_is", TAX.sci_is)),
@@ -147,6 +156,7 @@ class RunContext(BaseModel):
             "appreciation_bien_pct": self.appreciation_bien_pct,
             "revalo_loyer_pct": self.revalo_loyer_pct,
             "inflation_charges_pct": self.inflation_charges_pct,
+            "tf_growth_pct": self.tf_growth_pct,
         }
 
     def to_credit_params(self) -> dict[str, Any]:

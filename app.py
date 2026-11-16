@@ -16,7 +16,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from src.application.progress import SearchPhase, SearchProgress
 from src.application.run_context import RunContext
 from src.application.services.brick_factory import apply_rent_caps
-from src.core.defaults import OPERATING, SEARCH, TAX
+from src.core.defaults import OPERATING, REALISM, SEARCH, TAX
 from src.core.logging import get_logger
 from src.ui.app_controller import (
     autosave_results,
@@ -67,7 +67,27 @@ def render_sidebar() -> dict[str, Any]:
         with st.expander("📉 Frais & Charges", expanded=False):
             cfe = st.number_input("CFE (€/an, meublé)", 0, 2000, value=int(OPERATING.cfe_par_bien_ann), step=50)
             gestion = st.slider("Gestion (%)", 0.0, 15.0, value=OPERATING.gestion_pct, step=0.5)
-            vacance = st.slider("Vacance/Imp. (%)", 0.0, 10.0, value=OPERATING.vacance_pct, step=0.5)
+            vacance = st.slider(
+                "Vacance minimale (%)", 0.0, 10.0, value=OPERATING.vacance_pct, step=0.5,
+                help="Plancher de vacance : chaque bien utilise max(vacance propre au type de bien, ce curseur). "
+                     "Le curseur ne peut donc que relever la vacance d'un bien, jamais la baisser.",
+            )
+            gli_pct = st.slider(
+                "Loyers impayés / GLI (% loyers)", 0.0, 10.0, value=REALISM.gli_pct, step=0.5,
+                help="Prime d'assurance loyers impayés ou provision pour impayés, en % des loyers encaissés.",
+            )
+            maintenance_m2_an = st.number_input(
+                "Entretien / gros travaux (€/m²/an)", 0.0, 100.0, value=REALISM.maintenance_m2_an, step=1.0,
+                help="Provision pour réparations et gros travaux : sortie de trésorerie, déductible au réel.",
+            )
+            mois_travaux = st.slider(
+                "Mois sans loyer si travaux", 0, 12, value=REALISM.mois_travaux, step=1,
+                help="Année 1 uniquement, pour les biens avec travaux : mois sans loyer.",
+            )
+            tf_growth_pct = st.slider(
+                "Hausse taxe foncière (%/an)", -2.0, 10.0, value=REALISM.tf_growth_pct, step=0.5,
+                help="Croissance annuelle de la taxe foncière (distincte de l'inflation des charges).",
+            )
             frais_vente = st.slider("Frais Revente (%)", 0.0, 10.0, value=TAX.frais_vente_pct, step=0.5)
 
         # Tax
@@ -110,6 +130,10 @@ def render_sidebar() -> dict[str, Any]:
         "cfe": cfe,
         "gestion": gestion,
         "vacance": vacance,
+        "gli_pct": gli_pct,
+        "maintenance_m2_an": maintenance_m2_an,
+        "mois_travaux": mois_travaux,
+        "tf_growth_pct": tf_growth_pct,
         "frais_vente": frais_vente,
         "tmi": tax_choice["tmi"],
         "regime": tax_choice["regime"],
