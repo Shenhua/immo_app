@@ -82,7 +82,7 @@ def render_property_filters(
         options=types_bien,
         default=types_bien,
         format_func=label_for,
-        help="Sélectionnez les familles de stratégies à considérer.",
+        help="Sélectionnez les familles de stratégies à considérer. Aucun type sélectionné = tous les types sont inclus dans la recherche.",
     )
 
     # Rent cap

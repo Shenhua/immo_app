@@ -9,6 +9,7 @@ from typing import Any
 
 import streamlit as st
 
+from src.application.validation import MAX_RATE_PCT
 from src.core.defaults import (
     DEFAULT_PRESET,
     FINANCING,
@@ -25,6 +26,14 @@ FINANCIAL_PRESETS: dict[str, dict[str, float]] = {
 DEFAULT_PRESET_LABEL = DEFAULT_PRESET.label
 
 
+PRECISE_TARGETING_HELP = (
+    "**Désactivé (défaut)** : le cash-flow doit atteindre AU MINIMUM la cible ; un portefeuille plus "
+    "rentable est accepté. La tolérance n'intervient pas.\n\n"
+    "**Activé** : on ne garde que les portefeuilles dont le cash-flow est le plus PROCHE possible de la "
+    "cible, à ± la tolérance près (ni nettement au-dessus, ni en dessous)."
+)
+
+
 def render_objectives_section() -> dict[str, Any]:
     """Render the objectives section of the sidebar.
 
@@ -39,8 +48,10 @@ def render_objectives_section() -> dict[str, Any]:
         ["Classique (Levier)", "Empire (Max Volume)"],
         index=0,
         help=(
-            "**Classique (Levier)** : Cherche l'équilibre. Utilise l'apport minimum pour maximiser le retour sur investissement (TRI). Limité à 3 biens.\n\n"
-            "**Empire (Max Volume)** : Cherche à acquérir le plus grand parc immobilier possible (jusqu'à 5 biens) avec votre apport."
+            "**Classique (Levier)** : Cherche l'équilibre. Utilise l'apport minimum pour maximiser le retour sur investissement (TRI).\n\n"
+            "**Empire (Max Volume)** : Cherche à acquérir le plus grand parc immobilier possible avec votre apport.\n\n"
+            "Le nombre maximum de biens se règle séparément ci-dessous (le changement de mode le repositionne "
+            "à sa valeur habituelle : 3 en Classique, 5 en Empire)."
         )
     )
 
@@ -48,6 +59,7 @@ def render_objectives_section() -> dict[str, Any]:
     # To help the user, we switch the scoring profile when the strategy changes.
     last_strat = st.session_state.get("last_strategy_mode", None)
 
+    mode_changed = last_strat is not None and last_strat != strategy_mode
     if last_strat != strategy_mode:
         st.session_state.last_strategy_mode = strategy_mode
         # Only switch if we are strictly changing (avoid override on first load if user had custom)
@@ -67,17 +79,26 @@ def render_objectives_section() -> dict[str, Any]:
              # Notify user via toast (Streamlit 1.30+) or just let them see the change
              # st.toast(f"Profil financier ajusté : {target_preset}")
 
-    max_props = SEARCH.max_properties_classique
-    use_full_capital = False
-
     # Logic flags
     is_rentier = "Rentier" in strategy_mode
     is_empire = "Empire" in strategy_mode
+    use_full_capital = is_rentier
 
-    if is_empire:
-        max_props = SEARCH.max_properties_empire
-    elif is_rentier:
-        use_full_capital = True
+    # Max number of properties: its own control (T43), independent of the mode radio. A mode change
+    # resets it to the mode's usual value; the user can then adjust it.
+    if "max_properties" not in st.session_state:
+        st.session_state.max_properties = SEARCH.max_properties_classique
+    if mode_changed:
+        st.session_state.max_properties = (
+            SEARCH.max_properties_empire if is_empire else SEARCH.max_properties_classique
+        )
+    max_props = st.sidebar.slider(
+        "Nombre max de biens",
+        SEARCH.max_properties_min,
+        SEARCH.max_properties_max,
+        key="max_properties",
+        help="Taille maximale du portefeuille. Plus il est élevé, plus la recherche est longue.",
+    )
 
     # --- Financial Inputs ---
     with st.sidebar.expander("💰 Configuration Financière", expanded=True):
@@ -107,21 +128,10 @@ def render_objectives_section() -> dict[str, Any]:
                 cf_cible = 0.0
                 st.info("Rentier:\nMaximisation Auto")
 
-        with c_tol:
-            # Tolerance is only meaningful if we have a target
-            if not is_rentier:
-                tolerance = st.number_input(
-                    "Tolérance (€)",
-                    value=SEARCH.tolerance,
-                    step=10,
-                    help="Marge d'erreur acceptable autour de votre cible.",
-                )
-            else:
-                tolerance = SEARCH.tolerance  # unused in Rentier mode
-
         # Precise Targeting:
         # - Rentier: Forced to False (Min Mode / Maximize)
         # - Empire/Classique: User choice
+        # Rendered before the tolerance because the tolerance only applies when it is on.
         if is_rentier:
             is_precise = False
             # Visual feedback that it's disabled/forced
@@ -130,9 +140,25 @@ def render_objectives_section() -> dict[str, Any]:
             is_precise = st.toggle(
                 "Ciblage Précis (±)",
                 value=False,
-                help="Désactivé : le CF sera au MINIMUM la cible (peut être supérieur).\n\nActivé : le CF visera à être le plus PROCHE possible de la cible.",
+                help=PRECISE_TARGETING_HELP,
             )
         mode_cf = "target" if is_precise else "min"
+
+        with c_tol:
+            # The tolerance only has an effect in "target" mode (T30): a portfolio is kept when its
+            # cash flow is within cible ± tolérance. In "min" mode the cash flow only has to reach the
+            # target, so the input is hidden and the default is passed on (it is ignored by the search).
+            if is_precise:
+                tolerance = st.number_input(
+                    "Tolérance (±€/mois)",
+                    min_value=0,
+                    value=SEARCH.tolerance,
+                    step=10,
+                    help="Écart accepté autour de la cible, en mode Ciblage Précis uniquement.",
+                )
+            else:
+                tolerance = SEARCH.tolerance
+                st.caption("Tolérance : sans effet hors Ciblage Précis.")
 
         # Initialize horizon_ans if not set
         if "horizon_ans" not in st.session_state:
@@ -184,10 +210,27 @@ def render_credit_params_tab() -> dict[str, Any]:
     Returns:
         Dictionary of credit parameters.
     """
-    c1, c2, c3 = st.columns(3)
-    taux_15 = c1.number_input("15 ans (%)", value=FINANCING.taux_15_pct, format="%.2f")
-    taux_20 = c2.number_input("20 ans (%)", value=FINANCING.taux_20_pct, format="%.2f")
-    taux_25 = c3.number_input("25 ans (%)", value=FINANCING.taux_25_pct, format="%.2f")
+    durees = st.multiselect(
+        "Durées de prêt (ans)",
+        options=list(range(FINANCING.duree_min_ans, FINANCING.duree_max_ans + 1)),
+        default=list(FINANCING.durees_defaut),
+        max_selections=FINANCING.max_durations,
+        help=(
+            f"De {FINANCING.duree_min_ans} à {FINANCING.duree_max_ans} ans, {FINANCING.max_durations} durées au "
+            "plus. La recherche compare ces durées pour chaque bien ; chacune a son taux."
+        ),
+    )
+    taux_credits: dict[int, float] = {}
+    for years in sorted(durees):
+        taux_credits[years] = st.number_input(
+            f"Taux {years} ans (%)",
+            min_value=0.0,
+            max_value=MAX_RATE_PCT,
+            value=FINANCING.default_rate(years),
+            step=0.05,
+            format="%.2f",
+            key=f"taux_duree_{years}",
+        )
 
     st.markdown("---")
 
@@ -246,7 +289,7 @@ def render_credit_params_tab() -> dict[str, Any]:
         st.session_state["ira_cap_pct"] = ira_cap
 
     return {
-        "taux_credits": {15: taux_15, 20: taux_20, 25: taux_25},
+        "taux_credits": taux_credits,
         "frais_notaire_pct": frais_notaire,
         "assurance_ann_pct": assurance,
         "frais_pret_pct": frais_pret,

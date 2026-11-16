@@ -30,6 +30,16 @@ from src.ui.components.sensitivity import render_sensitivity_analysis
 from src.ui.state import SessionManager, get_state, set_state
 
 
+def strategy_warnings(strategy: dict[str, Any]) -> list[str]:
+    """Warnings the evaluator attached to a strategy: ``warnings`` (str or list) and ``tri_warning``."""
+    raw = strategy.get("warnings") or []
+    out = [raw] if isinstance(raw, str) else [str(w) for w in raw]
+    tri_warning = strategy.get("tri_warning")
+    if tri_warning:
+        out.append(str(tri_warning))
+    return list(dict.fromkeys(out))
+
+
 def render_header() -> None:
     """Render page header."""
     st.markdown(
@@ -91,7 +101,10 @@ def render_strategy_list(
         def render_details_content():
             """Render details for the selected strategy."""
             render_kpi_summary(current_strat, horizon)
-            # Regime overrides (micro ceilings exceeded) and the LMP flag, from the detail simulation (T23).
+            # Evaluator warnings (T29), then regime overrides (micro ceilings exceeded) and the LMP flag
+            # from the detail simulation (T23).
+            for warning in strategy_warnings(current_strat):
+                st.warning(f"⚠️ {warning}")
             if df_sim is not None:
                 for warning in df_sim.attrs.get("tax_warnings", []):
                     st.warning(f"⚖️ {warning}")

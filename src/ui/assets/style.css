@@ -76,3 +76,34 @@ div[data-testid="stNumberInput"] input[aria-label="Apport total disponible (€)
     /* Subtle yellow background */
     border: 1px solid rgba(255, 215, 0, 0.5) !important;
 }
+
+/* --- Responsive layout (T43) --- */
+
+/* The result cards in results.py hard-code 2.5em inline; scale them down here (inline styles need !important). */
+[style*="font-size: 2.5em"] {
+    font-size: 1.7em !important;
+}
+
+/* A row of 5+ columns (the 6-metric KPI row) wraps into 3 per line on medium screens, 2 on narrow ones.
+   Below 640px Streamlit already stacks every column. */
+@media (max-width: 1200px) {
+    [data-testid="stMain"] [data-testid="stHorizontalBlock"]:has(> [data-testid="stColumn"]:nth-child(5)) {
+        flex-wrap: wrap;
+    }
+
+    [data-testid="stMain"] [data-testid="stHorizontalBlock"]:has(> [data-testid="stColumn"]:nth-child(5))>[data-testid="stColumn"] {
+        flex: 1 1 calc(33% - 1rem) !important;
+        min-width: calc(33% - 1rem) !important;
+    }
+}
+
+@media (max-width: 900px) {
+    [style*="font-size: 2.5em"] {
+        font-size: 1.4em !important;
+    }
+
+    [data-testid="stMain"] [data-testid="stHorizontalBlock"]:has(> [data-testid="stColumn"]:nth-child(5))>[data-testid="stColumn"] {
+        flex: 1 1 calc(50% - 1rem) !important;
+        min-width: calc(50% - 1rem) !important;
+    }
+}

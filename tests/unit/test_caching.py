@@ -43,7 +43,6 @@ def _run_search(timeout=180):
     at = AppTest.from_file("../../app.py", default_timeout=timeout)
     at.run()
     next(n for n in at.sidebar.number_input if n.label.startswith("Cash-Flow")).set_value(-500.0)
-    next(n for n in at.sidebar.number_input if n.label.startswith("Tol")).set_value(300)
     at.run()
     next(b for b in at.sidebar.button if "Lancer" in b.label).click()
     at.run()
