@@ -22,6 +22,7 @@ from src.ui.components.charts import (
     render_strategy_radar,
 )
 from src.ui.components.diagnostics import render_search_diagnostics
+from src.ui.components.regime_comparison import render_regime_comparison
 from src.ui.components.results import (
     render_kpi_summary,
     render_strategy_card,
@@ -109,7 +110,9 @@ def render_strategy_list(
             if df_sim is not None:
                 for warning in df_sim.attrs.get("tax_warnings", []):
                     st.warning(f"⚖️ {warning}")
-            tab1, tab2, tab3, tab4 = st.tabs(["🏠 Biens", "📈 Projections", "🎯 Radar", "⚡ Stress Test"])
+            tab1, tab2, tab3, tab4, tab5 = st.tabs(
+                ["🏠 Biens", "📈 Projections", "🎯 Radar", "⚡ Stress Test", "⚖️ Comparaison fiscale"]
+            )
             with tab1:
                 render_strategy_details(current_strat, horizon)
             with tab2:
@@ -133,6 +136,8 @@ def render_strategy_list(
                 render_strategy_radar(current_strat, key=f"strat_radar_{selected_idx}")
             with tab4:
                 render_sensitivity_analysis(current_strat, ctx, key=f"strat_sens_{selected_idx}")
+            with tab5:
+                render_regime_comparison(current_strat, ctx, key=f"strat_reg_{selected_idx}")
 
         # Render the Card for the Selected Strategy
         # We force 'show_details' to be True if it was triggered by a table click?
