@@ -52,7 +52,7 @@ Legend: todo · running · done · blocked · skipped
 | T31 search rewrite | Opus | done | 2aede1c..b38fc93 (merge f18c1a5) | Empire 5–8 s, deterministic, GA removed | | |
 | T32 absolute scoring + Pareto | Sonnet | done | 671de34 | | |
 | T33 near misses | Sonnet | done | eedc125 | | |
-| T34 Rentier mode | Sonnet | running | | + tax-loop convergence + tax sanity check | | |
+| T34 Rentier mode | Sonnet | done | 42957e9..6f73509 | tax sanity OK (no bug) | | |
 | T40 results UI batch | Haiku | done | 260dd2e | | |
 | T41 sensitivity rewrite | Sonnet | done | 448cd08 | | |
 | T42 caching | Sonnet | done | d3c7fd2 | verified with AppTest call counters | | |
@@ -62,7 +62,7 @@ Legend: todo · running · done · blocked · skipped
 | T52 typing + coverage | Sonnet | todo | | |
 | T53 README/docs | Haiku | todo | | |
 | T61 DPE rental ban | Sonnet | partial | 0cc60bc | search not wired → T35 |
-| T35 RunContext→search parity guard | Sonnet | todo | | after T34; DPE fields into EvaluationParams + generic test |
+| T35 RunContext→search parity guard | Sonnet | running | | after T34; DPE fields into EvaluationParams + generic test |
 | T60, T62–T68 features | mixed | todo | | see plan; T66 = offline files, no API |
 
 ## Next waves
@@ -243,6 +243,14 @@ Legend: todo · running · done · blocked · skipped
   - Renovation is one event per ban (incremental class jumps).
   - **Parity break:** `EvaluationParams` (strategy_finder) doesn't carry the DPE fields, so the search ignores the ban. → T35: add them, plus a generic test that every tax- or engine-relevant RunContext field reaches the search engine.
   - **USER VALIDATION:** the 150 €/m²/class cost assumption, and treating G as banned for all leases.
+- After T34:
+  - Rentier mode is live (`SearchProblem.use_full_capital`).
+  - The tax-correction loop runs up to 6 rounds with an Aitken step and `CONVERGENCE_MARGIN`.
+  - Income tax in the search is verified plausible.
+  - Follow-ups:
+    - In Rentier mode the top-ranked strategy is not always the max-CF one (the preset scorer ranks).
+    - The tolerance column is still shown in Rentier mode.
+- **Phase 3 complete.**
 - `ruff format` not applied (45 files would be reformatted). Optional later; skip it to avoid merge churn.
 
 ## Log
@@ -277,3 +285,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-16: T50 merged (1217 passed). T61 launched (T33 still running).
 - 2026-11-16: T33 merged cleanly (1226 passed). T34 launched (T61 still running).
 - 2026-11-16: T61 merged (partial: the search is not wired). T35 added. T34 still running.
+- 2026-11-16: T34 merged (1231 passed). **Phase 3 complete.** T35 launched (T62 still running).
