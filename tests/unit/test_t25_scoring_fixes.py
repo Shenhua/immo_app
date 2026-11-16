@@ -33,7 +33,7 @@ class TestCapitalEfficiencyScore:
     @staticmethod
     def _score(weights, enrich, apport=100000.0):
         ev = StrategyEvaluator(MagicMock(), scorer=MagicMock(weights=weights))
-        bilan = {"tri_annuel": 0.0, "enrichissement_net": enrich, "dscr_y1": 0.0}
+        bilan = {"tri_annuel": 0.0, "enrichissement_net": enrich, "dscr_stab": 0.0}
         return ev.calculate_finance_score(bilan, {"gap": 1e9}, apport, 100.0, 20)
 
     def test_cap_eff_only_weight_uses_benchmark(self):

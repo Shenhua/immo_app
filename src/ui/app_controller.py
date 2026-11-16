@@ -23,6 +23,7 @@ from src.application.services.brick_factory import (
 from src.application.services.simulation import simulate_long_term_strategy
 from src.application.services.strategy_finder import StrategyFinder
 from src.core import defaults
+from src.core.exceptions import SimulationError
 from src.core.logging import get_logger
 from src.domain.models.archetype import ArchetypeV2
 from src.ui.state import SessionManager
@@ -214,8 +215,11 @@ def simulate_selected_strategy(strategy: dict[str, Any], ctx: RunContext) -> pd.
         df_sim.attrs["tax_warnings"] = bilan.get("tax_warnings", [])
         return df_sim
 
-    except Exception as e:
+    except (ValueError, ZeroDivisionError, SimulationError) as e:
+        # Expected failures (invalid inputs rejected by a regime or the schedule check). Shown to the user;
+        # any other exception is a bug and propagates.
         log.warning("simulation_failed", error=str(e))
+        st.warning(f"Simulation détaillée impossible : {e}")
         return None
 
 

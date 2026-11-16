@@ -8,6 +8,34 @@ import pandas as pd
 
 MIN_MODES = frozenset({"min", "≥"})
 
+# --- Stabilised year (T29, review finding M1) -------------------------------------------------------
+# DEFINITION: the "stabilised" cash flow and DSCR are those of SIMULATION YEAR 2 (the first full
+# operating year), not year 1.
+#
+# RATIONALE: every archetype carries works, so year 1 loses ``mois_travaux`` months of rent (one-off
+# vacancy while the works run, TAX_SPEC 1.8), cuts year-1 cash flow by several hundred EUR/month and
+# the year-1 DSCR by 40-50 %. Year 1 is therefore not representative of the steady state a
+# buyer is asking about ("what will this cost me per month?"). Year 2 is the first year with all months
+# rented, and it also carries the indexation (rent, charges, taxe foncière growth), so it is the
+# honest recurring figure. Year 2 was preferred to "year 1 recomputed without works months" because it
+# needs no second simulation pass and does not mix the year-1 one-offs (works deduction under foncier
+# réel, no CFE in the creation year) into the steady-state tax.
+#
+# The same definition is used by: the allocator estimate (``PortfolioAllocator`` computes its cf0 for
+# year 2, with the same growth rates), the evaluator acceptance (``cf_accepts`` on the stabilised CF)
+# and the scoring (DSCR and cf_proximity). The year-1 figures (with works) stay available, labelled
+# "année 1 (avec travaux)", for display only: ``cf_monthly_y1`` and ``dscr_y1``.
+STABILISED_YEAR = 2
+
+# Yearly-table column holding the operating charges + interest (negative). Single constant so a column
+# rename is a one-line change.
+CHARGES_COL = "Charges d'exploitation"
+
+
+def stabilised_row_index(n_years: int) -> int:
+    """Zero-based row of the stabilised year in a yearly table (last row if the horizon is 1 year)."""
+    return max(0, min(STABILISED_YEAR - 1, n_years - 1))
+
 
 def cf_penalty(cf: float, target: float, mode_cf: str = "target") -> float:
     """Distance to the cash-flow target (EUR/month), mode-aware.
@@ -32,7 +60,8 @@ def cf_accepts(cf: float, target: float, tol: float, mode_cf: str = "target") ->
 
 
 class CashflowMetrics(TypedDict):
-    cf_year_1_monthly: float
+    cf_year_1_monthly: float  # year 1, WITH the works months (display only)
+    cf_stabilised_monthly: float  # stabilised year (see STABILISED_YEAR): acceptance, gap, scoring
     cf_avg_5y_monthly: float
     is_acceptable: bool
     gap: float
@@ -45,8 +74,9 @@ def calculate_cashflow_metrics(
 ) -> CashflowMetrics:
     """
     Calculate cashflow metrics according to business rules:
-    1. Primary: Year 1 Monthly (Worst case)
-    2. Secondary: Average of First 5 Years
+    1. Primary: stabilised-year monthly CF (year 2, see STABILISED_YEAR). Acceptance and gap use it.
+    2. Secondary: average of the first 5 years.
+    Year 1 (with works months) is reported as ``cf_year_1_monthly`` for display only.
 
     Args:
         mode_cf: "target" (precise proximity) or "min" (maximize above target)
@@ -54,6 +84,7 @@ def calculate_cashflow_metrics(
     if df_sim.empty:
         return {
             "cf_year_1_monthly": -99999.0,
+            "cf_stabilised_monthly": -99999.0,
             "cf_avg_5y_monthly": -99999.0,
             "is_acceptable": False,
             "gap": 99999.0,
@@ -69,33 +100,37 @@ def calculate_cashflow_metrics(
     cf_5y_annual_avg = df_sim.iloc[:horizon]["Cash-Flow Net d'Impôt"].mean()
     cf_5y_monthly = cf_5y_annual_avg / 12.0
 
+    cf_stab_annual = df_sim.iloc[stabilised_row_index(len(df_sim))]["Cash-Flow Net d'Impôt"]
+    cf_stab_monthly = cf_stab_annual / 12.0
+
     # Acceptance Logic (Phase 16 Check)
     # Mode "target": Absolute precision (abs diff)
     # Mode "min": One-sided, accept iff cf >= target (no tolerance below)
 
-    gap_y1 = cf_penalty(cf_y1_monthly, target_cf, mode_cf)
-    is_acceptable = cf_accepts(cf_y1_monthly, target_cf, tolerance, mode_cf)
+    gap_stab = cf_penalty(cf_stab_monthly, target_cf, mode_cf)
+    is_acceptable = cf_accepts(cf_stab_monthly, target_cf, tolerance, mode_cf)
 
     return {
         "cf_year_1_monthly": float(cf_y1_monthly),
+        "cf_stabilised_monthly": float(cf_stab_monthly),
         "cf_avg_5y_monthly": float(cf_5y_monthly),
         "is_acceptable": bool(is_acceptable),
-        "gap": float(gap_y1),
+        "gap": float(gap_stab),
     }
 
-def calculate_dscr_metric(df_sim: pd.DataFrame) -> float:
+def calculate_dscr_metric(df_sim: pd.DataFrame, stabilised: bool = False) -> float:
     """
-    Standardized DSCR calculation.
+    Standardized DSCR calculation, for year 1 (default, with works months) or the stabilised year.
     NOI = Rent + Charges (negative) + Interest (add back)
     Debt Service = Capital + Interest
     """
     if df_sim.empty:
         return 0.0
 
-    row = df_sim.iloc[0]
+    row = df_sim.iloc[stabilised_row_index(len(df_sim)) if stabilised else 0]
     ds = row.get("Capital Remboursé", 0.0) + row.get("Intérêts & Assurance", 0.0)
 
-    charges = row.get("Charges d'exploitation", 0.0)
+    charges = row.get(CHARGES_COL, 0.0)
     interest = row.get("Intérêts & Assurance", 0.0)
     rent = row.get("Loyers Bruts", 0.0)
 

@@ -472,12 +472,11 @@ class SimulationEngine:
         enrichissement_net = liquidation_nette + cum_cash_flow - apport_initial
 
         # Calculate DSCR from Year 1 data
+        # DSCR: year 1 (with works months, display) and stabilised year (scoring), see glossary.STABILISED_YEAR
         from src.core.glossary import calculate_dscr_metric
-        if results:
-            df_y1 = pd.DataFrame([results[0].to_dict()])
-            dscr_y1 = calculate_dscr_metric(df_y1)
-        else:
-            dscr_y1 = 0.0
+        df_rows = pd.DataFrame([r.to_dict() for r in results[:2]])
+        dscr_y1 = calculate_dscr_metric(df_rows)
+        dscr_stab = calculate_dscr_metric(df_rows, stabilised=True)
 
         return {
             "tri_annuel": tri,
@@ -486,6 +485,7 @@ class SimulationEngine:
             "enrichissement_net": enrichissement_net,
             "ira_total": ira_total,
             "dscr_y1": dscr_y1,
+            "dscr_stab": dscr_stab,
             "impot_pv": impot_pv,
             "plus_value": exit_tax.details,
             "plus_value_par_bien": [{"nom": name, **b.to_dict()} for _, name, b in exit_tax.per_property],
