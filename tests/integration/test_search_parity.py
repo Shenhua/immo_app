@@ -3,6 +3,7 @@
 ``search_parity_golden.json`` was captured from the pre-T31 ``ExhaustiveOptimizer`` (commit a496ffc, develop)
 by running this module with ``REGEN_SEARCH_GOLDEN=1``. The old solver is deleted by T31, so the golden file is
 the only copy of its output; do not regenerate it unless a later task changes the expected results on purpose.
+(T32 did: absolute scoring replaced the min-max normalisation, so scores and the ranking changed on purpose.)
 
 Cases P1/P2 accept every combination at its minimum down payment on both cash-flow bases (pre-tax allocator and
 after-tax evaluator), so they compare the full pipeline (enumeration, evaluation, scoring, dedupe, ranking)

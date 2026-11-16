@@ -33,7 +33,7 @@ def test_presets_sum_to_one_and_cover_every_id() -> None:
 def test_base_weights_equal_balanced_preset() -> None:
     assert BASE_WEIGHTS == PRESETS[PresetId.BALANCED].as_dict()
     assert StrategyEvaluator.DEFAULT_WEIGHTS == BASE_WEIGHTS
-    assert StrategyScorer().weights == pytest.approx(BASE_WEIGHTS)
+    assert StrategyScorer(mode_cf="min").weights == pytest.approx(BASE_WEIGHTS)
 
 
 def test_sidebar_presets_come_from_defaults() -> None:
@@ -82,7 +82,7 @@ def test_drifting_defaults_are_unified() -> None:
 
     assert SEARCH.qualite_weight == 0.25
     assert RunContext().qualite_weight == 0.25
-    assert StrategyScorer().qualite_weight == 0.25
+    assert StrategyScorer(mode_cf="min").qualite_weight == 0.25
     assert StrategyEvaluator(simulator=None).quality_weight == 0.25  # type: ignore[arg-type]
     assert calculate_balanced_score.__kwdefaults__["qualite_weight"] == 0.25
 

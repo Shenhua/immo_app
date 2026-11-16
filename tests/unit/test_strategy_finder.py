@@ -34,30 +34,13 @@ class TestStrategyScorer:
 
     def test_normalize_weights(self):
         """Weights should sum to 1."""
-        scorer = StrategyScorer(weights={"a": 1, "b": 1, "c": 1, "d": 1, "e": 1})
+        scorer = StrategyScorer(weights={"a": 1, "b": 1, "c": 1, "d": 1, "e": 1}, mode_cf="min")
         total = sum(scorer.weights.values())
         assert abs(total - 1.0) < 0.001
 
-    def test_minmax_normalize_basic(self):
-        """Should normalize to 0-1 range."""
-        values = [0, 50, 100]
-        result = StrategyScorer.minmax_normalize(values)
-        assert result == [0.0, 0.5, 1.0]
-
-    def test_minmax_normalize_empty(self):
-        """Empty list should return empty."""
-        result = StrategyScorer.minmax_normalize([])
-        assert result == []
-
-    def test_minmax_normalize_with_bounds(self):
-        """Should respect explicit bounds."""
-        values = [0, 50, 100]
-        result = StrategyScorer.minmax_normalize(values, lo=0, hi=200)
-        assert result[1] == 0.25  # 50/200
-
     def test_compute_finance_score(self):
         """Should compute weighted score."""
-        scorer = StrategyScorer(weights=BASE_WEIGHTS)
+        scorer = StrategyScorer(weights=BASE_WEIGHTS, mode_cf="min")
         strategy = {
             "enrich_norm": 1.0,
             "tri_norm": 1.0,
@@ -70,7 +53,7 @@ class TestStrategyScorer:
 
     def test_compute_balanced_score(self):
         """Should blend finance and quality."""
-        scorer = StrategyScorer(qualite_weight=0.5)
+        scorer = StrategyScorer(qualite_weight=0.5, mode_cf="min")
         strategy = {"finance_score": 0.8, "qual_score": 80.0}
         score = scorer.compute_balanced_score(strategy)
         # 0.5 * 0.8 + 0.5 * 0.8 = 0.8
