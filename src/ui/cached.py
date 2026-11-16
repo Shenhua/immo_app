@@ -84,3 +84,27 @@ def cached_bricks(archetypes: list[dict[str, Any]], ctx: RunContext) -> list[Any
         "mois_travaux": ctx.mois_travaux,
     }
     return _cached_bricks(archetypes, hash_archetypes(archetypes), json.dumps(params, sort_keys=True, default=str))
+
+
+@st.cache_data(show_spinner=False, max_entries=32)
+def cached_regime_comparison(strategy_json: str, ctx_json: str) -> dict[str, Any]:
+    """Tax regime comparison (T62) as plain dicts, keyed on strategy JSON + ctx JSON."""
+    from src.application.services.regime_comparison import compare_regimes
+
+    cmp = compare_regimes(json.loads(strategy_json), RunContext.model_validate_json(ctx_json))
+    rows = [
+        {
+            "label": r.label, "is_user": r.is_user_choice, "is_best": r is cmp.best_by_wealth,
+            "years": r.years, "tax": r.tax, "cash_flow": r.cash_flow, "cumulative_cf": r.cumulative_cf,
+            "tri_annuel": r.tri_annuel, "enrichissement_net": r.enrichissement_net, "exit_tax": r.exit_tax,
+            "warnings": r.warnings,
+        }
+        for r in cmp.results
+    ]
+    return {
+        "rows": rows,
+        "best": next(r for r in rows if r["is_best"]),
+        "user": next(r for r in rows if r["is_user"]),
+        "gain": cmp.wealth_gain_vs_user,
+        "break_even_year": cmp.break_even_year,
+    }
