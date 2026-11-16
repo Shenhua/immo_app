@@ -54,7 +54,7 @@ Legend: todo · running · done · blocked · skipped
 | T33 near misses | Sonnet | todo | | |
 | T34 Rentier mode | Sonnet | todo | | |
 | T40 results UI batch | Haiku | done | 260dd2e | | |
-| T41 sensitivity rewrite | Sonnet | todo | | |
+| T41 sensitivity rewrite | Sonnet | done | 448cd08 | | |
 | T42 caching | Sonnet | todo | | |
 | T43 validation and UX | Sonnet | todo | | |
 | T50 property tests | Sonnet | todo | | |
@@ -192,6 +192,11 @@ Legend: todo · running · done · blocked · skipped
     - **T31:** allocator step truncation in min mode (−1,501 vs a −1,500 target).
     - **T33/T43:** the evaluator's `warnings` are not shown in the UI.
     - **T41:** the sensitivity DSCR is computed ad hoc on year 1.
+- After T41:
+  - The pure sensitivity logic is in `src/application/services/sensitivity.py`; the UI uses `st.cache_data`.
+  - Follow-ups:
+    - The rate delta keeps `credit_final` fixed.
+    - The works delta is paid by the down payment.
 - `ruff format` not applied (45 files would be reformatted). Optional later; skip it to avoid merge churn.
 
 ## Log
@@ -217,3 +222,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-16: T27 merged; `docs/review` excluded from ruff. T28 and T29 launched in parallel.
 - 2026-11-16: T28 merged (1020 passed); glossary column name fixed by the conductor. T29 relaunched after a classifier outage, still running.
 - 2026-11-16: T29 merged (1171 passed; glossary conflict resolved via `CHARGES_COL`). **Phase 2 complete.** T31 launched (Opus).
+- 2026-11-16: T41 merged (1176 passed). T31 still running; the second slot is kept free (T42 and T43 touch files T31 may change).
