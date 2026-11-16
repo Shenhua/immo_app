@@ -43,7 +43,10 @@ Legend: todo · running · done · blocked · skipped
 | T25 scoring fixes | Sonnet | done | b702d05 | | |
 | T26a realistic assumptions | Sonnet | done | 83e4029 | | after T23 |
 | T26b data recalibration | Sonnet | done | ee96023 | TF/charges/caps unverified | | web research |
-| Gate P2 review | Opus | running | | diff 3f035af..HEAD | | |
+| Gate P2 review | Opus | done | | docs/review/phase2/README.md: tax engine sound; C1 critical |
+| T27 search/detail parity | Sonnet | running | | C1 (critical) |
+| T28 tax hygiene + multi-prop tests | Sonnet | todo | | after T27 |
+| T29 stabilised-year metrics | Sonnet | todo | | after T27, parallel with T28 | | |
 | T30 CF mode ranking | Sonnet | done | 75e0e0f | | |
 | T31 search rewrite | Opus | todo | | |
 | T32 absolute scoring + Pareto | Sonnet | todo | | |
@@ -184,4 +187,5 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-13: The usage limit interrupted T25 (uncommitted edits in worktree agent-a0b0f095f0fbb0865) and T26a (no changes).
 - 2026-11-16: T25 and T26a resumed via SendMessage. If this session dies, inspect those worktrees: commit or keep the edits, then relaunch with a "continue from this worktree" note.
 - 2026-11-16: T25 merged (984 passed). Waiting for T26a.
-- 2026-11-16: T26a merged (985 passed). Phase 2 implementation complete. Gate P2 review launched (Opus, read-only).
+- 2026-11-16: T26a merged (993 passed). Phase 2 implementation complete. Gate P2 review launched (Opus, read-only).
+- 2026-11-16: Gate P2 done (verdict: fix C1 first). T27/T28/T29 added to the plan. T27 launched.

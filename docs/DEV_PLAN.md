@@ -241,7 +241,37 @@ Goal: numbers you can trust.
   - Bump the file to `archetypes_2026_v1.json`.
 - **Accept:** every changed value has a cited source, and the schema validation passes.
 
-### Phase 2 gate — Opus review
+### Phase 2 gate — Opus review (done: see `docs/review/phase2/README.md`)
+
+Fix tasks from the review. Run T27 first; T28 and T29 can then run in parallel (T28 must not touch the evaluator).
+
+#### T27 — Search/detail parameter parity · Sonnet
+- **Spec**
+  - One engine factory, e.g. `RunContext.build_engine()` or an application-level builder, used by the search (`strategy_finder`), the detail simulation (`app_controller.simulate_selected_strategy`) and the sensitivity tab.
+  - Plumb `tf_growth_pct` through `EvaluationParams`. `MarketHypotheses.tf_growth_pct` defaults to `REALISM.tf_growth_pct`, with no `None` fallback.
+  - Move the amortization durations (building 30 y, furniture 10 y) to `defaults.TAX`.
+  - Remove the `provision_pct` 5.0 fallback in `sensitivity.py`.
+- **Accept:** a parity test shows the search bilan equals the detail bilan for the same strategy, with a non-default TF growth, in LMNP réel, micro-BIC and SCI IS.
+
+#### T28 — Tax hygiene and multi-property tests · Sonnet
+- **Spec**
+  - `plus_value.py` reads its rates from `defaults.TAX_RATES`.
+  - One shared `is_furnished(archetype_or_brick)` helper, used by brick_factory, the simulation and the model default.
+  - Remove the dead code (`ExitContext.tmi_pct`, `TaxHousehold.state()`, the `PropertyExit` export).
+  - The golden adapter goes through the engine's vacancy path: raw rent, with `provision_pct` = vacancy.
+  - Turn `docs/review/phase2/{a,b,e,g}.py` into regression tests under `tests/integration/test_multi_property_tax.py`.
+  - Rename the "Charges Déductibles" column, or make it regime-aware.
+- **Accept:** golden tests green; the 4 scenario invariants are under test.
+
+#### T29 — Stabilised-year metric policy · Sonnet
+- **Spec**
+  - Define a "stabilised" CF and DSCR: year 2, or year 1 without the one-off works vacancy (pick one and document it in the glossary).
+  - Use it consistently in the allocator estimate, the evaluator acceptance and the scoring.
+  - Keep a displayed "année 1 (avec travaux)" figure.
+  - `evaluator.evaluate` and `simulate_selected_strategy` stop swallowing every exception: catch only expected ones, and surface the message as a strategy warning.
+- **Accept:**
+  - No strategy accepted by the allocator is rejected by the evaluator under default inputs (test over all 18 archetypes).
+  - DSCR no longer collapses because of works months.
 - Run the code-review skill on the Phase 2 diff at high effort.
 - Opus compares 3 golden cases against an independent spreadsheet-style calculation.
 
