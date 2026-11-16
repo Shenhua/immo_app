@@ -44,11 +44,30 @@ class FinancingDefaults:
     financer_mobilier: bool = True
     apply_ira: bool = True
     ira_cap_pct: float = 3.0
+    # T43: loan durations the user may pick (whole years) and the most that can be searched at once.
+    duree_min_ans: int = 10
+    duree_max_ans: int = 25
+    max_durations: int = 5
+    durees_defaut: tuple[int, ...] = (15, 20, 25)
 
     @property
     def taux_credits(self) -> dict[int, float]:
         """Rates by loan duration in years (a fresh dict on every access)."""
         return {15: self.taux_15_pct, 20: self.taux_20_pct, 25: self.taux_25_pct}
+
+    def default_rate(self, years: int) -> float:
+        """Suggested rate (%) for a loan duration: the 15/20/25-year rates, extended linearly in between and outside."""
+        pts = sorted(self.taux_credits.items())
+        if years <= pts[0][0]:
+            (x0, y0), (x1, y1) = pts[0], pts[1]
+        elif years >= pts[-1][0]:
+            (x0, y0), (x1, y1) = pts[-2], pts[-1]
+        else:
+            x0, y0 = max(p for p in pts if p[0] <= years)
+            x1, y1 = min(p for p in pts if p[0] >= years)
+            if x0 == x1:
+                return y0
+        return round(y0 + (y1 - y0) * (years - x0) / (x1 - x0), 2)
 
 
 @dataclass(frozen=True)
@@ -92,14 +111,19 @@ class TaxDefaults:
 class SearchDefaults:
     """Objective / search defaults."""
 
-    apport: int = 50000
-    cf_cible: float = 0.0
+    # T43: tuned so that a first run returns >= 5 strategies (see tests/unit/test_validation.py).
+    # With 50 000 EUR and a 0 EUR/month floor, only 1 strategy survived: the CF floor was the binding
+    # constraint (a leveraged portfolio is rarely cash-flow positive in year 2), then the down payment.
+    apport: int = 80000
+    cf_cible: float = -100.0
     tolerance: int = 100
     horizon_ans: int = 25
     qualite_weight: float = 0.25
     priorite_pct: int = 25  # qualite_weight as shown on the sidebar slider (0-100)
     max_properties_classique: int = 3
     max_properties_empire: int = 5
+    max_properties_min: int = 1
+    max_properties_max: int = 5
     top_n: int = 50
 
 

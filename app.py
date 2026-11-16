@@ -15,6 +15,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from src.application.progress import SearchPhase, SearchProgress
 from src.application.run_context import RunContext
+from src.application.validation import cheapest_brick_apport, validate_durations, validate_search_inputs
 from src.core.defaults import OPERATING, REALISM, SEARCH, TAX
 from src.core.logging import get_logger
 from src.ui.app_controller import (
@@ -23,7 +24,7 @@ from src.ui.app_controller import (
     run_strategy_search,
     simulate_selected_strategy,
 )
-from src.ui.cached import filter_and_caps
+from src.ui.cached import cached_bricks, filter_and_caps
 from src.ui.components.filters import render_property_filters
 from src.ui.components.sidebar import (
     render_credit_params_tab,
@@ -124,7 +125,7 @@ def render_sidebar() -> dict[str, Any]:
         "mode_cf": objectives["mode_cf"],
         "qual_weight": objectives["qualite_weight"],
         "horizon": objectives["horizon"],
-        "max_properties": objectives.get("max_properties", 3),
+        "max_properties": objectives.get("max_properties", SEARCH.max_properties_classique),
         "use_full_capital": objectives.get("use_full_capital", False),
         "credit_params": credit_params,
         "cfe": cfe,
@@ -242,6 +243,22 @@ def handle_analysis(ctx: RunContext, archetypes: list[dict[str, Any]]) -> None:
     st.rerun()
 
 
+def collect_input_errors(ctx: RunContext, archetypes: list[dict[str, Any]]) -> list[str]:
+    """Blocking validation errors of the current sidebar (T43). The search is not launched while any remain."""
+    min_apport = None
+    if archetypes and not validate_durations(ctx.taux_credits):
+        min_apport = cheapest_brick_apport(cached_bricks(archetypes, ctx))
+    return validate_search_inputs(
+        apport=ctx.apport,
+        tolerance=ctx.tolerance,
+        mode_cf=ctx.mode_cf,
+        max_properties=ctx.max_properties,
+        min_brick_apport=min_apport,
+        taux_credits=ctx.taux_credits,
+        n_archetypes=len(archetypes),
+    )
+
+
 def main() -> None:
     """Main application entry point."""
     # Streamlit configuration (must be first Streamlit call)
@@ -272,7 +289,15 @@ def main() -> None:
 
     # 5. Snapshot of the current sidebar. Used for the search and for the stale check only.
     current_ctx = RunContext.from_sidebar(params, compliant)
-    if st.sidebar.button("🚀 Lancer l'analyse", type="primary"):
+    errors = collect_input_errors(current_ctx, compliant)
+    for message in errors:
+        st.sidebar.error(message, icon="🚫")
+    if st.sidebar.button(
+        "🚀 Lancer l'analyse",
+        type="primary",
+        disabled=bool(errors),
+        help="Corrigez les erreurs ci-dessus pour lancer la recherche." if errors else None,
+    ) and not errors:
         handle_analysis(current_ctx, compliant)
 
     # 6. Results and the context they were computed with
