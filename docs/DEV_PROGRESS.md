@@ -55,8 +55,8 @@ Legend: todo · running · done · blocked · skipped
 | T34 Rentier mode | Sonnet | todo | | |
 | T40 results UI batch | Haiku | done | 260dd2e | | |
 | T41 sensitivity rewrite | Sonnet | done | 448cd08 | | |
-| T42 caching | Sonnet | running | | |
-| T43 validation and UX | Sonnet | todo | | |
+| T42 caching | Sonnet | done | d3c7fd2 | verified with AppTest call counters | | |
+| T43 validation and UX | Sonnet | running | | |
 | T50 property tests | Sonnet | todo | | |
 | T51 AppTest | Sonnet | todo | | |
 | T52 typing + coverage | Sonnet | todo | | |
@@ -206,6 +206,10 @@ Legend: todo · running · done · blocked · skipped
     - **USER MANUAL CHECK:** a real `streamlit run app.py` Empire search with the process pool (untested outside pytest).
     - **T32:** the Pareto filter leaves only 2–11 strategies; the scorer's CF proximity uses the pre-tax `cash_flow_final`.
     - **Perf:** a simulation costs 2–3 ms (pandas + round in `_generate_schedule_cached`), possible later optimization.
+- After T42:
+  - `src/ui/cached.py` holds the cache wrappers. The detail simulation is cached by (strategy JSON, ctx JSON).
+  - The search runs only on the button click.
+  - **Product issue for T33/T43: the default sidebar values give only 1 strategy.** Investigate which constraint binds and retune the defaults.
 - `ruff format` not applied (45 files would be reformatted). Optional later; skip it to avoid merge churn.
 
 ## Log
@@ -234,3 +238,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-16: T41 merged (1176 passed). T31 still running; the second slot is kept free (T42 and T43 touch files T31 may change).
 - 2026-11-16 13:42: The usage limit interrupted T31 (worktree agent-a5ecae762d3a2520b: commits 2aede1c and 8223cbe, plus uncommitted optimizer.py). Resumed via SendMessage. If the session dies, relaunch T31 with "continue from branch worktree-agent-a5ecae762d3a2520b".
 - 2026-11-16: T31 merged (1189 passed). Phase 3 continues: T32 and T42 launched in parallel.
+- 2026-11-16: T42 merged (1192 passed). T43 launched alongside T32.
