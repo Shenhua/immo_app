@@ -56,7 +56,7 @@ Legend: todo · running · done · blocked · skipped
 | T40 results UI batch | Haiku | done | 260dd2e | | |
 | T41 sensitivity rewrite | Sonnet | done | 448cd08 | | |
 | T42 caching | Sonnet | done | d3c7fd2 | verified with AppTest call counters | | |
-| T43 validation and UX | Sonnet | running | | |
+| T43 validation and UX | Sonnet | done | ea8da8c | defaults: apport 80k, CF −100 → 7 strategies | | |
 | T50 property tests | Sonnet | todo | | |
 | T51 AppTest | Sonnet | todo | | |
 | T52 typing + coverage | Sonnet | todo | | |
@@ -217,6 +217,15 @@ Legend: todo · running · done · blocked · skipped
   - The search-parity golden was regenerated (intended ranking change).
   - **USER QUESTION:** the "Patrimoine" preset ranks on ROE (wealth / down payment, saturating at 1.0). Should it favour absolute euros of wealth instead?
   - The tier code in the finder is untouched → T33.
+- After T43:
+  - `src/application/validation.py` holds the input validation; the search button is disabled while errors exist.
+  - New controls: a "Nombre max de biens" slider; a loan-durations multiselect (10–25 y, rate per duration).
+  - Tolerance is shown only in Ciblage Précis.
+  - Defaults are apport 80k and CF −100 (the CF floor was the binding constraint).
+  - Leftovers:
+    - The KPI row `st.columns(6)` and the inline 2.5em fonts in results.py are fixed only through CSS overrides. A native fix is pending (small Haiku task, or fold into T34).
+    - There is no budget input in the UI (the rule exists in validation).
+    - Evaluator `warnings` exist only on failures.
 - `ruff format` not applied (45 files would be reformatted). Optional later; skip it to avoid merge churn.
 
 ## Log
@@ -247,3 +256,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-16: T31 merged (1189 passed). Phase 3 continues: T32 and T42 launched in parallel.
 - 2026-11-16: T42 merged (1192 passed). T43 launched alongside T32.
 - 2026-11-16: T32 merged (1191 passed, 1 skipped). T33 launched (T43 still running).
+- 2026-11-16: T43 merged. T34 waits for T33 (both touch the optimizer and strategy_finder).
