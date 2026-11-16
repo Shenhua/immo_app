@@ -108,3 +108,16 @@ class TestCalculateRemainingBalance:
         bal_60 = calculate_remaining_balance(200000, 3.5, 240, 60)
         bal_180 = calculate_remaining_balance(200000, 3.5, 240, 180)
         assert bal_60 > bal_180
+
+
+def test_insurance_defaults_follow_defaults_module():
+    """T25: the 0.35 % insurance default lives in defaults.py only."""
+    import inspect
+
+    from src.core.defaults import FINANCING
+    from src.domain.calculator import financial
+    from src.domain.models.brick import InvestmentBrick
+
+    for fn in (financial.calculate_total_monthly_payment, financial.generate_amortization_schedule):
+        assert inspect.signature(fn).parameters["annual_insurance_pct"].default == FINANCING.assurance_ann_pct
+    assert InvestmentBrick.model_fields["assurance_annuelle_pct"].default == FINANCING.assurance_ann_pct
