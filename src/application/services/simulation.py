@@ -13,7 +13,7 @@ from typing import Any
 import numpy_financial as npf
 import pandas as pd
 
-from src.core.defaults import FINANCING, MARKET, OPERATING, TAX
+from src.core.defaults import FINANCING, MARKET, OPERATING, REALISM, TAX
 from src.core.exceptions import SimulationError
 from src.domain.tax import (
     PropertyExit,
@@ -33,9 +33,8 @@ class MarketHypotheses:
     appreciation_bien_pct: float = MARKET.appreciation_bien_pct
     revalo_loyer_pct: float = MARKET.revalo_loyer_pct
     inflation_charges_pct: float = MARKET.inflation_charges_pct
-    # Taxe foncière growth (T26a). None = follow ``inflation_charges_pct`` (legacy behaviour, TAX_SPEC 1.8);
-    # RunContext always passes an explicit value (default REALISM.tf_growth_pct).
-    tf_growth_pct: float | None = None
+    # Taxe foncière growth (T26a), separate from the charges inflation. Never None.
+    tf_growth_pct: float = REALISM.tf_growth_pct
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> MarketHypotheses:
@@ -43,7 +42,7 @@ class MarketHypotheses:
             appreciation_bien_pct=d.get("appreciation_bien_pct", MARKET.appreciation_bien_pct),
             revalo_loyer_pct=d.get("revalo_loyer_pct", MARKET.revalo_loyer_pct),
             inflation_charges_pct=d.get("inflation_charges_pct", MARKET.inflation_charges_pct),
-            tf_growth_pct=d.get("tf_growth_pct"),
+            tf_growth_pct=d.get("tf_growth_pct", REALISM.tf_growth_pct),
         )
 
 
@@ -175,8 +174,8 @@ class SimulationEngine:
         ira: IRACalculator,
         cfe_par_bien_ann: float = OPERATING.cfe_par_bien_ann,
         frais_vente_pct: float = TAX.frais_vente_pct,
-        amort_immo_years: int = 30,
-        amort_mobilier_years: int = 10,
+        amort_immo_years: int = TAX.amort_immo_years,
+        amort_mobilier_years: int = TAX.amort_mobilier_years,
         ratio_terrain_pct: float = TAX.ratio_terrain_pct,
         amort_works_years: int = TAX.amort_works_years,
         nb_owners: int = TAX.nb_owners,
@@ -264,8 +263,7 @@ class SimulationEngine:
 
     @property
     def _tf_growth_pct(self) -> float:
-        tf = self.market.tf_growth_pct
-        return self.market.inflation_charges_pct if tf is None else tf
+        return self.market.tf_growth_pct
 
     def _cfe_for_year(self, p: dict[str, Any], year: int, receipts: float) -> float:
         """CFE of one property for one year (TAX_SPEC 5).
@@ -534,6 +532,45 @@ def _ratio_terrain_or_default(value: float | None) -> float:
     return TAX.ratio_terrain_pct if value is None else float(value)
 
 
+def build_engine(
+    market_hypotheses: dict[str, float] | None = None,
+    tax_params: dict[str, Any] | None = None,
+) -> SimulationEngine:
+    """The one way to build the simulation engine (market, tax, operating parameters).
+
+    Used by the search (``StrategyFinder``), the detail simulation and the sensitivity tab, so they
+    cannot drift apart. ``RunContext.build_engine()`` calls it with the run's own parameters.
+    """
+    market = MarketHypotheses.from_dict(market_hypotheses or {})
+
+    tax_dict = tax_params or {}
+    tax = TaxParams(
+        tmi_pct=tax_dict.get("tmi_pct", TAX.tmi_pct),
+        regime_fiscal=tax_dict.get("regime_fiscal", TAX.regime_fiscal),
+        micro_bic_abatt_pct=tax_dict.get("micro_bic_abatt_pct", TAX.micro_bic_abatt_pct),
+        regime_foncier=tax_dict.get("regime_foncier", TAX.regime_foncier),
+        sci_is=bool(tax_dict.get("sci_is", TAX.sci_is)),
+        sci_distribute_at_exit=bool(tax_dict.get("sci_distribute_at_exit", TAX.sci_distribute_at_exit)),
+    )
+
+    ira = IRACalculator(
+        apply_ira=tax_dict.get("apply_ira", FINANCING.apply_ira),
+        ira_cap_pct=tax_dict.get("ira_cap_pct", FINANCING.ira_cap_pct),
+    )
+
+    return SimulationEngine(
+        market=market,
+        tax=tax,
+        ira=ira,
+        cfe_par_bien_ann=tax_dict.get("cfe_par_bien_ann", OPERATING.cfe_par_bien_ann),
+        frais_vente_pct=tax_dict.get("frais_vente_pct", TAX.frais_vente_pct),
+        ratio_terrain_pct=_ratio_terrain_or_default(tax_dict.get("ratio_terrain_pct")),
+        nb_owners=int(tax_dict.get("nb_owners", TAX.nb_owners)),
+        amort_immo_years=int(tax_dict.get("amort_immo_years", TAX.amort_immo_years)),
+        amort_mobilier_years=int(tax_dict.get("amort_mobilier_years", TAX.amort_mobilier_years)),
+    )
+
+
 # Convenience function for backward compatibility
 def simulate_long_term_strategy(
     strategy: dict[str, Any],
@@ -553,32 +590,7 @@ def simulate_long_term_strategy(
     if not strategy or not strategy.get("details"):
         raise SimulationError("Cannot simulate an empty strategy")
 
-    market = MarketHypotheses.from_dict(market_hypotheses or {})
-
-    tax_dict = tax_params or {}
-    tax = TaxParams(
-        tmi_pct=tax_dict.get("tmi_pct", TAX.tmi_pct),
-        regime_fiscal=tax_dict.get("regime_fiscal", TAX.regime_fiscal),
-        micro_bic_abatt_pct=tax_dict.get("micro_bic_abatt_pct", TAX.micro_bic_abatt_pct),
-        regime_foncier=tax_dict.get("regime_foncier", TAX.regime_foncier),
-        sci_is=bool(tax_dict.get("sci_is", TAX.sci_is)),
-        sci_distribute_at_exit=bool(tax_dict.get("sci_distribute_at_exit", TAX.sci_distribute_at_exit)),
-    )
-
-    ira = IRACalculator(
-        apply_ira=tax_dict.get("apply_ira", FINANCING.apply_ira),
-        ira_cap_pct=tax_dict.get("ira_cap_pct", FINANCING.ira_cap_pct),
-    )
-
-    engine = SimulationEngine(
-        market=market,
-        tax=tax,
-        ira=ira,
-        cfe_par_bien_ann=tax_dict.get("cfe_par_bien_ann", OPERATING.cfe_par_bien_ann),
-        frais_vente_pct=tax_dict.get("frais_vente_pct", TAX.frais_vente_pct),
-        ratio_terrain_pct=_ratio_terrain_or_default(tax_dict.get("ratio_terrain_pct")),
-        nb_owners=int(tax_dict.get("nb_owners", TAX.nb_owners)),
-    )
+    engine = build_engine(market_hypotheses, tax_params)
 
     # Generate schedules using modular function
     schedules = [

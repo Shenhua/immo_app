@@ -105,6 +105,7 @@ def _run_engine(case: dict[str, Any]) -> dict[str, float]:
         "appreciation_bien_pct": inp["appreciation_pct"],
         "revalo_loyer_pct": inp["rent_indexation_pct"],
         "inflation_charges_pct": inp["charges_indexation_pct"],
+        "tf_growth_pct": inp["charges_indexation_pct"],  # golden spec indexes the taxe fonciere like charges
     }
     horizon = int(inp["horizon_years"])
     df, bilan = simulate_long_term_strategy(strategy, horizon, market, tax_params)

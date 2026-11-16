@@ -18,6 +18,7 @@ from src.core.defaults import (
     FINANCING,
     MARKET,
     OPERATING,
+    REALISM,
     SEARCH,
     TAX,
     PresetId,
@@ -48,6 +49,7 @@ class EvaluationParams:
         "appreciation_bien_pct": MARKET.appreciation_bien_pct,
         "revalo_loyer_pct": MARKET.revalo_loyer_pct,
         "inflation_charges_pct": MARKET.inflation_charges_pct,
+        "tf_growth_pct": REALISM.tf_growth_pct,
     })
     regime_fiscal: str = TAX.regime_fiscal  # furnished regime (TAX_SPEC 8)
     regime_foncier: str = TAX.regime_foncier  # unfurnished regime
@@ -62,6 +64,21 @@ class EvaluationParams:
     finance_weights_override: dict[str, float] | None = None
     finance_preset_name: str = DEFAULT_PRESET.label
 
+    def to_tax_params(self) -> dict[str, Any]:
+        """Tax / exit / operating parameters for ``build_engine``."""
+        return {
+            "tmi_pct": self.tmi_pct,
+            "regime_fiscal": self.regime_fiscal,
+            "regime_foncier": self.regime_foncier,
+            "sci_is": self.sci_is,
+            "apply_ira": self.apply_ira,
+            "ira_cap_pct": self.ira_cap_pct,
+            "cfe_par_bien_ann": self.cfe_par_bien_ann,
+            "frais_vente_pct": self.frais_vente_pct,
+            "ratio_terrain_pct": self.ratio_terrain_pct,
+            "nb_owners": self.nb_owners,
+        }
+
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> EvaluationParams:
         return cls(
@@ -70,6 +87,7 @@ class EvaluationParams:
                 "appreciation_bien_pct": MARKET.appreciation_bien_pct,
                 "revalo_loyer_pct": MARKET.revalo_loyer_pct,
                 "inflation_charges_pct": MARKET.inflation_charges_pct,
+                "tf_growth_pct": REALISM.tf_growth_pct,
             },
             regime_fiscal=d.get("regime_fiscal", TAX.regime_fiscal),
             regime_foncier=d.get("regime_foncier", TAX.regime_foncier),
@@ -282,7 +300,7 @@ class StrategyFinder:
             progress_callback: Optional callback function(SearchProgress) for UI updates
         """
         # Dependencies
-        from .simulation import IRACalculator, MarketHypotheses, SimulationEngine, TaxParams
+        from .simulation import build_engine
 
         # 1. Setup
         ep = EvaluationParams.from_dict(eval_params or {})
@@ -291,30 +309,7 @@ class StrategyFinder:
         if ep.finance_weights_override:
             self.scorer.weights = self.scorer._normalize_weights(ep.finance_weights_override)
 
-        market = MarketHypotheses(
-            appreciation_bien_pct=ep.hypotheses_marche["appreciation_bien_pct"],
-            revalo_loyer_pct=ep.hypotheses_marche["revalo_loyer_pct"],
-            inflation_charges_pct=ep.hypotheses_marche["inflation_charges_pct"],
-        )
-        tax = TaxParams(
-            tmi_pct=ep.tmi_pct,
-            regime_fiscal=ep.regime_fiscal,
-            regime_foncier=ep.regime_foncier,
-            sci_is=ep.sci_is,
-        )
-        ira = IRACalculator(
-            apply_ira=ep.apply_ira,
-            ira_cap_pct=ep.ira_cap_pct,
-        )
-        engine = SimulationEngine(
-            market=market,
-            tax=tax,
-            ira=ira,
-            cfe_par_bien_ann=ep.cfe_par_bien_ann,
-            frais_vente_pct=ep.frais_vente_pct,
-            ratio_terrain_pct=TAX.ratio_terrain_pct if ep.ratio_terrain_pct is None else ep.ratio_terrain_pct,
-            nb_owners=ep.nb_owners,
-        )
+        engine = build_engine(ep.hypotheses_marche, ep.to_tax_params())
 
         allocator = PortfolioAllocator(self.mode_cf)
 

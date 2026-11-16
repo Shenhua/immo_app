@@ -80,6 +80,9 @@ class TaxDefaults:
     ratio_terrain_pct: float = 15.0
     # Works are their own amortization component (TAX_SPEC 4.1, 15 years, range 10-15).
     amort_works_years: int = 15
+    # Building (30 y) and furniture (10 y) amortization durations (TAX_SPEC 4.1).
+    amort_immo_years: int = 30
+    amort_mobilier_years: int = 10
     # Number of co-owners selling each property (1 or 2). Splits the gain for the surtax threshold only
     # (CGI 1609 nonies G, TAX_SPEC 3.5 / 11b).
     nb_owners: int = 1
