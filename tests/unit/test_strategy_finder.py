@@ -1,8 +1,9 @@
 """Unit tests for src.services.strategy_finder module."""
 
+from src.application.services.allocator import PortfolioAllocator
+from src.application.services.optimizer import BrickTable, SearchProblem, enumerate_subsets
 from src.application.services.strategy_finder import (
     BASE_WEIGHTS,
-    CombinationGenerator,
     EvaluationParams,
     StrategyFinder,
     StrategyScorer,
@@ -76,47 +77,46 @@ class TestStrategyScorer:
         assert abs(score - 0.8) < 0.001
 
 
-class TestCombinationGenerator:
-    """Tests for CombinationGenerator."""
+def _subsets(bricks, budget, max_props):
+    """Property subsets (as name tuples) enumerated by the T31 search."""
+    problem = SearchProblem(budget=budget, target_cf=0.0, tolerance=100.0, horizon=20, max_props=max_props,
+                            mode_cf="min")
+    allocator = PortfolioAllocator("min")
+    table = BrickTable([allocator.prepare(b) for b in bricks], problem, {})
+    return [tuple(table.names[p] for p in s) for s in enumerate_subsets(table, budget, max_props)]
+
+
+class TestSubsetEnumeration:
+    """Property-subset enumeration (replaces CombinationGenerator, T31)."""
 
     def test_generates_combinations(self):
-        """Should generate valid combinations."""
         bricks = [
             InvestmentBrick(nom="A", apport_min=10000, prix_achat_bien=100000, capital_emprunte=90000, loyer_mensuel_initial=500),
             InvestmentBrick(nom="B", apport_min=20000, prix_achat_bien=200000, capital_emprunte=180000, loyer_mensuel_initial=1000),
         ]
-        gen = CombinationGenerator(max_properties=2)
-        combos = gen.generate(bricks, apport_disponible=50000)
-
-        # Should have: (A,), (B,), (A, B)
-        combos = list(combos)
-        assert len(combos) == 3
+        assert _subsets(bricks, 50000, 2) == [("A",), ("A", "B"), ("B",)]
 
     def test_respects_budget(self):
-        """Should filter by apport_min."""
         bricks = [
             InvestmentBrick(nom="A", apport_min=30000, prix_achat_bien=100000, capital_emprunte=70000, loyer_mensuel_initial=500),
             InvestmentBrick(nom="B", apport_min=30000, prix_achat_bien=100000, capital_emprunte=70000, loyer_mensuel_initial=500),
         ]
-        gen = CombinationGenerator(max_properties=2)
-        combos = gen.generate(bricks, apport_disponible=40000)
-
-        # Only single properties fit, not both
-        combos = list(combos)
-        assert len(combos) == 2
+        assert _subsets(bricks, 40000, 2) == [("A",), ("B",)]
 
     def test_no_duplicates_same_name(self):
-        """Should not allow same property twice."""
         bricks = [
             InvestmentBrick(nom="A", apport_min=10000, prix_achat_bien=100000, capital_emprunte=90000, loyer_mensuel_initial=500),
-            InvestmentBrick(nom="A", apport_min=15000, prix_achat_bien=100000, capital_emprunte=85000, loyer_mensuel_initial=550), # Same name
+            InvestmentBrick(nom="A", apport_min=15000, prix_achat_bien=100000, capital_emprunte=85000,
+                            loyer_mensuel_initial=550, duree_credit_mois=300),
         ]
-        gen = CombinationGenerator(max_properties=2)
-        combos = gen.generate(bricks, apport_disponible=50000)
+        assert _subsets(bricks, 50000, 2) == [("A",)]
 
-        # Should only have single-property combos
-        combos = list(combos)
-        assert all(len(c) == 1 for c in combos)
+    def test_max_props(self):
+        bricks = [InvestmentBrick(nom=f"P{i}", apport_min=1000, prix_achat_bien=100000, capital_emprunte=99000,
+                                  loyer_mensuel_initial=500) for i in range(6)]
+        subs = _subsets(bricks, 1e9, 3)
+        assert len(subs) == 6 + 15 + 20
+        assert max(len(s) for s in subs) == 3
 
 
 class TestStrategyFinder:

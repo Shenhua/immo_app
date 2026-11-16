@@ -100,3 +100,51 @@ def test_allocator_impossible_target(allocator, sample_bricks):
         tolerance=10.0
     )
     assert ok is False
+
+
+# --- T31: analytic allocation (no step truncation) -------------------------------------------------------
+
+
+@pytest.mark.parametrize("target", [-60.0, -1.0, 0.0, 150.0, 333.33])
+def test_min_mode_lands_on_the_target_not_one_step_short(sample_bricks, target):
+    """Regression: the stepped allocator stopped at e.g. -1,501 for a -1,500 target and reported ok=False."""
+    alloc = PortfolioAllocator(mode_cf="min")
+    ok, details, cf, apport = alloc.allocate(sample_bricks, 200000.0, target, 100.0)
+    assert ok is True
+    assert target <= cf < target + 0.05
+    assert apport == pytest.approx(sum(d["apport_final_bien"] for d in details))
+
+
+def test_min_mode_uses_the_smallest_down_payment(sample_bricks):
+    alloc = PortfolioAllocator(mode_cf="min")
+    prepared = [alloc.prepare(b) for b in sample_bricks]
+    cf0 = alloc.plan(prepared, 200000.0, -10_000.0).cf
+    plan = alloc.plan(prepared, 200000.0, cf0 + 50.0)
+    # 50 EUR/month of cash flow costs exactly 50 / k euros of down payment
+    assert plan.extra[0] == pytest.approx((50.0 + alloc.MIN_MODE_EPS) / prepared[0].k)
+
+
+def test_combination_over_budget_is_never_ok(sample_bricks):
+    alloc = PortfolioAllocator(mode_cf="min")
+    ok, _, _, apport = alloc.allocate(sample_bricks, 5000.0, -10_000.0, 100.0)  # apport_min is 10,000
+    assert ok is False
+    assert apport == 10000.0
+
+
+def test_highest_k_brick_is_filled_first(sample_bricks):
+    short = sample_bricks[0].model_copy(update={"nom": "short", "duree_credit_mois": 120})
+    long_ = sample_bricks[0].model_copy(update={"nom": "long", "duree_credit_mois": 300})
+    alloc = PortfolioAllocator(mode_cf="min")
+    prepared = [alloc.prepare(long_), alloc.prepare(short)]
+    cf0 = alloc.plan(prepared, 300000.0, -1e9).cf
+    plan = alloc.plan(prepared, 300000.0, cf0 + 100.0)
+    assert plan.extra[0] == 0.0 and plan.extra[1] > 0.0  # the 10-year loan has the higher k
+
+
+def test_full_cash_when_the_whole_loan_is_needed(sample_bricks):
+    alloc = PortfolioAllocator(mode_cf="min")
+    prepared = [alloc.prepare(b) for b in sample_bricks]
+    top = alloc.max_cf(prepared, 500000.0)
+    plan = alloc.plan(prepared, 500000.0, top - 0.5)
+    assert plan.ok and plan.extra[0] == pytest.approx(prepared[0].capital)
+    assert alloc.details(prepared, plan.extra)[0]["credit_final"] == 0.0

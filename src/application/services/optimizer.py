@@ -1,707 +1,599 @@
+"""Portfolio search (T31): property subsets x loan durations, deterministic.
+
+Replaces the brick-level exhaustive search (ThreadPool over up to 1M combinations) and the genetic algorithm.
+
+Pipeline
+--------
+1. **Prepare** every brick once (``PortfolioAllocator.prepare``): loan constant ``k``, stabilised pre-tax NOI,
+   minimum down payment, the dumped dict. Nothing is re-dumped per combination.
+2. **Enumerate property subsets** (distinct ``nom``) of size 1..max_props, depth-first over the properties
+   sorted by their cheapest minimum down payment, pruning a branch as soon as the cheapest down payments exceed
+   the budget. A property can therefore never appear twice in a portfolio, whatever its loan duration.
+3. **Screen loan-duration assignments** with vectorised numpy, per subset:
+   - exact enumeration of all assignments when ``options ** k <= EXACT_MAX_ASSIGNMENTS`` (3 durations: k <= 5);
+   - otherwise greedy: start from the duration with the best stand-alone cash flow for every property, then one
+     pass of single-position swaps. This is a local optimum of the proxy, not a global one.
+   Each assignment gets the analytic pre-tax allocation, a pre-filter verdict and a cheap proxy (pre-tax return
+   on equity over the horizon, ``_roe_proxy``).
+4. **Pick the assignments to simulate.** If every assignment that passes the pre-filter fits in
+   ``EVAL_BUDGET`` evaluations, all of them are simulated (``solver_mode = "EXHAUSTIVE"``, same candidate set
+   as the old exhaustive search). Otherwise each subset keeps its ``M`` best assignments by proxy, with
+   ``M = max(1, EVAL_BUDGET // subsets)`` (``solver_mode = "SUBSET_PROXY"``). Bound: on the 18-property data
+   set, the proxy picks the evaluator's best duration set for 48-90 % of the subsets and the mean fitness lost
+   on the others is under 0.6 point out of 100 (measured during T31).
+5. **Evaluate** each picked assignment with the full simulation, serially or in a process pool (see
+   ``PARALLEL_MIN_EVALS``), and accept it on the after-tax stabilised cash flow (``glossary.CF_ACCEPTANCE_BASIS``).
+   The pre-tax allocation is corrected for the simulated income tax (at most ``TAX_CORRECTION_ROUNDS`` rounds).
+6. Results come back in candidate order (subset order, then assignment order), never in completion order.
+
+Every result satisfies: ``apport_total <= budget``, unique ``nom``, ``len(details) <= max_props``.
 """
-Genetic Algorithm Optimizer for Real Estate Portfolios.
-Finds optimal combinations of InvestmentBricks to maximize a fitness score
-subject to Budget and Cashflow constraints.
-"""
-import copy
-import random
+from __future__ import annotations
+
+import itertools
+import math
+import os
+import time
+from collections.abc import Callable, Iterator, Sequence
+from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures.process import BrokenProcessPool
+from dataclasses import dataclass
+from pickle import PicklingError
 from typing import Any
 
 import numpy as np
 import structlog
 
+from src.core.defaults import MARKET, TAX, TAX_RATES
+from src.core.glossary import cf_accepts
+from src.domain.models.archetype import is_furnished
 from src.domain.models.brick import InvestmentBrick
 
-from .allocator import PortfolioAllocator
+from .allocator import PortfolioAllocator, PreparedBrick
 from .evaluator import StrategyEvaluator
 from .simulation import SimulationEngine
 
-log = structlog.get_logger()
+log = structlog.get_logger(__name__)
 
-class Individual:
-    """Represents a candidate portfolio (strategy)."""
-    def __init__(self, bricks: list[InvestmentBrick]):
-        self.bricks = bricks
-        self.fitness: float = -1.0
-        self.stats: dict[str, Any] = {}
-        self.is_valid: bool = False
+# Above this many duration assignments per subset the screening switches from exact to greedy + one swap pass.
+EXACT_MAX_ASSIGNMENTS = 243  # 3 ** 5
+# Simulations allowed before the duration choice falls back to the proxy's top-M per subset.
+EVAL_BUDGET = 12_000
+# Candidates below this count are simulated serially (a process pool costs ~1 s to start).
+PARALLEL_MIN_EVALS = 2_000
+MAX_WORKERS = 16  # capped further at cpu_count - 1
+# Rounds of "simulate, measure the income tax, re-allocate" per candidate.
+TAX_CORRECTION_ROUNDS = 3
+# An accepted allocation is re-run with less down payment only if the tax refund frees this much CF (EUR/month).
+MIN_REFUND_SAVING = 5.0
+# Rows screened per numpy batch (memory bound: rows x k floats per array).
+_SCREEN_CHUNK_ROWS = 200_000
 
-    @property
-    def key(self) -> str:
-        """Unique signature for deduplication."""
-        names = sorted([b.nom for b in self.bricks])
-        return "|".join(names)
 
-class GeneticOptimizer:
-    """Genetic Algorithm optimizer for finding optimal property portfolios.
+class SearchInvariantError(AssertionError):
+    """A search result broke a hard invariant (budget, unique properties, size). Always a bug."""
 
-    Uses evolutionary strategies to search large combination spaces efficiently:
-    - Tournament selection for parent selection
-    - Crossover to combine successful strategies
-    - Mutation to explore new combinations
-    - Elitism to preserve best solutions
 
-    Best for large search spaces (>100K combinations) where exhaustive search
-    is infeasible. Falls back from ExhaustiveOptimizer when threshold is exceeded.
+def check_invariants(strategies: Sequence[dict[str, Any]], budget: float, max_props: int) -> None:
+    """Raise ``SearchInvariantError`` unless every strategy is within budget, has unique names and fits."""
+    for s in strategies:
+        details = s.get("details", [])
+        names = [d.get("nom", d.get("nom_bien")) if isinstance(d, dict) else d.nom for d in details]
+        if float(s.get("apport_total", 0.0)) > budget + 1e-6:
+            raise SearchInvariantError(f"over budget: {s.get('apport_total')} > {budget} ({names})")
+        if len(set(names)) != len(names):
+            raise SearchInvariantError(f"duplicate property in {names}")
+        if not 0 < len(names) <= max_props:
+            raise SearchInvariantError(f"{len(names)} properties, max {max_props} ({names})")
 
-    Attributes:
-        pop_size: Population size per generation
-        generations: Number of evolution cycles
-        mutation_rate: Probability of mutation per individual
-        crossover_rate: Probability of crossover vs direct copy
-        elite_size: Number of top individuals preserved each generation
-        max_properties: Maximum properties allowed per portfolio
+
+@dataclass(frozen=True)
+class SearchProblem:
+    """Everything a worker needs to evaluate a candidate (picklable)."""
+
+    budget: float
+    target_cf: float
+    tolerance: float
+    horizon: int
+    max_props: int
+    mode_cf: str
+    # Bounds on the monthly income tax of the stabilised year, used only to widen the pre-tax pre-filter:
+    # after-tax CF <= pre-tax CF + refund_max (déficit foncier on global income), >= pre-tax CF - rent * tax_rate_max.
+    refund_max: float = 0.0
+    tax_rate_max: float = 0.0
+    appreciation_pct: float = MARKET.appreciation_bien_pct
+    frais_vente_pct: float = TAX.frais_vente_pct
+
+
+def tax_bounds(tax_params: dict[str, Any]) -> tuple[float, float]:
+    """(max monthly refund, max tax rate on gross rent) for the pre-filter margins.
+
+    Refund: an unfurnished deficit under the foncier réel regime is deducted from global income up to
+    10,700 EUR, plus 10,700 EUR for energy works until 2027 (CGI 156 I 3°; TAX_RATES), at the TMI.
+    LMNP and SCI IS deficits only carry forward, so they never refund. Tax rate: taxable income never exceeds
+    gross rent, so tax <= rent x (TMI + highest social levy), or x the IS normal rate for an SCI.
     """
+    tmi = float(tax_params.get("tmi_pct", TAX.tmi_pct)) / 100.0
+    sci = bool(tax_params.get("sci_is", TAX.sci_is))
+    foncier_reel = str(tax_params.get("regime_foncier", TAX.regime_foncier)) == "reel"
+    refund = 0.0
+    if foncier_reel and not sci:
+        refund = (TAX_RATES.deficit_foncier_global_cap + TAX_RATES.deficit_foncier_energy_extra_cap) * tmi / 12.0
+    rate = max(tmi + max(TAX_RATES.ps_bic_pct, TAX_RATES.ps_foncier_pct) / 100.0, TAX_RATES.is_normal_pct / 100.0)
+    return refund, rate
 
-    def __init__(
-        self,
-        population_size: int = 50,
-        generations: int = 20,
-        mutation_rate: float = 0.2,
-        crossover_rate: float = 0.7,
-        elite_size: int = 5,
-        max_properties: int = 5,
-        allocator: PortfolioAllocator | None = None,
-        simulator: SimulationEngine | None = None,
-        scorer: Any | None = None,
-        seed: int = 42
-    ):
-        """Initialize the Genetic Optimizer.
 
-        Args:
-            population_size: Number of individuals per generation (default: 50)
-            generations: Number of evolution cycles (default: 20)
-            mutation_rate: Probability of mutation (0.0-1.0, default: 0.2)
-            crossover_rate: Probability of crossover (0.0-1.0, default: 0.7)
-            elite_size: Top N individuals to preserve (default: 5)
-            max_properties: Max properties per portfolio (default: 5)
-            allocator: PortfolioAllocator for capital allocation
-            simulator: SimulationEngine for financial projections
-            scorer: StrategyScorer for fitness calculation
-            seed: Random seed for reproducibility (default: 42)
-        """
-        self.pop_size = population_size
-        self.generations = generations
-        self.mutation_rate = mutation_rate
-        self.crossover_rate = crossover_rate
-        self.elite_size = elite_size
-        self.max_properties = max_properties
-        self.seed = seed
+# --------------------------------------------------------------------------- brick table
+class BrickTable:
+    """Prepared bricks as numpy columns, grouped by property."""
 
+    def __init__(self, prepared: Sequence[PreparedBrick], problem: SearchProblem, market: dict[str, float]):
+        self.prepared = list(prepared)
+        n = len(self.prepared)
+        self.apport_min = np.array([b.apport_min for b in self.prepared], dtype=float)
+        self.capital = np.array([b.capital for b in self.prepared], dtype=float)
+        self.k = np.array([b.k for b in self.prepared], dtype=float)
+        self.noi = np.array([b.noi_stab for b in self.prepared], dtype=float)
+        g_rent = 1.0 + float(market.get("revalo_loyer_pct", MARKET.revalo_loyer_pct)) / 100.0
+        rent = np.array([float(b.data.get("loyer_mensuel_initial", 0.0) or 0.0) for b in self.prepared]) * g_rent
+        self.unfurnished = np.array([not is_furnished(b.data) for b in self.prepared], dtype=bool)
+        self.tax_up = rent * problem.tax_rate_max  # max monthly tax per brick (pre-filter, target mode)
+
+        # ROE proxy constants (pre-tax, see _roe_proxy): value_i is what the brick returns over the horizon at
+        # zero debt (NOI + net sale price); debt_i is the debt cost over the horizon per euro still borrowed.
+        h = int(problem.horizon)
+        growth_sum = sum(g_rent ** (y - 2) for y in range(1, h + 1))
+        g_price = (1.0 + problem.appreciation_pct / 100.0) ** h
+        price = np.array([float(b.data.get("prix_achat_bien", 0.0) or 0.0) for b in self.prepared])
+        self.value = 12.0 * self.noi * growth_sum + price * g_price * (1.0 - problem.frais_vente_pct / 100.0)
+        self.debt = np.array([
+            b.k * min(b.duree_mois, 12 * h) + _balance_fraction(float(b.data.get("taux_annuel_pct", 0.0)),
+                                                                  b.duree_mois, 12 * h)
+            for b in self.prepared
+        ])
+        self.cf0 = self.noi - self.k * self.capital
+
+        # Properties: distinct names, options sorted by duration (then input order). Duplicated (nom, duration)
+        # bricks keep the first one.
+        options: dict[str, list[int]] = {}
+        seen: set[tuple[str, int]] = set()
+        for i, b in enumerate(self.prepared):
+            if (b.nom, b.duree_mois) in seen:
+                continue
+            seen.add((b.nom, b.duree_mois))
+            options.setdefault(b.nom, []).append(i)
+        for opts in options.values():
+            opts.sort(key=lambda i: (self.prepared[i].duree_mois, i))
+        # Properties by cheapest down payment, then name: the order of enumeration and of every tie.
+        self.names = sorted(options, key=lambda nm: (min(self.apport_min[i] for i in options[nm]), nm))
+        self.n_props = len(self.names)
+        self.m = max((len(v) for v in options.values()), default=0)
+        self.options = np.full((self.n_props, max(1, self.m)), -1, dtype=np.int64)
+        for p, nm in enumerate(self.names):
+            self.options[p, : len(options[nm])] = options[nm]
+        self.n_options = np.array([len(options[nm]) for nm in self.names], dtype=np.int64)
+        self.prop_min_apport = np.array([min(self.apport_min[i] for i in options[nm]) for nm in self.names])
+        # Best stand-alone cash flow option per property (greedy start).
+        self.best_cf_option = np.array([
+            int(np.argmax([self.cf0[i] for i in options[nm]])) for nm in self.names
+        ], dtype=np.int64)
+        assert n == len(self.apport_min)
+
+
+def _balance_fraction(rate_pct: float, n_months: int, paid_months: int) -> float:
+    """Outstanding principal after ``paid_months`` of an ``n_months`` annuity, as a fraction of the loan."""
+    if n_months <= 0 or paid_months >= n_months:
+        return 0.0
+    r = rate_pct / 1200.0
+    if r == 0:
+        return 1.0 - paid_months / n_months
+    return ((1 + r) ** n_months - (1 + r) ** paid_months) / ((1 + r) ** n_months - 1)
+
+
+def enumerate_subsets(table: BrickTable, budget: float, max_props: int) -> Iterator[tuple[int, ...]]:
+    """Property subsets (indices into ``table.names``) whose cheapest down payments fit the budget.
+
+    Depth-first, properties in ``table.names`` order (cheapest first), so a branch stops at the first property
+    that no longer fits. Deterministic.
+    """
+    costs = table.prop_min_apport
+    n = table.n_props
+
+    def rec(start: int, chosen: list[int], spent: float) -> Iterator[tuple[int, ...]]:
+        if chosen:
+            yield tuple(chosen)
+        if len(chosen) >= max_props:
+            return
+        for p in range(start, n):
+            c = spent + costs[p]
+            if c > budget + 1e-6:
+                break
+            chosen.append(p)
+            yield from rec(p + 1, chosen, c)
+            chosen.pop()
+
+    yield from rec(0, [], 0.0)
+
+
+# --------------------------------------------------------------------------- vectorised screening
+@dataclass
+class Screen:
+    """Screening result for rows of brick-index assignments (n, k)."""
+
+    passes: np.ndarray  # pre-filter verdict
+    proxy: np.ndarray  # higher is better; -inf when the row does not pass
+
+
+def screen(table: BrickTable, rows: np.ndarray, problem: SearchProblem, max_extra_pct: float) -> Screen:
+    """Vectorised analytic allocation + pre-filter + proxy for assignment rows (brick indices, shape (n, k)).
+
+    Mirrors ``PortfolioAllocator.plan``/``_fill`` (same greedy, same tie order) so the proxy is computed at the
+    down payment the evaluation will use. The pre-filter is deliberately loose: it only drops rows that cannot
+    meet the target on the after-tax basis given the tax bounds of ``SearchProblem``.
+    """
+    n, k = rows.shape
+    amin = table.apport_min[rows].sum(axis=1)
+    K = table.k[rows]
+    C = table.capital[rows]
+    cf0 = table.cf0[rows].sum(axis=1)
+    money = problem.budget - amin
+    in_budget = money >= -1e-6
+    money = np.maximum(money, 0.0)
+    target, tol = problem.target_cf, problem.tolerance
+
+    if problem.mode_cf == "target":
+        need = np.where(cf0 < target - tol, target - cf0, 0.0)
+    else:
+        need = np.where(cf0 < target, target + PortfolioAllocator.MIN_MODE_EPS - cf0, 0.0)
+    X = _fill(K, C, need, money, max_extra_pct)
+    extra = X.sum(axis=1)
+
+    # Loose upper bound of the reachable pre-tax CF: every euro at the best k, or every loan repaid.
+    cf_max = cf0 + np.minimum((K * C).sum(axis=1), K.max(axis=1) * money)
+    refund = np.where(table.unfurnished[rows].any(axis=1), problem.refund_max, 0.0)
+    if problem.mode_cf == "target":
+        tax_up = table.tax_up[rows].sum(axis=1)
+        passes = in_budget & (cf_max + refund >= target - tol) & (cf0 - tax_up <= target + tol)
+    else:
+        passes = in_budget & (cf_max + refund >= target)
+
+    proxy = _roe_proxy(table, rows, X, amin, extra)
+    return Screen(passes=passes, proxy=np.where(passes, proxy, -np.inf))
+
+
+def _fill(K: np.ndarray, C: np.ndarray, need: np.ndarray, money: np.ndarray, pct: float) -> np.ndarray:
+    """Row-wise ``PortfolioAllocator._fill``: extra down payment per column."""
+    order = np.argsort(-K, axis=1, kind="stable")
+    Ks = np.take_along_axis(K, order, axis=1)
+    Cs = np.take_along_axis(C, order, axis=1)
+    Xs = np.zeros_like(Ks)
+    left = need.astype(float).copy()
+    money = money.astype(float).copy()
+    with np.errstate(divide="ignore", invalid="ignore"):
+        for j in range(Ks.shape[1]):
+            kj, cj = Ks[:, j], Cs[:, j]
+            active = (left > 1e-9) & (money > 1e-9) & (kj > 0) & (cj > 0)
+            want = np.where(kj > 0, left / np.where(kj > 0, kj, 1.0), 0.0)
+            full = (want >= cj) & (money >= cj)
+            x = np.where(full, cj, np.minimum(np.minimum(want, pct * cj), money))
+            x = np.where(active, x, 0.0)
+            Xs[:, j] = x
+            left = left - np.where(active, kj * x, 0.0)
+            money = money - x
+        for j in range(Ks.shape[1]):
+            kj, cj = Ks[:, j], Cs[:, j]
+            rest = cj - Xs[:, j]
+            act = (left > 1e-9) & (kj > 0) & (rest > 0) & (money >= rest)
+            Xs[:, j] = np.where(act, cj, Xs[:, j])
+            left = left - np.where(act, kj * rest, 0.0)
+            money = money - np.where(act, rest, 0.0)
+    X = np.empty_like(Xs)
+    np.put_along_axis(X, order, Xs, axis=1)
+    return X
+
+
+def _roe_proxy(table: BrickTable, rows: np.ndarray, X: np.ndarray, amin: np.ndarray, extra: np.ndarray) -> np.ndarray:
+    """Pre-tax return on equity over the horizon: (NOI + net sale - debt cost - down payment) / down payment.
+
+    Chosen during T31 among several cheap proxies (shortest/longest loans, smallest down payment, pre-tax IRR,
+    a pre-tax replica of the evaluator score) as the one that best predicts which loan durations the evaluator
+    ranks first inside a subset.
+    """
+    borrowed = table.capital[rows] - X
+    wealth = table.value[rows].sum(axis=1) - (borrowed * table.debt[rows]).sum(axis=1) - amin - extra
+    equity = np.maximum(amin + extra, 1.0)
+    return np.asarray(wealth / equity, dtype=float)
+
+
+# --------------------------------------------------------------------------- evaluation
+class CandidateEvaluator:
+    """Allocates and simulates one assignment; accepts it on the after-tax stabilised CF."""
+
+    def __init__(self, allocator: PortfolioAllocator, evaluator: StrategyEvaluator, prepared: Sequence[PreparedBrick],
+                 problem: SearchProblem):
         self.allocator = allocator
-        self.simulator = simulator
-        self.scorer = scorer
+        self.evaluator = evaluator
+        self.prepared = list(prepared)
+        self.problem = problem
 
-        # Create evaluator for shared evaluation logic
-        if simulator:
-            self.evaluator: StrategyEvaluator | None = StrategyEvaluator(simulator, allocator, scorer)
-        else:
-            self.evaluator = None
+    def __call__(self, bricks: tuple[int, ...]) -> tuple[tuple[float, ...], float, dict[str, Any]] | None:
+        """Return (extra per brick, pre-tax CF estimate, metrics) of the best accepted allocation, or None.
 
-        if self.seed is not None:
-            random.seed(self.seed)
-            np.random.seed(self.seed)
-
-    def _generate_random_individual(
-        self,
-        all_bricks: list[InvestmentBrick],
-        budget: float,
-        target_cf: float,
-        tolerance: float
-    ) -> Individual:
-        """Create a random valid-ish individual respecting budget and max_properties."""
-        # Simple greedy approach to fill budget randomly
-        available = list(all_bricks)
-        random.shuffle(available)
-        selected = []
-        current_cost = 0.0
-
-        for b in available:
-            if len(selected) >= self.max_properties:
+        Round 1 allocates for the target on the pre-tax estimate. If the simulated after-tax CF differs from the
+        estimate by the stabilised-year income tax ``t``, the next round allocates for ``target + t``, so the
+        after-tax CF lands on the target (or, with a refund, the down payment shrinks). Stops when accepted
+        with nothing left to save, when the allocation repeats, or after ``TAX_CORRECTION_ROUNDS``.
+        """
+        pb = self.problem
+        P = [self.prepared[i] for i in bricks]
+        bias = 0.0
+        best: tuple[tuple[float, ...], float, dict[str, Any]] | None = None
+        seen: set[float] = set()
+        for _ in range(TAX_CORRECTION_ROUNDS):
+            plan = self.allocator.plan(P, pb.budget, pb.target_cf + bias, pb.tolerance)
+            if not plan.within_budget:
+                return None
+            key = round(plan.apport_total, 2)
+            if key in seen:
                 break
-            cost = b.apport_min
-            if current_cost + cost <= budget:
-                selected.append(b)
-                current_cost += cost
-
-            # Stop randomly to allow diverse portfolio sizes
-            if current_cost > budget * 0.9 and random.random() < 0.5:
+            seen.add(key)
+            details = self.allocator.details(P, plan.extra)
+            strategy = {"details": details, "apport_total": plan.apport_total}
+            _, metrics = self.evaluator.evaluate(strategy, pb.target_cf, pb.tolerance, pb.horizon)
+            if "error" in metrics:
+                return best
+            after = float(metrics["cf_monthly_stab"])
+            accepted = cf_accepts(after, pb.target_cf, pb.tolerance, pb.mode_cf)
+            if accepted and (best is None or metrics["fitness"] > best[2]["fitness"]):
+                best = (plan.extra, plan.cf, metrics)
+            tax = plan.cf - after  # stabilised monthly income tax (negative = refund)
+            new_bias = tax
+            if accepted and (sum(plan.extra) <= 0.0 or new_bias >= bias - MIN_REFUND_SAVING):
                 break
-
-        return Individual(selected)
-
-    def _evaluate(
-        self,
-        ind: Individual,
-        budget: float,
-        target_cf: float,
-        tolerance: float,
-        horizon: int
-    ) -> None:
-        """Calculate fitness for an individual using StrategyEvaluator."""
-        if not ind.bricks:
-            ind.fitness = 0.0
-            ind.is_valid = False
-            return
-
-        # 1. Allocation (GA-specific step)
-        ok, details, cf_final, apport_used = self.allocator.allocate(
-            ind.bricks, budget, target_cf, tolerance
-        )
-
-        # Store allocated details
-        ind.stats["allocated_details"] = details
-        ind.stats["cash_flow_final"] = cf_final
-        ind.stats["apport_total"] = apport_used
-        ind.stats["allocation_ok"] = ok
-
-        if not ok:
-            ind.fitness = 0.1
-            ind.is_valid = False
-            return
-
-        # 2. Use StrategyEvaluator for simulation and scoring
-        strategy = {
-            "details": details,
-            "apport_total": apport_used
-        }
-
-        is_valid, metrics = self.evaluator.evaluate(strategy, target_cf, tolerance, horizon)
-
-        if "error" in metrics:
-            ind.fitness = 0.0
-            ind.is_valid = False
-            return
-
-        # Store metrics
-        ind.stats["bilan"] = {
-            "liquidation_nette": metrics.get("liquidation_nette", 0.0),
-            "enrichissement_net": metrics.get("enrich_net", 0.0),
-            "tri_annuel": metrics.get("tri_annuel", 0.0),
-            "dscr_y1": metrics.get("dscr_y1", 0.0),
-            "dscr_stab": metrics.get("dscr_stab", 0.0),
-        }
-        ind.stats.update({
-            k: v for k, v in metrics.items()
-            if k not in ["error", "liquidation_nette", "enrich_net"]
-        })
-
-        if not metrics.get("is_acceptable", False):
-            ind.fitness = 0.2
-            ind.is_valid = False
-            return
-
-        ind.fitness = metrics.get("fitness", 0.01)
-        ind.is_valid = True
-        ind.stats["qual_score"] = metrics.get("qual_score", 50.0)
-
-
-
-    def _individual_to_strategy(self, ind: Individual) -> dict[str, Any]:
-        """Convert Individual to Strategy dict format."""
-        # Use stored allocated details
-        details = ind.stats.get("allocated_details", ind.bricks)
-        bilan = ind.stats.get("bilan", {})
-
-        s = {
-            "details": details,
-            "apport_total": ind.stats.get("apport_total", 0.0),
-            "cash_flow_final": ind.stats.get("cash_flow_final", 0.0),
-            "allocation_ok": ind.stats.get("allocation_ok", False),
-            "fitness": ind.fitness,
-
-            # Populate fields expected by UI/Scorer
-            # Note: Simulator returns 'tri_annuel', 'enrichissement_net'
-            # We map them to standard UI keys 'tri_global', 'enrich_net'
-            "liquidation_nette": bilan.get("liquidation_nette", 0.0),
-            "enrich_net": bilan.get("enrichissement_net", ind.stats.get("enrichissement_net", 0.0)),
-            "tri_annuel": bilan.get("tri_annuel", 0.0),
-            "tri_global": bilan.get("tri_annuel", 0.0),
-            "dscr_y1": bilan.get("dscr_y1", 0.0),
-            "dscr_stab": bilan.get("dscr_stab", 0.0),
-            "qual_score": ind.stats.get("qual_score", 50.0),
-        }
-
-        # Add CF metrics
-        for key in ("cf_monthly_y1", "cf_monthly_stab", "cf_monthly_avg"):
-            if key in ind.stats:
-                s[key] = ind.stats[key]
-
-        return s
-
-    def evolve(
-        self,
-        all_bricks: list[InvestmentBrick],
-        budget: float,
-        target_cf: float,
-        tolerance: float,
-        horizon: int = 20,
-        top_n: int = 100
-    ) -> list[dict[str, Any]]:
-        """Main evolution loop."""
-
-        # Pre-process bricks for Smart Seeding (Expert Recommendation Part 3)
-        # Sort biased pools to ensure initial population isn't just random trash
-        # 1. Yield (Gross)
-        bricks_yield = sorted(all_bricks, key=lambda b: (b.loyer_mensuel_initial*12)/max(1, b.cout_total), reverse=True)
-        # 2. Quality
-        bricks_qual = sorted(all_bricks, key=lambda b: b.qual_score_bien or 0.0, reverse=True)
-        # 3. Cost (Cheapest first - helps fit more items)
-        bricks_cost = sorted(all_bricks, key=lambda b: b.apport_min)
-
-        # Initialize Population with diversity
-        population = []
-
-        # A. High Yield Bias (30%) - Experts want cashflow/efficiency
-        for _ in range(int(self.pop_size * 0.3)):
-            ind = self._generate_biased_individual(bricks_yield, budget, top_n_percent=0.25)
-            population.append(ind)
-
-        # B. High Quality Bias (20%) - For Patrimonial
-        for _ in range(int(self.pop_size * 0.2)):
-            ind = self._generate_biased_individual(bricks_qual, budget, top_n_percent=0.25)
-            population.append(ind)
-
-        # C. Low Cost Bias (20%) - To fill gaps
-        for _ in range(int(self.pop_size * 0.2)):
-            ind = self._generate_biased_individual(bricks_cost, budget, top_n_percent=0.40)
-            population.append(ind)
-
-        # D. Pure Random (30%) - Exploration
-        while len(population) < self.pop_size:
-            ind = self._generate_random_individual(all_bricks, budget, target_cf, tolerance)
-            population.append(ind)
-
-        best_fitness = 0.0
-        stagnation_counter = 0
-
-        # Evolution Loop
-        for gen in range(self.generations):
-            # 1. Evaluate
-            for ind in population:
-                self._evaluate(ind, budget, target_cf, tolerance, horizon)
-
-            # 2. Sort
-            population.sort(key=lambda x: x.fitness, reverse=True)
-
-            # Log progress
-            # Log progress
-            best = population[0]
-            if best.fitness > best_fitness:
-                best_fitness = best.fitness
-                stagnation_counter = 0
-                log.debug("new_best_fitness", gen=gen, fitness=f"{best_fitness:.2f}")
-            else:
-                stagnation_counter += 1
-
-            # Stagnation Stop (Early Exit)
-            if stagnation_counter >= 5 and gen > 10:
-                log.info("ga_stagnation_stop", gen=gen, best_fitness=best_fitness)
+            if not accepted and abs(new_bias - bias) < 0.01:
                 break
+            bias = new_bias
+        return best
 
-            # 3. Selection
-            # Elitism: Keep best
-            next_pop = population[:self.elite_size]
 
-            # Tournament / Roulette for the rest
-            while len(next_pop) < self.pop_size:
-                p1 = self._select_tournament(population)
-                p2 = self._select_tournament(population)
+# Worker-process state (process pool only).
+_WORKER: CandidateEvaluator | None = None
 
-                # Crossover
-                if random.random() < self.crossover_rate:
-                    child = self._crossover(p1, p2)
-                else:
-                    child = copy.deepcopy(p1)
 
-                # Mutation
-                self._mutate(child, all_bricks, budget)
+def _worker_init(prepared: list[PreparedBrick], problem: SearchProblem, mode_cf: str, market: dict[str, float],
+                 tax_params: dict[str, Any], scorer: Any) -> None:
+    global _WORKER
+    import logging
 
-                next_pop.append(child)
+    from .simulation import build_engine
 
-            population = next_pop
+    logging.disable(logging.INFO)
+    allocator = PortfolioAllocator(mode_cf, market=market)
+    evaluator = StrategyEvaluator(build_engine(market, tax_params), allocator, scorer)
+    _WORKER = CandidateEvaluator(allocator, evaluator, prepared, problem)
 
-        # Final Evaluation
-        for ind in population:
-            self._evaluate(ind, budget, target_cf, tolerance, horizon)
 
-        population.sort(key=lambda x: x.fitness, reverse=True)
+def _worker_run(chunk: list[tuple[int, ...]]) -> list[tuple[tuple[float, ...], float, dict[str, Any]] | None]:
+    assert _WORKER is not None
+    return [_WORKER(c) for c in chunk]
 
-        # Logging Tier distribution (Phase 11.3)
-        if population:
-            best = population[0]
-            log.info("ga_finished",
-                best_fitness=f"{best.fitness:.2f}",
-                valid_count=sum(1 for i in population if i.is_valid)
-            )
 
-        # Return top valid results formatted as strategies
-        # Slice by top_n (Phase 17.1)
-        valid_results = [ind for ind in population if ind.is_valid]
-        return [self._individual_to_strategy(ind) for ind in valid_results[:top_n]]
-
-    def _select_tournament(self, population: list[Individual], k: int = 3) -> Individual:
-        """Select best individual from random tournament."""
-        contestants = random.sample(population, min(len(population), k))
-        return max(contestants, key=lambda ind: ind.fitness)
-
-    def _brick_key(self, b: InvestmentBrick) -> str:
-        """Generate unique key for a brick (property + loan duration)."""
-        return f"{b.nom}_{b.duree_credit_mois}"
-
-    def _crossover(self, p1: Individual, p2: Individual) -> Individual:
-        """Uniform crossover: take properties from both parents."""
-        # Merge unique bricks using proper key
-        pool = {self._brick_key(b): b for b in p1.bricks + p2.bricks}
-        all_unique = list(pool.values())
-
-        # Randomly select a subset to form a child
-        # Try to maintain average length, capped by max_properties
-        if not p1.bricks and not p2.bricks:
-            avg_len = 0
-        else:
-            avg_len = int((len(p1.bricks) + len(p2.bricks)) / 2)
-            if avg_len == 0:
-                avg_len = 1
-
-        target_len = min(avg_len, self.max_properties)
-        child_bricks = random.sample(all_unique, k=min(len(all_unique), target_len))
-
-        return Individual(child_bricks)
-
-    def _mutate(self, ind: Individual, all_bricks: list[InvestmentBrick], budget: float) -> None:
-        """Randomly add/remove/swap properties."""
-        if random.random() > self.mutation_rate:
-            return
-
-        action = random.choice(["add", "remove", "swap"])
-
-        if action == "remove" and len(ind.bricks) > 1:
-            ind.bricks.pop(random.randrange(len(ind.bricks)))
-
-        elif action == "add" and len(ind.bricks) < self.max_properties:
-            # Add a random brick if budget allows (roughly)
-            # Precise budget check happens in eval, here we just try
-            candidate = random.choice(all_bricks)
-            # Avoid dupes using proper key
-            cand_key = self._brick_key(candidate)
-            if cand_key not in [self._brick_key(b) for b in ind.bricks]:
-                ind.bricks.append(candidate)
-
-        elif action == "swap" and len(ind.bricks) > 0:
-            ind.bricks.pop(random.randrange(len(ind.bricks)))
-            candidate = random.choice(all_bricks)
-            cand_key = self._brick_key(candidate)
-            if cand_key not in [self._brick_key(b) for b in ind.bricks]:
-                ind.bricks.append(candidate)
-
-        ind.fitness = -1.0 # Invalidate fitness
-
-    def _generate_biased_individual(
-        self,
-        sorted_bricks: list[InvestmentBrick],
-        budget: float,
-        top_n_percent: float = 0.25
-    ) -> Individual:
-        """Create individual picking mainly from the top N% of the provided list."""
-        # Restrict to top percentile
-        limit = max(1, int(len(sorted_bricks) * top_n_percent))
-        candidates = sorted_bricks[:limit]
-
-        # Simple greedy fill from biased pool
-        # Shuffle to avoid deterministic same-start
-        random.shuffle(candidates)
-
-        selected = []
-        current_cost = 0.0
-
-        for b in candidates:
-            if len(selected) >= self.max_properties:
-                break
-            cost = b.apport_min
-            if current_cost + cost <= budget:
-                selected.append(b)
-                current_cost += cost
-
-            # Stop randomly
-            if current_cost > budget * 0.9 and random.random() < 0.5:
-                break
-
-        return Individual(selected)
-
-class ExhaustiveOptimizer:
-    """
-    Deterministic Brute Force Optimizer for small search spaces.
-    Uses parallel processing for large search spaces.
-    """
-
-    # Threshold for enabling parallel processing
-    PARALLEL_THRESHOLD = 5000  # Use parallel if > 5K combos
+# --------------------------------------------------------------------------- search
+class PortfolioSearch:
+    """Deterministic subset search (see module docstring)."""
 
     def __init__(
         self,
         allocator: PortfolioAllocator,
         simulator: SimulationEngine,
         scorer: Any,
-        n_workers: int | None = None,  # None = auto-detect CPU count
+        engine_spec: tuple[dict[str, float], dict[str, Any]] | None = None,
+        n_workers: int | None = None,
     ):
-        """Initialize ExhaustiveOptimizer.
-
-        Args:
-            allocator: PortfolioAllocator for capital distribution
-            simulator: SimulationEngine for financial projections
-            scorer: StrategyScorer for ranking results
-            n_workers: Number of parallel workers (None = auto-detect)
-        """
+        """``engine_spec`` = (market, tax_params) lets worker processes rebuild the engine; without it the
+        evaluation is serial. ``n_workers``: None = automatic, 1 = serial."""
         self.allocator = allocator
         self.simulator = simulator
         self.scorer = scorer
+        self.engine_spec = engine_spec
         self.n_workers = n_workers
-
-        # Create evaluator for shared evaluation logic
         self.evaluator = StrategyEvaluator(simulator, allocator, scorer)
-
-    def _evaluate_combo(
-        self,
-        combo: tuple,
-        budget: float,
-        target_cf: float,
-        tolerance: float,
-        horizon: int
-    ) -> dict[str, Any] | None:
-        """Evaluate a single combination. Returns strategy dict or None if invalid."""
-        # 1. Allocation
-        ok, details, cf_final, apport_used = self.allocator.allocate(
-            list(combo), budget, target_cf, tolerance
-        )
-
-        if not ok:
-            return None
-
-        # 2. Evaluate with StrategyEvaluator
-        strategy = {
-            "details": details,
-            "apport_total": apport_used,
-            "cash_flow_final": cf_final,
-            "allocation_ok": ok
-        }
-
-        is_valid, metrics = self.evaluator.evaluate(strategy, target_cf, tolerance, horizon)
-
-        if "error" in metrics:
-            return None
-
-        # Merge metrics
-        strategy["liquidation_nette"] = metrics.get("liquidation_nette", 0.0)
-        strategy["enrich_net"] = metrics.get("enrich_net", 0.0)
-        strategy["tri_annuel"] = metrics.get("tri_annuel", 0.0)
-        strategy["tri_global"] = metrics.get("tri_annuel", 0.0)
-        strategy["dscr_y1"] = metrics.get("dscr_y1", 0.0)
-        strategy["dscr_stab"] = metrics.get("dscr_stab", 0.0)
-        strategy["cf_monthly_stab"] = metrics.get("cf_monthly_stab", 0.0)
-        strategy["cf_monthly_y1"] = metrics.get("cf_monthly_y1", 0.0)
-        strategy["cf_monthly_avg"] = metrics.get("cf_monthly_avg", 0.0)
-        strategy["is_acceptable"] = metrics.get("is_acceptable", False)
-        strategy["fitness"] = metrics.get("fitness", 0.01)
-        strategy["qual_score"] = metrics.get("qual_score", 50.0)
-
-        return strategy
+        self.solver_mode = ""
+        self.stats: dict[str, Any] = {}
 
     def solve(
         self,
-        all_bricks: list[InvestmentBrick],
-        budget: float,
-        target_cf: float,
-        tolerance: float,
-        horizon: int = 20,
-        max_combinations: int = 500000,
-        max_props: int = 3,
-        progress_callback: Any = None
+        all_bricks: Sequence[InvestmentBrick],
+        problem: SearchProblem,
+        market: dict[str, float] | None = None,
+        progress_callback: Callable[[Any], None] | None = None,
     ) -> list[dict[str, Any]]:
-        """Run exhaustive search using smart bounded enumeration with parallel processing.
-
-        Args:
-            progress_callback: Optional callback function(SearchProgress) for UI updates
-        """
-
-        # Use CombinationGenerator with budget-aware pruning
-        from .strategy_finder import CombinationGenerator
-
-        combo_gen = CombinationGenerator(max_properties=max_props)
-        # combos is now an Iterator (generator), not a list
-        combos = combo_gen.generate(all_bricks, budget)
-
-        log.info("exhaustive_search_started",
-                 bricks=len(all_bricks),
-                 max_props=max_props,
-                 combos_after_pruning="unknown (iterator)")
-
-        # Decide between sequential and parallel
-        # Since we can't key off len() easily without consuming,
-        # we will default to parallel for robustness on large expected sets,
-        # or consume in chunks.
-        # Given the new safeguard (Hybrid Solver < 1M), the list is small enough
-        # to convert to list safely IF it is under 1M.
-        # But for "Zero Trust", we should respect memory.
-
-        # Strategy: Consume first N items to see if small?
-        # Simpler: Just convert to list but with a hard cap protection?
-        # No, Hybrid Solver guarantees < 1M theoretical max.
-        # And pruning makes it smaller.
-        # So list(combos) IS safe given the new 1M cap in strategy_finder.
-        # BUT to be strictly memory safe as requested:
-
-        candidates = []
-
-        # Hybrid approach: consume into list because 1M tuples is only ~80MB RAM.
-        # This simplifies parallelization logic significantly.
-        # The risk was 100M (8GB). 1M is fine.
-        combo_list = list(combos)
-        n_combos = len(combo_list)
-
-        log.info("combos_materialized", count=n_combos)
-
-        use_parallel = n_combos > self.PARALLEL_THRESHOLD
-
-        if use_parallel:
-            candidates = self._solve_parallel(combo_list, budget, target_cf, tolerance, horizon, progress_callback)
-        else:
-            candidates = self._solve_sequential(combo_list, budget, target_cf, tolerance, horizon, progress_callback)
-
-        log.info("exhaustive_search_finished", found=len(candidates))
-        return candidates
-
-    def _solve_sequential(
-        self,
-        combos: list[tuple],
-        budget: float,
-        target_cf: float,
-        tolerance: float,
-        horizon: int,
-        progress_callback: Any = None
-    ) -> list[dict[str, Any]]:
-        """Sequential evaluation for small search spaces."""
         from src.application.progress import SearchPhase, SearchProgress
 
-        candidates = []
-        n_combos = len(combos)
-        report_interval = max(1, n_combos // 100)  # Report every 1%
+        market = market or {}
+        prepared = [self.allocator.prepare(b) for b in all_bricks]
+        table = BrickTable(prepared, problem, market)
 
-        for i, combo in enumerate(combos):
-            # Report progress periodically
-            if progress_callback and i % report_interval == 0:
-                progress_callback(SearchProgress(
-                    phase=SearchPhase.EVALUATION,
-                    phase_index=3,
-                    items_processed=i,
-                    items_total=n_combos,
-                    valid_count=len(candidates),
-                ))
-
-            result = self._evaluate_combo(combo, budget, target_cf, tolerance, horizon)
-            if result is not None:
-                candidates.append(result)
-
-        # Final progress update
         if progress_callback:
-            progress_callback(SearchProgress(
-                phase=SearchPhase.EVALUATION,
-                phase_index=3,
-                items_processed=n_combos,
-                items_total=n_combos,
-                valid_count=len(candidates),
-            ))
+            progress_callback(SearchProgress(phase=SearchPhase.COMBO_GENERATION, phase_index=2,
+                                             message="Génération des combinaisons..."))
 
-        return candidates
+        t0 = time.perf_counter()
+        candidates, exact = self._screen_all(table, problem)
+        self.stats["screen_s"] = round(time.perf_counter() - t0, 3)
+        self.solver_mode = "EXHAUSTIVE" if exact else "SUBSET_PROXY"
+        log.info("search_candidates", candidates=len(candidates), mode=self.solver_mode, **self.stats)
 
-    def _solve_parallel(
-        self,
-        combos: list[tuple],
-        budget: float,
-        target_cf: float,
-        tolerance: float,
-        horizon: int,
-        progress_callback: Any = None
-    ) -> list[dict[str, Any]]:
-        """Parallel evaluation for large search spaces using ThreadPoolExecutor.
+        t0 = time.perf_counter()
+        results = self._evaluate(candidates, prepared, problem, market, progress_callback)
+        self.stats["evaluate_s"] = round(time.perf_counter() - t0, 3)
 
-        Uses threading for parallel processing. While GIL limits true parallelism,
-        this still provides speedup for I/O-bound operations.
-        """
-        import concurrent.futures
-        import os
+        strategies = []
+        for bricks, res in zip(candidates, results, strict=True):
+            if res is None:
+                continue
+            extra, cf_pre, metrics = res
+            P = [prepared[i] for i in bricks]
+            strategies.append(_to_strategy(self.allocator.details(P, extra), cf_pre, metrics))
+        check_invariants(strategies, problem.budget, problem.max_props)
+        log.info("search_finished", evaluated=len(candidates), accepted=len(strategies))
+        return strategies
 
+    # ------------------------------------------------------------------ screening
+    def _screen_all(self, table: BrickTable, problem: SearchProblem) -> tuple[list[tuple[int, ...]], bool]:
+        """Candidates to simulate, in deterministic order, and whether the duration choice was exhaustive."""
+        if table.n_props == 0 or problem.max_props <= 0:
+            self.stats = {"subsets": 0, "assignments": 0}
+            return [], True
+        pct = self.allocator.max_extra_apport_pct
+        by_k: dict[int, list[tuple[int, ...]]] = {}
+        for s in enumerate_subsets(table, problem.budget, problem.max_props):
+            by_k.setdefault(len(s), []).append(s)
+
+        # Per subset: passing rows (brick-index tuples) with their proxy, in assignment order.
+        sub_rows: list[tuple[np.ndarray, np.ndarray]] = []
+        all_exact = True
+        n_assign = 0
+        for k in sorted(by_k):
+            subsets = np.array(by_k[k], dtype=np.int64)
+            if max(1, table.m) ** k <= EXACT_MAX_ASSIGNMENTS:
+                grid = np.array(list(itertools.product(range(table.m), repeat=k)), dtype=np.int64)
+                per_chunk = max(1, _SCREEN_CHUNK_ROWS // len(grid))
+                for c0 in range(0, len(subsets), per_chunk):
+                    S = subsets[c0:c0 + per_chunk]
+                    B = table.options[S[:, None, :], grid[None, :, :]]  # (ns, g, k)
+                    ns, g, _ = B.shape
+                    rows = B.reshape(ns * g, k)
+                    valid = (rows >= 0).all(axis=1)
+                    n_assign += int(valid.sum())
+                    sc = screen(table, np.where(rows >= 0, rows, 0), problem, pct)
+                    ok = (sc.passes & valid).reshape(ns, g)
+                    prox = sc.proxy.reshape(ns, g)
+                    B3 = B
+                    for i in range(ns):
+                        idx = np.flatnonzero(ok[i])
+                        if idx.size:
+                            sub_rows.append((B3[i, idx], prox[i, idx]))
+            else:
+                all_exact = False
+                rows = self._greedy_assignments(table, subsets, problem, pct)
+                n_assign += len(rows) * (1 + k * max(0, table.m - 1))
+                sc = screen(table, rows, problem, pct)
+                for ii in np.flatnonzero(sc.passes).tolist():
+                    sub_rows.append((rows[ii:ii + 1], sc.proxy[ii:ii + 1]))
+
+        n_pass = sum(len(r) for r, _ in sub_rows)
+        self.stats = {"subsets": sum(len(v) for v in by_k.values()), "assignments": n_assign, "passing": n_pass}
+        if n_pass <= EVAL_BUDGET:
+            return [tuple(int(x) for x in r) for rows, _ in sub_rows for r in rows], all_exact
+
+        m_keep = max(1, EVAL_BUDGET // max(1, len(sub_rows)))
+        out: list[tuple[int, ...]] = []
+        for rows, prox in sub_rows:
+            if len(rows) > m_keep:
+                # best proxy first; ties keep assignment order (stable sort)
+                keep = np.sort(np.argsort(-prox, kind="stable")[:m_keep])
+                rows = rows[keep]
+            out.extend(tuple(int(x) for x in r) for r in rows)
+        self.stats["kept_per_subset"] = m_keep
+        return out, False
+
+    def _greedy_assignments(self, table: BrickTable, subsets: np.ndarray, problem: SearchProblem,
+                            pct: float) -> np.ndarray:
+        """One assignment per subset: best stand-alone CF duration everywhere, then one pass of swaps."""
+        choice = table.best_cf_option[subsets]  # (ns, k) option positions
+        ns, k = subsets.shape
+        for j in range(k):
+            best_score = np.full(ns, -np.inf)
+            best_opt = choice[:, j].copy()
+            for o in range(table.m):
+                trial = choice.copy()
+                trial[:, j] = o
+                rows = table.options[subsets, trial]
+                valid = (rows >= 0).all(axis=1)
+                sc = screen(table, np.where(rows >= 0, rows, 0), problem, pct)
+                score = np.where(valid & sc.passes, sc.proxy, -np.inf)
+                better = score > best_score  # strict: ties keep the earlier (shorter) option
+                best_score = np.where(better, score, best_score)
+                best_opt = np.where(better, o, best_opt)
+            choice[:, j] = best_opt
+        return np.asarray(table.options[subsets, choice], dtype=np.int64)
+
+    # ------------------------------------------------------------------ evaluation
+    def _evaluate(self, candidates: list[tuple[int, ...]], prepared: list[PreparedBrick], problem: SearchProblem,
+                  market: dict[str, float], progress_callback: Callable[[Any], None] | None) -> list[Any]:
         from src.application.progress import SearchPhase, SearchProgress
 
-        n_workers = self.n_workers or min(8, (os.cpu_count() or 4))
-        n_combos = len(combos)
+        n = len(candidates)
+        found = 0
 
-        log.info("parallel_processing_started",
-                 workers=n_workers,
-                 combos=n_combos,
-                 mode="threaded")
-
-        candidates = []
-        processed_count = 0
-        report_interval = max(1, n_combos // 100)  # Report every 1%
-
-        # Time-based throttling for UI updates
-        import time
-        last_report_time = time.time()
-        min_report_interval_sec = 0.5  # Update UI at most every 0.5 seconds
-
-        try:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=n_workers) as executor:
-                # Submit all combos for evaluation
-                future_to_combo = {
-                    executor.submit(
-                        self._evaluate_combo,
-                        combo, budget, target_cf, tolerance, horizon
-                    ): combo
-                    for combo in combos
-                }
-
-                # Collect results as they complete
-                for future in concurrent.futures.as_completed(future_to_combo):
-                    try:
-                        result = future.result()
-                        if result is not None:
-                            candidates.append(result)
-                    except Exception as e:
-                        log.warning("combo_evaluation_failed", error=str(e))
-
-                    # Report progress with time-based throttling
-                    processed_count += 1
-                    current_time = time.time()
-                    if (progress_callback and
-                        processed_count % report_interval == 0 and
-                        current_time - last_report_time >= min_report_interval_sec):
-                        progress_callback(SearchProgress(
-                            phase=SearchPhase.EVALUATION,
-                            phase_index=3,
-                            items_processed=processed_count,
-                            items_total=n_combos,
-                            valid_count=len(candidates),
-                        ))
-                        last_report_time = current_time
-
-            # Final progress update
+        def report(done: int) -> None:
             if progress_callback:
-                progress_callback(SearchProgress(
-                    phase=SearchPhase.EVALUATION,
-                    phase_index=3,
-                    items_processed=n_combos,
-                    items_total=n_combos,
-                    valid_count=len(candidates),
-                ))
+                progress_callback(SearchProgress(phase=SearchPhase.EVALUATION, phase_index=3, items_processed=done,
+                                                 items_total=n, valid_count=found))
 
-            log.info("parallel_processing_finished", found=len(candidates))
+        report(0)
+        workers = self._workers(n)
+        results: list[Any] = []
+        if workers > 1:
+            try:
+                results = self._evaluate_pool(candidates, prepared, problem, market, workers, report)
+            except (BrokenProcessPool, PicklingError, OSError) as e:
+                log.warning("process_pool_failed_falling_back_to_serial", error=str(e))
+                results = []
+        if not results and n:
+            ev = CandidateEvaluator(self.allocator, self.evaluator, prepared, problem)
+            step = max(1, n // 100)
+            for i, c in enumerate(candidates):
+                r = ev(c)
+                results.append(r)
+                found += r is not None
+                if (i + 1) % step == 0:
+                    report(i + 1)
+        report(n)
+        return results
 
-        except Exception as e:
-            log.warning("parallel_processing_error", error=str(e))
-            # Fallback to sequential
-            log.info("falling_back_to_sequential")
-            return self._solve_sequential(combos, budget, target_cf, tolerance, horizon, progress_callback)
+    def _workers(self, n: int) -> int:
+        if self.n_workers is not None:
+            w = self.n_workers
+        elif n < PARALLEL_MIN_EVALS or self.engine_spec is None:
+            w = 1
+        else:
+            w = min(MAX_WORKERS, (os.cpu_count() or 2) - 1)
+        return max(1, min(w, n)) if self.engine_spec is not None else 1
 
-        return candidates
+    def _evaluate_pool(self, candidates, prepared, problem, market, workers, report) -> list[Any]:
+        assert self.engine_spec is not None
+        mkt, tax_params = self.engine_spec
+        size = max(1, math.ceil(len(candidates) / (workers * 8)))
+        chunks = [candidates[i:i + size] for i in range(0, len(candidates), size)]
+        out: list[Any] = []
+        with ProcessPoolExecutor(max_workers=workers, initializer=_worker_init,
+                                 initargs=(prepared, problem, self.allocator.mode_cf, mkt, tax_params,
+                                           self.scorer)) as ex:
+            for part in ex.map(_worker_run, chunks):  # map keeps submission order
+                out.extend(part)
+                report(len(out))
+        return out
 
+
+def _to_strategy(details: list[dict[str, Any]], cf_pre: float, m: dict[str, Any]) -> dict[str, Any]:
+    """Strategy dict with the keys the finder and the UI read (same as the pre-T31 exhaustive search)."""
+    return {
+        "details": details,
+        "apport_total": sum(d["apport_final_bien"] for d in details),
+        "cash_flow_final": cf_pre,  # stabilised pre-tax estimate of the allocator (display / scorer)
+        "allocation_ok": True,
+        "liquidation_nette": m.get("liquidation_nette", 0.0),
+        "enrich_net": m.get("enrich_net", 0.0),
+        "tri_annuel": m.get("tri_annuel", 0.0),
+        "tri_global": m.get("tri_annuel", 0.0),
+        "dscr_y1": m.get("dscr_y1", 0.0),
+        "dscr_stab": m.get("dscr_stab", 0.0),
+        "cf_monthly_stab": m.get("cf_monthly_stab", 0.0),
+        "cf_monthly_y1": m.get("cf_monthly_y1", 0.0),
+        "cf_monthly_avg": m.get("cf_monthly_avg", 0.0),
+        "is_acceptable": bool(m.get("is_acceptable", False)),
+        "fitness": m.get("fitness", 0.01),
+        "qual_score": m.get("qual_score", 50.0),
+    }

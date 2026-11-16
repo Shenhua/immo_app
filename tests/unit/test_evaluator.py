@@ -1,8 +1,8 @@
 """
 Unit tests for StrategyEvaluator.
 
-Tests the shared evaluation logic used by both GeneticOptimizer
-and ExhaustiveOptimizer.
+Tests the shared evaluation logic used by the portfolio search
+(optimizer.py).
 """
 from unittest.mock import MagicMock, patch
 
