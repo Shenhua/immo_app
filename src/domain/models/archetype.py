@@ -6,9 +6,29 @@ its financial characteristics and market data.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field, field_validator
+from typing import Any
+
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from src.core.defaults import TAX
+
+
+def is_furnished(item: Any) -> bool:
+    """Single furnished/unfurnished rule for archetypes, bricks and property dicts.
+
+    An explicit ``meuble`` wins; otherwise ``mode_loyer`` starting with "nu" means unfurnished;
+    anything else (including no information) counts as furnished. ``item`` is a mapping or an object
+    with ``meuble`` / ``mode_loyer`` attributes.
+    """
+    if isinstance(item, dict):
+        meuble, mode = item.get("meuble"), item.get("mode_loyer")
+    else:
+        meuble, mode = getattr(item, "meuble", None), getattr(item, "mode_loyer", None)
+    if meuble is not None:
+        return bool(meuble)
+    if mode:
+        return not str(mode).startswith("nu")
+    return True
 
 
 class ArchetypeV2(BaseModel):
@@ -51,7 +71,9 @@ class ArchetypeV2(BaseModel):
     )
 
     # Status
-    meuble: bool = Field(default=False, description="Is furnished")
+    meuble: bool | None = Field(
+        default=None, description="Is furnished (explicit value wins; default derived from mode_loyer: nu* = unfurnished)"
+    )
     soumis_encadrement: bool = Field(default=False, description="Subject to rent control")
     dpe_initial: str = Field(default="D", description="Initial DPE rating (A-G)")
 
@@ -82,6 +104,13 @@ class ArchetypeV2(BaseModel):
             v = v.upper()
         valid_ratings = {"A", "B", "C", "D", "E", "F", "G", "ND"}
         return v if v in valid_ratings else "D"
+
+    @model_validator(mode="after")
+    def _default_meuble(self) -> ArchetypeV2:
+        """Fill ``meuble`` from ``mode_loyer`` when not given (same rule as ``is_furnished``)."""
+        if self.meuble is None:
+            self.meuble = is_furnished({"mode_loyer": self.mode_loyer})
+        return self
 
     @property
     def prix_achat_total(self) -> float:

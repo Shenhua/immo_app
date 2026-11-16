@@ -63,7 +63,7 @@ def run_sensitivity_simulation(
 
         # Calculate DSCR Y1
         ds = first_row["Capital Remboursé"] + first_row["Intérêts & Assurance"]
-        noi = first_row["Loyers Bruts"] + (first_row["Charges Déductibles"] + first_row["Intérêts & Assurance"])
+        noi = first_row["Loyers Bruts"] + (first_row["Charges d'exploitation"] + first_row["Intérêts & Assurance"])
         dscr = (noi / ds) if ds > 1 else 0.0
 
         return {

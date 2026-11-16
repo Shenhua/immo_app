@@ -156,9 +156,6 @@ class TaxHousehold:
         """True if the property's regime amortizes (LMNP réel and SCI IS only, TAX_SPEC 4.1)."""
         return self.regime_of(property_id) in (RegimeId.LMNP_REEL, RegimeId.SCI_IS)
 
-    def state(self, category: str) -> TaxState:
-        return self.states[category]
-
     def compute_year(self, year: int, ctxs: list[YearContext]) -> TaxResult:
         """Tax of the foyer for one year. Categories are independent and summed."""
         results: list[TaxResult] = []
@@ -191,7 +188,6 @@ class TaxHousehold:
                 years_held=years_held,
                 properties=sub,
                 nb_owners=self.config.nb_owners,
-                tmi_pct=self.config.tmi_pct,
                 debt_repaid=debt_repaid,
                 cum_cash_flow=cum_cash_flow,
                 apport=apport,

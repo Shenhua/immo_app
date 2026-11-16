@@ -15,6 +15,7 @@ import pandas as pd
 
 from src.core.defaults import FINANCING, MARKET, OPERATING, REALISM, TAX
 from src.core.exceptions import SimulationError
+from src.domain.models.archetype import is_furnished
 from src.domain.tax import (
     PropertyExit,
     RegimeId,
@@ -152,7 +153,7 @@ class YearResult:
             "Capital Remboursé": self.capital_rembourse,
             "Intérêts & Assurance": self.interets_assurance,
             "Loyers Bruts": self.loyers_bruts,
-            "Charges Déductibles": -self.charges_deductibles,
+            "Charges d'exploitation": -self.charges_deductibles,
             "Amortissements": -self.amortissements,
             "IR": self.ir,
             "PS": self.ps,
@@ -204,7 +205,7 @@ class SimulationEngine:
 
     def build_household(self, projets: list[dict[str, Any]], horizon_years: int) -> TaxHousehold:
         """Regime of each income category, with the micro ceilings checked on the horizon's receipts."""
-        furnished = [_is_furnished(p) for p in projets]
+        furnished = [is_furnished(p) for p in projets]
         g = 1.0 + self.market.revalo_loyer_pct / 100.0
         max_receipts: dict[str, float] = {}
         for cat, flag in (("furnished", True), ("unfurnished", False)):
@@ -271,7 +272,7 @@ class SimulationEngine:
         Furnished letting only; nothing in year 1 (year of creation, CGI 1478 II); nothing when the year's
         receipts are <= 5,000 EUR (CGI 1647 D, AN question 7364); indexed like fixed charges (TAX_SPEC 1.8).
         """
-        if not _is_furnished(p) or year <= 1 or receipts <= CFE_EXEMPTION_RECEIPTS:
+        if not is_furnished(p) or year <= 1 or receipts <= CFE_EXEMPTION_RECEIPTS:
             return 0.0
         return self.cfe_par_bien_ann * (1.0 + self.market.inflation_charges_pct / 100.0) ** (year - 1)
 
@@ -513,19 +514,6 @@ class SimulationEngine:
 
 # CGI 1647 D: no minimum CFE contribution when receipts are <= 5,000 EUR (AN question 7364)
 CFE_EXEMPTION_RECEIPTS = 5000.0
-
-
-def _is_furnished(p: dict[str, Any]) -> bool:
-    """Furnished flag of a property: `meuble`, else inferred from `mode_loyer` (`nu_*` = unfurnished).
-
-    Unknown (neither field present) counts as furnished, the conservative choice for cash flow.
-    """
-    if p.get("meuble") is not None:
-        return bool(p["meuble"])
-    mode = p.get("mode_loyer")
-    if mode:
-        return not str(mode).startswith("nu")
-    return True
 
 
 def _ratio_terrain_or_default(value: float | None) -> float:

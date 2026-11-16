@@ -106,7 +106,7 @@ def render_fiscal_chart(df: pd.DataFrame, key: str = "fisc") -> None:
         return
 
     # Check for LMNP specific columns
-    required = ['Loyers Bruts', 'Charges Déductibles', 'Amortissements']
+    required = ['Loyers Bruts', "Charges d'exploitation", 'Amortissements']
     if not all(c in df.columns for c in required):
         return
 
@@ -119,7 +119,7 @@ def render_fiscal_chart(df: pd.DataFrame, key: str = "fisc") -> None:
         labels={"value": "Montant (€)", "variable": "Poste"},
         color_discrete_map={
             "Loyers Bruts": "#28a745",
-            "Charges Déductibles": "#dc3545",
+            "Charges d'exploitation": "#dc3545",
             "Amortissements": "#6c757d"
         }
     )

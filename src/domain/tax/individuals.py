@@ -12,7 +12,6 @@ from src.core.defaults import TAX_RATES, TaxRates
 from src.domain.tax.base import (
     ExitContext,
     ExitTax,
-    PropertyExit,
     RegimeId,
     TaxResult,
     TaxState,
@@ -280,4 +279,4 @@ class FoncierReel:
         )
 
 
-__all__ = ["FoncierReel", "LmnpReel", "MicroBic", "MicroFoncier", "PropertyExit"]
+__all__ = ["FoncierReel", "LmnpReel", "MicroBic", "MicroFoncier"]

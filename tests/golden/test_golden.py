@@ -71,14 +71,13 @@ def _build_strategy(inp: dict[str, Any]) -> dict[str, Any]:
         "taux_pret": inp["loan_rate_pct"],
         "duree_pret": inp["loan_years"],
         "assurance_ann_pct": inp["loan_insurance_pct"],
-        # Vacancy: the reference reduces the rent itself (the engine would book it as a charge), so the
-        # adapter passes the rent net of vacancy and no provision.
-        "loyer_mensuel_initial": inp["rent_monthly"] * (1 - inp["vacancy_pct"] / 100.0),
+        # Raw rent; vacancy goes through the engine's own path (provision_pct).
+        "loyer_mensuel_initial": inp["rent_monthly"],
         # Operating charges: co-ownership + accounting fees as fixed charges, property tax separately.
         "charges_const_mth0": (inp["copro_charges_annual"] + inp["accounting_fees_annual"]) / 12.0,
         "tf_const_mth0": inp["property_tax_annual"] / 12.0,
         "frais_gestion_pct": inp["management_pct"],
-        "provision_pct": 0.0,
+        "provision_pct": inp["vacancy_pct"],
         "meuble": inp["furnished"],
         "residence_services": inp["residence_services"],
     }
@@ -118,7 +117,7 @@ def _run_engine(case: dict[str, Any]) -> dict[str, float]:
         cf_after = float(row["Cash-Flow Net d'Impôt"])
         out[f"yearly.{y}.rent"] = float(row["Loyers Bruts"])
         out[f"yearly.{y}.interest_and_insurance"] = interest
-        out[f"yearly.{y}.operating_charges"] = -float(row["Charges Déductibles"]) - interest
+        out[f"yearly.{y}.operating_charges"] = -float(row["Charges d'exploitation"]) - interest
         out[f"yearly.{y}.amortization_current_year"] = -float(row["Amortissements"])
         out[f"yearly.{y}.taxable_base"] = float(row["Résultat Fiscal"])
         out[f"yearly.{y}.tax"] = tax
