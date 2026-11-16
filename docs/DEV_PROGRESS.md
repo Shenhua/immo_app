@@ -169,3 +169,5 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-13: T21 merged (539 passed, 395 xfail). T24 launched.
 - 2026-11-13: T24 merged (593 passed, 346 xfail). T23 launched (Opus).
 - 2026-11-13: T23 merged (976 passed, 0 xfail). T25 and T26a launched in parallel.
+- 2026-11-13: The usage limit interrupted T25 (uncommitted edits in worktree agent-a0b0f095f0fbb0865) and T26a (no changes).
+- 2026-11-16: T25 and T26a resumed via SendMessage. If this session dies, inspect those worktrees: commit or keep the edits, then relaunch with a "continue from this worktree" note.
