@@ -72,7 +72,7 @@ class TestWeightConsistency:
         """StrategyScorer weights should match BASE_WEIGHTS keys."""
         from src.application.services.strategy_finder import BASE_WEIGHTS
 
-        scorer = StrategyScorer()
+        scorer = StrategyScorer(mode_cf="min")
 
         # All BASE_WEIGHTS keys should be present in scorer weights
         for key in BASE_WEIGHTS:
@@ -81,7 +81,7 @@ class TestWeightConsistency:
     def test_custom_weights_applied_correctly(self):
         """Custom weights should be normalized and applied."""
         custom = {"irr": 50, "enrich_net": 30, "dscr": 10, "cf_proximity": 10}
-        scorer = StrategyScorer(weights=custom)
+        scorer = StrategyScorer(weights=custom, mode_cf="min")
 
         # Sum should be 1.0
         total = sum(scorer.weights.values())

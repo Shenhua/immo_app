@@ -243,10 +243,22 @@ def preset_weights(preset: PresetId | str | None) -> dict[str, float]:
 
 
 # --------------------------------------------------------------------------- #
-# Scoring benchmarks (T25)
+# Scoring benchmarks (T25, T32)
 # --------------------------------------------------------------------------- #
+# Fixed ranges: a score component is (value - lo) / (hi - lo), clamped to 0..1. They never depend on the
+# candidate pool, so the same strategy gets the same score in any run (same horizon and same CF target).
+IRR_BENCHMARK_MAX_PCT: float = 12.0  # IRR 0..12 %
+DSCR_BENCHMARK_MIN: float = 0.8  # stabilised DSCR 0.8..1.6 (below 0.8 the rent does not cover the debt)
+DSCR_BENCHMARK_MAX: float = 1.6
 # Capital efficiency (net enrichment / total down payment) scored on a fixed 0..5x scale.
 CAP_EFF_BENCHMARK_MAX: float = 5.0
+# Enrichment: the net enrichment / down payment ratio is compared with a 5 % / year compounding target
+# over the horizon, (1.05 ** horizon) - 1.
+ENRICH_BENCHMARK_ANNUAL_PCT: float = 5.0
+# CF proximity: a stabilised monthly CF penalty (glossary.cf_penalty) of this many EUR or more scores 0.
+CF_PROXIMITY_BENCHMARK_EUR: float = 500.0
+# Pareto ranks beyond this one are not told apart (cost control on large result sets).
+PARETO_MAX_RANK: int = 10
 
 
 # --------------------------------------------------------------------------- #

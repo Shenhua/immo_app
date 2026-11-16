@@ -7,7 +7,6 @@ Provides combination generation, scoring, and ranking.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from math import isfinite
 from typing import Any
 
 from src.core.defaults import (
@@ -16,6 +15,7 @@ from src.core.defaults import (
     FINANCING,
     MARKET,
     OPERATING,
+    PARETO_MAX_RANK,
     REALISM,
     SEARCH,
     TAX,
@@ -27,6 +27,7 @@ from src.domain.models.brick import InvestmentBrick
 
 from .allocator import PortfolioAllocator
 from .optimizer import PortfolioSearch, SearchProblem, check_invariants, tax_bounds
+from .scoring import assign_pareto_ranks, score_components
 
 log = get_logger(__name__)
 
@@ -42,11 +43,6 @@ def strategy_key(strategy: dict[str, Any]) -> tuple[tuple[str, int], ...]:
         else:
             out.append((str(d.nom), int(d.duree_credit_mois)))
     return tuple(sorted(out))
-
-
-def _tri_or_worst(tri: float | None) -> float:
-    """IRR for comparisons: a failed IRR (None) is the worst value, not 0 %."""
-    return float("-inf") if tri is None else float(tri)
 
 
 @dataclass
@@ -120,8 +116,10 @@ class StrategyScorer:
         self,
         qualite_weight: float = SEARCH.qualite_weight,
         weights: dict[str, float] | None = None,
-        mode_cf: str = "target",
+        *,
+        mode_cf: str,
     ):
+        # No default for mode_cf: the caller (RunContext) decides, so the scorer and the search agree.
         self.mode_cf = mode_cf
         self.qualite_weight = max(0.0, min(1.0, qualite_weight))
         self.weights = self._normalize_weights(weights or BASE_WEIGHTS)
@@ -135,26 +133,6 @@ class StrategyScorer:
         if s <= 0:
             return BASE_WEIGHTS.copy()
         return {k: max(0.0, float(v)) / s for k, v in w.items()}
-
-    @staticmethod
-    def minmax_normalize(values: list[float], lo: float | None = None, hi: float | None = None) -> list[float]:
-        """Min-max normalize a list of values to 0-1 range."""
-        finite_vals = [v for v in values if isfinite(v)]
-        if not finite_vals:
-            return [0.0] * len(values)
-
-        if lo is None:
-            lo = min(finite_vals)
-        if hi is None:
-            hi = max(finite_vals)
-
-        if hi <= lo:
-            return [0.5] * len(values)
-
-        return [
-            0.0 if not isfinite(v) else max(0.0, min(1.0, (v - lo) / (hi - lo)))
-            for v in values
-        ]
 
     def compute_finance_score(self, strategy: dict[str, Any]) -> float:
         """Compute weighted finance score for a single strategy."""
@@ -174,36 +152,25 @@ class StrategyScorer:
         qual = float(strategy.get("qual_score", 50.0)) / 100.0
         return (1.0 - self.qualite_weight) * fin + self.qualite_weight * qual
 
-    def score_strategies(self, strategies: list[dict[str, Any]], cash_flow_cible: float) -> None:
-        """Add normalized scores to all strategies (mutates in place)."""
-        if not strategies:
-            return
+    def score_strategies(
+        self, strategies: list[dict[str, Any]], cash_flow_cible: float, horizon: int = SEARCH.horizon_ans
+    ) -> None:
+        """Add absolute scores to every strategy (mutates in place).
 
-        # Extract raw metrics
-        enrich = [s.get("enrich_net", 0.0) for s in strategies]
-        # A failed IRR (None) is non-finite, so it normalizes to 0 (worst), never to a 0 % return
-        irr = [float("nan") if s.get("tri_annuel", 0.0) is None else s.get("tri_annuel", 0.0) for s in strategies]
-        cap_eff = [s.get("cap_eff", 0.0) for s in strategies]
-        dscr = [1.5 if s.get("dscr_stab") is None else max(0.0, float(s.get("dscr_stab", 0.0))) for s in strategies]
-        cf_dist = [cf_penalty(s.get("cash_flow_final", 0.0), cash_flow_cible, self.mode_cf) for s in strategies]
-        # CF proximity: mode-aware (min: only a deficit is penalised; target: abs gap)
-        # smaller penalty = higher score (use 500€ as reasonable max distance)
-        max_cf_dist = 500.0
-        cf_prox = [max(0.0, 1.0 - (d / max_cf_dist)) for d in cf_dist]
-
-        # Normalize
-        enrich_n = self.minmax_normalize(enrich)
-        irr_n = self.minmax_normalize(irr)
-        cap_n = self.minmax_normalize([min(v, 10.0) for v in cap_eff], 0.0, 10.0)
-        dscr_n = self.minmax_normalize([min(v, 2.5) for v in dscr], 0.0, 2.5)
-
-        # Apply to strategies
-        for s, en, ir, ca, ds, cf in zip(strategies, enrich_n, irr_n, cap_n, dscr_n, cf_prox):
-            s["enrich_norm"] = en
-            s["tri_norm"] = ir
-            s["cap_eff_norm"] = ca
-            s["dscr_norm"] = ds
-            s["cf_proximity"] = cf
+        Each component is scored on the fixed benchmarks of ``defaults.py`` (see ``scoring.py``), so a strategy's
+        score does not depend on the other strategies. The CF proximity uses the stabilised after-tax CF
+        (``cf_monthly_stab``) and the mode-aware ``glossary.cf_penalty``.
+        """
+        for s in strategies:
+            cf = s.get("cf_monthly_stab", s.get("cash_flow_final", 0.0))
+            s.update(score_components(
+                irr_pct=s.get("tri_annuel", 0.0),
+                enrich_net=s.get("enrich_net", 0.0),
+                apport=s.get("apport_total", 0.0),
+                dscr_stab=s.get("dscr_stab", 0.0),
+                cf_gap=cf_penalty(float(cf), cash_flow_cible, self.mode_cf),
+                horizon=horizon,
+            ))
             s["finance_score"] = self.compute_finance_score(s)
             s["balanced_score"] = self.compute_balanced_score(s)
 
@@ -221,7 +188,7 @@ class StrategyFinder:
         cash_flow_cible: float,
         tolerance: float = 100.0,
         qualite_weight: float = SEARCH.qualite_weight,
-        mode_cf: str = "target",
+        mode_cf: str = "min",
         max_properties: int = 3,
     ):
         self.bricks = bricks
@@ -337,7 +304,7 @@ class StrategyFinder:
             ))
 
         # We re-run relative scoring on the "Elite" set to populate UI-friendly normalized fields (A-score, etc.)
-        self.scorer.score_strategies(strategies, self.cash_flow_cible)
+        self.scorer.score_strategies(strategies, self.cash_flow_cible, horizon_years)
 
         # Tiered ranking instead of hard-filter
         # Tier 1: Feasible (allocation_ok=True)
@@ -393,10 +360,8 @@ class StrategyFinder:
 
         strategies = self.dedupe_strategies(strategies, top_n=top_n)
 
-        # Apply Pareto Filter (v1 Logic) to clean up dominated strategies
-        # Only apply if we have enough candidates to afford filtering
-        if len(strategies) > top_n:
-             strategies = self._pareto_filter(strategies)
+        # Pareto rank (1 = front) on every strategy; a marker and a tie-breaker, never a filter.
+        assign_pareto_ranks(strategies, self.cash_flow_cible, self.mode_cf)
 
         top_strategies = self.rank_strategies(strategies, ep.finance_preset_name, top_n)
         check_invariants(top_strategies, self.apport_disponible, self.max_properties)
@@ -469,48 +434,6 @@ class StrategyFinder:
 
         return final_list
 
-    def _pareto_filter(self, strategies: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Filter out dominated strategies (Pareto Efficiency).
-
-        A strategy A dominates B if A is better or equal in all metrics
-        and strictly better in at least one.
-        Metrics checked:
-        - Cash Flow (Higher is better, unless target... assuming general 'wealth' for now)
-          Actually for Pareto we care about: Yield vs Risk vs Cost.
-          Simple v1 Pareto:
-          - Cost (Lower is better)
-          - CashFlow (Higher is better)
-          - Yield (Higher is better)
-        """
-        # Sort by cost ascending to make comparison easier
-        sorted_s = sorted(strategies, key=lambda x: (x.get("apport_total", 0), strategy_key(x)))
-
-        keep = []
-
-        for cand in sorted_s:
-            dominated = False
-            c_cost = cand.get("apport_total", 0)
-            c_cf = cand.get("cash_flow_final", 0)
-            c_tri = _tri_or_worst(cand.get("tri_annuel", 0))
-
-            for exist in keep:
-                e_cost = exist.get("apport_total", 0)
-                e_cf = exist.get("cash_flow_final", 0)
-                e_tri = _tri_or_worst(exist.get("tri_annuel", 0))
-
-                # Check if 'exist' dominates 'cand'
-                # Exist costs less/equal AND has better/equal CF AND better/equal TRI
-                if (e_cost <= c_cost) and (e_cf >= c_cf) and (e_tri >= c_tri):
-                    # Strict check: is it better in at least one?
-                    if (e_cost < c_cost) or (e_cf > c_cf) or (e_tri > c_tri):
-                        dominated = True
-                        break
-
-            if not dominated:
-                keep.append(cand)
-
-        return keep
-
     def rank_strategies(
         self,
         strategies: list[dict[str, Any]],
@@ -523,6 +446,7 @@ class StrategyFinder:
         - Primary: Use the weighted finance_score (incorporates user weights)
         - Secondary: Preset-specific tiebreaker metric
         - Tertiary: CF proximity (closer to target is better)
+        - Then ``pareto_rank`` (1 = on the Pareto front), then the explicit signature tie-breaker.
         """
         preset = PresetId.parse(preset_name)
 
@@ -532,6 +456,7 @@ class StrategyFinder:
             # Tier 1 (Best) > Tier 3 (Worst).
             # So we use negative tier: -1 > -3.
             tier_score = -x.get("tier", 3)
+            pareto = -x.get("pareto_rank", PARETO_MAX_RANK + 1)  # last key before the signature
 
             # CF proximity as final tiebreaker (higher is better)
             cf_prox = x.get("cf_proximity", 0)
@@ -540,22 +465,22 @@ class StrategyFinder:
 
             if preset is PresetId.SECURITY:
                 # Safety profile: prioritize DSCR, then finance_score
-                return (tier_score, x.get("dscr_norm", 0), finance, cf_prox)
+                return (tier_score, x.get("dscr_norm", 0), finance, cf_prox, pareto)
 
             if preset is PresetId.IRR:
                 # IRR profile: prioritize TRI, then finance_score
-                return (tier_score, x.get("tri_norm", 0), finance, cf_prox)
+                return (tier_score, x.get("tri_norm", 0), finance, cf_prox, pareto)
 
             if preset is PresetId.CASHFLOW:
                 # Cash-flow profile: prioritize CF proximity, then DSCR for safety
-                return (tier_score, cf_prox, x.get("dscr_norm", 0), finance)
+                return (tier_score, cf_prox, x.get("dscr_norm", 0), finance, pareto)
 
             if preset is PresetId.WEALTH:
                 # Wealth-building profile: prioritize enrichment, then IRR
-                return (tier_score, x.get("enrich_norm", 0), x.get("tri_norm", 0), balanced)
+                return (tier_score, x.get("enrich_norm", 0), x.get("tri_norm", 0), balanced, pareto)
 
             # Default "Équilibré": use balanced_score which combines finance + quality
-            return (tier_score, balanced, finance, cf_prox)
+            return (tier_score, balanced, finance, cf_prox, pareto)
 
         # Explicit tie-breaker: pre-sort by signature; the stable reverse sort keeps that order among equal keys.
         by_signature = sorted(strategies, key=strategy_key)

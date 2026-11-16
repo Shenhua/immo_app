@@ -31,7 +31,7 @@ def test_allocator_agrees_with_glossary(mode, cf, target, tol, ok, pen):
 
 def _strats(cfs):
     return [
-        {"name": f"s{i}", "cash_flow_final": cf, "enrich_net": 1.0, "tri_annuel": 0.05,
+        {"name": f"s{i}", "cf_monthly_stab": cf, "enrich_net": 1.0, "tri_annuel": 0.05,
          "cap_eff": 1.0, "dscr_y1": 1.2, "tier": 1}
         for i, cf in enumerate(cfs)
     ]

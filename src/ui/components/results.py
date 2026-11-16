@@ -75,6 +75,14 @@ def render_strategy_card(
             else:
                  st.markdown(f"#### {icon} {taxonomy}")
             st.caption(f"Stratégie #{index}")
+        with col_badge:
+            if strategy.get("pareto_rank") == 1:
+                st.markdown(
+                    "<span title='Non dominée sur patrimoine, TRI, DSCR, apport, qualité et cash-flow'"
+                    " style='background:#e8f5e9;color:#1b5e20;border-radius:6px;padding:2px 8px;"
+                    "font-size:0.8em;font-weight:600'>Pareto</span>",
+                    unsafe_allow_html=True,
+                )
 
         # Separator removed as requested
 

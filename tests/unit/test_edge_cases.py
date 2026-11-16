@@ -274,21 +274,6 @@ class TestScoringEdgeCases:
         )
         assert 0 <= score <= 100
 
-    def test_minmax_normalize_identical_values(self):
-        """All identical values should normalize to 0.5."""
-        result = StrategyScorer.minmax_normalize([100, 100, 100])
-        assert all(v == 0.5 for v in result)
-
-    def test_minmax_normalize_single_value(self):
-        """Single value should normalize to 0.5."""
-        result = StrategyScorer.minmax_normalize([42])
-        assert result == [0.5]
-
-    def test_minmax_normalize_with_nan(self):
-        """NaN values should become 0."""
-        result = StrategyScorer.minmax_normalize([0, float('nan'), 100])
-        assert result[1] == 0.0
-
     def test_property_qualitative_minimal_dict(self):
         """Minimal archetype dict should use defaults."""
         score, features = calculate_property_qualitative_score({})
@@ -301,23 +286,23 @@ class TestOptimizerEdgeCases:
 
     def test_scorer_empty_strategies(self):
         """Scoring empty list should not crash."""
-        scorer = StrategyScorer()
+        scorer = StrategyScorer(mode_cf="min")
         scorer.score_strategies([], 0)  # Should not raise
 
     def test_scorer_single_strategy(self):
         """Single strategy should normalize correctly."""
-        scorer = StrategyScorer()
+        scorer = StrategyScorer(mode_cf="min")
         strategies = [{
             "enrich_net": 50000,
             "tri_annuel": 8.0,
             "cap_eff": 1.5,
             "dscr_y1": 1.2,
-            "cash_flow_final": 100,
+            "cf_monthly_stab": 100,
             "qual_score": 60,
         }]
         scorer.score_strategies(strategies, 100)
 
-        # With single value, normalization gives 0.5
+        # Absolute scoring: a single strategy is scored on fixed benchmarks
         assert "finance_score" in strategies[0]
         assert "balanced_score" in strategies[0]
 
