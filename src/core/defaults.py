@@ -209,6 +209,26 @@ class DpeDefaults:
 DPE = DpeDefaults()
 
 
+@dataclass(frozen=True)
+class HcsfDefaults:
+    """Bank eligibility (T60). HCSF decision D-HCSF-2021-7 (29 Sept 2021, in force since 1 Jan 2022), art. L.631-2-1 CMF:
+    debt ratio <= 35 % of income, insurance included; loan duration <= 25 years.
+    https://www.economie.gouv.fr/hcsf/mesures/mesure-relative-loctroi-de-credits-immobiliers
+    """
+
+    taux_max_pct: float = 35.0
+    taux_alerte_pct: float = 33.0  # UI: orange between this and the maximum
+    duree_max_ans: int = 25
+    # Banks count about 70 % of the gross rents of the financed property as income. Market practice, NOT in the HCSF text.
+    ponderation_loyers: float = 0.70
+    revenu_net_mensuel: float = 4000.0
+    charges_mensuelles: float = 0.0
+    filtrer: bool = True
+
+
+HCSF = HcsfDefaults()
+
+
 # --------------------------------------------------------------------------- #
 # Scoring presets
 # --------------------------------------------------------------------------- #

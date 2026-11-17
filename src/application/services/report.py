@@ -20,6 +20,7 @@ from src.application.run_context import RunContext
 from src.application.services.simulation import simulate_long_term_strategy
 from src.domain.calculator.financial import generate_amortization_schedule
 from src.domain.dpe import property_ban_warning
+from src.domain.hcsf import hcsf_check
 
 DISCLAIMER = "Simulation indicative, ne constitue pas un conseil fiscal."
 NA = "n/a"
@@ -35,6 +36,9 @@ ASSUMPTION_LABELS: dict[str, tuple[str, str]] = {
     "max_properties": ("Nombre max de biens", "int"),
     "use_full_capital": ("Utiliser tout le capital", "bool"),
     "top_n": ("Nombre de stratégies retenues", "int"),
+    "revenu_net_mensuel": ("Revenu net mensuel du foyer", "eur"),
+    "charges_mensuelles": ("Mensualités de crédit existantes", "eur"),
+    "filtrer_hcsf": ("Filtrer les stratégies non finançables (HCSF)", "bool"),
     "taux_credits": ("Taux de crédit par durée", "text"),
     "frais_notaire_pct": ("Frais de notaire (%)", "pct"),
     "assurance_ann_pct": ("Assurance emprunteur annuelle (%)", "pct"),
@@ -221,6 +225,9 @@ def build_report(
         ("Apport total", _num(strategy.get("apport_total")), "eur"),
         ("Cash-flow mensuel final", _num(strategy.get("cash_flow_final")), "eur"),
     ]
+    hc = hcsf_check(details, ctx.revenu_net_mensuel, ctx.charges_mensuelles)  # T60
+    kpis.append(("Taux d'endettement (HCSF, max 35 %)", hc.taux_endettement, "pct"))
+    kpis.append(("Finançable selon le HCSF", "Oui" if hc.hcsf_ok else "Non", "text"))
 
     assumptions = []
     for key, value in ctx.model_dump().items():

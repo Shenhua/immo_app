@@ -14,6 +14,7 @@ from src.core.defaults import (
     DEFAULT_PRESET,
     DPE,
     FINANCING,
+    HCSF,
     MARKET,
     PRESETS,
     SEARCH,
@@ -200,6 +201,30 @@ def render_objectives_section() -> dict[str, Any]:
         "max_properties": max_props,
         "use_full_capital": use_full_capital,
     }
+
+
+def render_borrower_profile() -> dict[str, Any]:
+    """Borrower profile (T60): income and debts for the HCSF bankability check."""
+    with st.sidebar.expander("👤 Profil emprunteur", expanded=False):
+        revenu = st.number_input(
+            "Revenu net mensuel du foyer (€)", min_value=0.0, value=HCSF.revenu_net_mensuel, step=100.0,
+            help="Revenus nets du foyer, avant les loyers des biens à acheter.",
+        )
+        charges = st.number_input(
+            "Mensualités de crédit existantes (€/mois)", min_value=0.0, value=HCSF.charges_mensuelles, step=50.0,
+        )
+        filtrer = st.toggle(
+            "Filtrer les stratégies non finançables",
+            value=HCSF.filtrer,
+            help=(
+                "Décision HCSF D-HCSF-2021-7 : taux d'endettement (mensualités assurance comprise / revenus) au plus "
+                "35 %, durée de prêt au plus 25 ans. Les revenus comptent 70 % des loyers bruts des nouveaux biens "
+                "(pratique usuelle des banques, absente du texte HCSF). La marge de flexibilité de 20 % dont "
+                "disposent les banques n'est pas modélisée. Désactivé : les stratégies non finançables sont "
+                "conservées et signalées."
+            ),
+        )
+    return {"revenu_net_mensuel": revenu, "charges_mensuelles": charges, "filtrer_hcsf": bool(filtrer)}
 
 
 def render_credit_params_tab() -> dict[str, Any]:

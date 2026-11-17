@@ -60,7 +60,7 @@ def _record(s: dict) -> dict:
 
 
 def _run(case: dict) -> list[dict]:
-    ctx = RunContext(**case)
+    ctx = RunContext(**{"filtrer_hcsf": False, **case})  # T60: the old exhaustive reference has no HCSF filter
     fin = build_financing_config(ctx.to_credit_params())
     op = build_operating_config(
         ctx.gestion_pct, ctx.vacance_pct, ctx.cfe_par_bien_ann,

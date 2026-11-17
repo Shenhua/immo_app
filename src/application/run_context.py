@@ -16,7 +16,18 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.core.defaults import DEFAULT_PRESET, DPE, FINANCING, MARKET, OPERATING, REALISM, SEARCH, TAX, preset_weights
+from src.core.defaults import (
+    DEFAULT_PRESET,
+    DPE,
+    FINANCING,
+    HCSF,
+    MARKET,
+    OPERATING,
+    REALISM,
+    SEARCH,
+    TAX,
+    preset_weights,
+)
 
 if TYPE_CHECKING:
     from src.application.services.simulation import SimulationEngine
@@ -43,6 +54,11 @@ class RunContext(BaseModel):
     max_properties: int = SEARCH.max_properties_classique
     use_full_capital: bool = False
     top_n: int = SEARCH.top_n
+
+    # Borrower profile (T60): search / eligibility fields, not engine fields.
+    revenu_net_mensuel: float = HCSF.revenu_net_mensuel
+    charges_mensuelles: float = HCSF.charges_mensuelles
+    filtrer_hcsf: bool = HCSF.filtrer
 
     # Financing
     taux_credits: dict[int, float] = Field(default_factory=lambda: FINANCING.taux_credits)
@@ -112,6 +128,9 @@ class RunContext(BaseModel):
             horizon_ans=params["horizon"],
             max_properties=params.get("max_properties", SEARCH.max_properties_classique),
             use_full_capital=params.get("use_full_capital", False),
+            revenu_net_mensuel=float(params.get("revenu_net_mensuel", HCSF.revenu_net_mensuel)),
+            charges_mensuelles=float(params.get("charges_mensuelles", HCSF.charges_mensuelles)),
+            filtrer_hcsf=bool(params.get("filtrer_hcsf", HCSF.filtrer)),
             top_n=params.get("top_n", SEARCH.top_n),
             taux_credits=credit["taux_credits"],
             frais_notaire_pct=credit["frais_notaire_pct"],
@@ -205,6 +224,11 @@ class RunContext(BaseModel):
             "finance_weights_override": dict(self.finance_weights),
             "max_properties": self.max_properties,
             "use_full_capital": self.use_full_capital,
+            "hcsf": {
+                "revenu_net_mensuel": self.revenu_net_mensuel,
+                "charges_mensuelles": self.charges_mensuelles,
+                "filtrer": self.filtrer_hcsf,
+            },
         }
 
     def to_tax_params(self) -> dict[str, Any]:

@@ -9,7 +9,9 @@ strategy. Reasons:
 - ``max_props``: a subset that fits the budget but has one property more than the maximum;
 - ``cf``: no loan-duration assignment reaches the cash-flow target (pre-filter, optimistic bound) or every
   simulated assignment ends outside it (after-tax CF of the stabilised year, ``glossary.CF_ACCEPTANCE_BASIS``);
-- ``evaluator``: the simulation failed.
+- ``evaluator``: the simulation failed;
+- ``hcsf`` (T60): the subset passed the search but no loan-duration assignment is bankable (debt ratio above 35 %,
+  ``domain/hcsf.py``), with the filter on. Added by ``StrategyFinder`` after the search.
 
 The relaxation suggestions are computed from the recorded gaps only, with no new search.
 """
@@ -19,12 +21,13 @@ import math
 from dataclasses import dataclass, field
 from typing import Any
 
-REASONS = ("budget", "cf", "max_props", "evaluator")
+REASONS = ("budget", "cf", "max_props", "evaluator", "hcsf")
 REASON_LABELS = {
     "budget": "apport insuffisant (budget dépassé)",
     "cf": "cash-flow hors de la cible",
     "max_props": "nombre maximal de biens atteint",
     "evaluator": "échec de la simulation",
+    "hcsf": "HCSF (taux d'endettement > 35 %)",
 }
 NEAR_MISS_N = 5
 _CF_MARGIN = 0.10
@@ -51,6 +54,8 @@ class NearMiss:
             return f"{who} : {self.gap:,.0f} € au-dessus du budget".replace(",", " ")
         if self.reason == "max_props":
             return f"{who} : {len(self.names)} biens pour un maximum de {len(self.names) - 1}"
+        if self.reason == "hcsf":
+            return f"{who} : taux d'endettement {self.cf:.1f} % (maximum 35 %, {self.gap:.1f} pt au-dessus)"
         return f"{who} : simulation en échec"
 
 
@@ -85,6 +90,8 @@ class SearchDiagnostics:
     cf_gaps_sim: dict[tuple[str, ...], float] = field(default_factory=dict)
     cf_gaps_est: dict[tuple[str, ...], float] = field(default_factory=dict)
     budget_gaps: list[float] = field(default_factory=list)
+    revenu_net: float = 0.0  # household net monthly income of the run (HCSF suggestion)
+    hcsf_income_gaps: dict[tuple[str, ...], float] = field(default_factory=dict)  # EUR/month of income missing
 
     # ------------------------------------------------------------------ recording
     def record(self, near: NearMiss, count: int = 1) -> None:
@@ -109,6 +116,10 @@ class SearchDiagnostics:
         if len(self.budget_gaps) < _GAPS_CAP:
             self.budget_gaps.append(gap)
 
+    def add_hcsf_gap(self, names: tuple[str, ...], income_gap: float) -> None:
+        if len(self.hcsf_income_gaps) < _GAPS_CAP:
+            self.hcsf_income_gaps[names] = income_gap
+
     # ------------------------------------------------------------------ reading
     @property
     def total_rejected(self) -> int:
@@ -131,7 +142,8 @@ class SearchDiagnostics:
         out: list[Suggestion] = []
         top = self.top_reason()
         for reason in REASONS:
-            s = {"cf": self._suggest_cf, "budget": self._suggest_budget, "max_props": self._suggest_max_props}.get(
+            s = {"cf": self._suggest_cf, "budget": self._suggest_budget, "max_props": self._suggest_max_props,
+                 "hcsf": self._suggest_hcsf}.get(
                 reason)
             sug = s(top_n) if s else None
             if sug is not None:
@@ -173,6 +185,19 @@ class SearchDiagnostics:
         text = (f"Avec un apport de {new_budget:,.0f} € au lieu de {self.budget:,.0f} €, "
                 f"{count} portefeuille(s) de plus seraient examinés").replace(",", " ")
         return Suggestion("budget", "apport", self.budget, new_budget, "examinés", count, text)
+
+    def _suggest_hcsf(self, top_n: int) -> Suggestion | None:
+        gaps = sorted(g for g in self.hcsf_income_gaps.values() if g > 0)
+        if not gaps:
+            return None
+        k = min(len(gaps), max(1, min(top_n, 5)))
+        add = math.ceil(gaps[k - 1] / 100.0) * 100.0
+        count = sum(1 for g in gaps if g <= add)
+        new_income = self.revenu_net + add
+        text = (f"Avec un revenu net de {new_income:,.0f} €/mois au lieu de {self.revenu_net:,.0f} €, "
+                f"{count} portefeuille(s) de plus seraient finançables ; un apport plus élevé (moins de crédit) "
+                "ou des durées plus longues réduisent aussi le taux d'endettement").replace(",", " ")
+        return Suggestion("hcsf", "revenu_net_mensuel", self.revenu_net, new_income, "finançables", count, text)
 
     def _suggest_max_props(self, top_n: int) -> Suggestion | None:
         n = self.counts.get("max_props", 0)

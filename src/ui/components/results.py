@@ -7,6 +7,7 @@ from typing import Any
 
 import streamlit as st
 
+from src.core.defaults import HCSF
 from src.domain.dpe import property_ban_warning
 from src.ui.helpers import format_euro, format_pct, get_taxonomy_badge
 
@@ -25,6 +26,23 @@ def get_cf_color(value: float, target: float) -> str:
         return "#fd7e14"
     else:
         return "#dc3545"
+
+def get_hcsf_color(taux: float) -> str:
+    """Debt ratio colour (T60): green <= 33 %, orange up to 35 %, red above."""
+    if taux <= HCSF.taux_alerte_pct:
+        return "#28a745"
+    return "#fd7e14" if taux <= HCSF.taux_max_pct else "#dc3545"
+
+
+def hcsf_badge(strategy: dict[str, Any]) -> str:
+    """HTML for the debt ratio, or "" when the run did not compute it."""
+    taux = strategy.get("taux_endettement")
+    if taux is None:
+        return ""
+    flag = "" if strategy.get("hcsf_ok", True) else " · non finançable (HCSF)"
+    return (f"<span title='Taux d\'endettement HCSF (max 35 %), assurance incluse' "
+            f"style='color:{get_hcsf_color(float(taux))};font-weight:600'>Endettement {float(taux):.1f} %{flag}</span>")
+
 
 def get_star_rating(score: float, max_stars: int = 5) -> str:
     """Convert 0-100 score to star rating string."""
@@ -123,6 +141,9 @@ def render_strategy_card(
             enrich = strategy.get("liquidation_nette", 0)
             st.markdown("<div style='font-size: 0.9em; color: gray;'>Enrichissement</div>", unsafe_allow_html=True)
             st.markdown(f"<div style='font-size: 2.5em;'>{format_euro(enrich)}</div>", unsafe_allow_html=True)
+
+        if badge := hcsf_badge(strategy):
+            st.markdown(badge, unsafe_allow_html=True)
 
         for bien in strategy.get("details", []):
             if (warn := property_ban_warning(bien, horizon)):
@@ -245,6 +266,9 @@ def render_kpi_summary(strategy: dict[str, Any], horizon: int = 25) -> None:
                  )
             else:
                  st.metric(label, formatter(value), help=help_text)
+
+    if badge := hcsf_badge(strategy):
+        st.markdown(badge, unsafe_allow_html=True)
 
     cf_y1 = strategy.get("cf_monthly_y1")
     dscr_y1 = strategy.get("dscr_y1")
