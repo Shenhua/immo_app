@@ -289,3 +289,5 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-16: T61 merged (partial: the search is not wired). T35 added. T34 still running.
 - 2026-11-16: T34 merged (1231 passed). **Phase 3 complete.** T35 launched (T62 still running).
 - 2026-11-16: T62 merged (1238 passed). T63 launched (T35 still running).
+- 2026-11-16 evening: the usage limit interrupted T35 (uncommitted edits in worktree agent-a9bb53e9a29a13e6d) and T63 (no changes, worktree agent-aea74a6ff0021e4c3).
+- 2026-11-17: both resumed via SendMessage. If the session dies, relaunch them from their branches.
