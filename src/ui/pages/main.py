@@ -222,7 +222,7 @@ def render_strategy_list(
             data.append(
                 {
                     "Stratégie": f"{hero_mark}{icon} Stratégie #{i + 1}",
-                    "CF an 1, avant impôt": s.get("cash_flow_final", 0),
+                    "CF an 2, avant impôt": s.get("cash_flow_final", 0),
                     "TRI (%)": s.get("tri_annuel", 0),
                     "Enrich. (k€)": enrich,
                     "Score": int(s.get("balanced_score", 0) * 100),
@@ -255,7 +255,7 @@ def render_strategy_list(
 
         column_config = {
             "Stratégie": st.column_config.TextColumn("Stratégie", width="medium"),
-            "CF an 1, avant impôt": st.column_config.NumberColumn("CF an 1, avant impôt", format="%.0f €"),
+            "CF an 2, avant impôt": st.column_config.NumberColumn("CF an 2, avant impôt", format="%.0f €"),
             "TRI (%)": st.column_config.NumberColumn("TRI", format="%.1f %%"),
             "Enrich. (k€)": st.column_config.ProgressColumn(
                 "Enrich.",

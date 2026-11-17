@@ -162,7 +162,7 @@ def render_risk_reward_scatter(strategies: list[dict[str, Any]], key: str = "sca
                 "Label": f"Strat #{i}",
                 "TRI (%)": s.get("tri_annuel", 0),
                 "DSCR": s.get("dscr_y1", 0),
-                "CF mensuel an 1 avant impôt (€)": s.get("cash_flow_final", 0),
+                "CF mensuel an 2 avant impôt (€)": s.get("cash_flow_final", 0),
                 "Score": s.get("balanced_score", 0) * 100,
                 "Taxonomy": s.get("taxonomy", "Autre"),
             }
@@ -175,9 +175,9 @@ def render_risk_reward_scatter(strategies: list[dict[str, Any]], key: str = "sca
         x="DSCR",
         y="TRI (%)",
         size="Score",  # Bubble size based on Score
-        color="CF mensuel an 1 avant impôt (€)",  # Color based on CF
+        color="CF mensuel an 2 avant impôt (€)",  # Color based on CF
         hover_name="Label",
-        hover_data=["CF mensuel an 1 avant impôt (€)", "Score", "Taxonomy"],
+        hover_data=["CF mensuel an 2 avant impôt (€)", "Score", "Taxonomy"],
         title="Matrice Risque (DSCR) / Rendement (TRI)",
         color_continuous_scale="RdYlGn",
         size_max=40,
@@ -269,7 +269,7 @@ def render_comparison_charts(
             {
                 "Stratégie": f"#{i}",
                 "TRI (%)": s.get("tri_annuel", 0),
-                "CF mensuel an 1 avant impôt (€)": s.get("cash_flow_final", 0),
+                "CF mensuel an 2 avant impôt (€)": s.get("cash_flow_final", 0),
                 "Patrimoine (€)": s.get("patrimoine_acquis", 0),
                 "Apport (€)": s.get("apport_total", 0),
                 "Score": s.get("balanced_score", 0) * 100,
@@ -298,9 +298,9 @@ def render_comparison_charts(
         fig2 = px.bar(
             comp_df,
             x="Stratégie",
-            y="CF mensuel an 1 avant impôt (€)",
+            y="CF mensuel an 2 avant impôt (€)",
             title="Comparaison Cash-Flow",
-            color="CF mensuel an 1 avant impôt (€)",
+            color="CF mensuel an 2 avant impôt (€)",
             color_continuous_scale=["#dc3545", "#28a745"],
         )
         fig2.update_layout(showlegend=False)
