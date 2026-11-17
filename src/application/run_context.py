@@ -191,18 +191,15 @@ class RunContext(BaseModel):
         }
 
     def to_eval_params(self) -> dict[str, Any]:
-        """Dict taken by ``StrategyFinder.find_strategies`` (same keys the old app.py built)."""
+        """Dict taken by ``StrategyFinder.find_strategies``.
+
+        The engine parameters are the very dicts ``build_engine()`` uses (no copied field list, T35). The
+        tax keys are also spread flat for callers that read them there.
+        """
+        tax = self.to_tax_params()
         return {
-            "tmi_pct": self.tmi_pct,
-            "regime_fiscal": self.regime_fiscal,
-            "regime_foncier": self.regime_foncier,
-            "sci_is": self.sci_is,
-            "frais_vente_pct": self.frais_vente_pct,
-            "ratio_terrain_pct": self.ratio_terrain_pct,
-            "nb_owners": self.nb_owners,
-            "apply_ira": self.apply_ira,
-            "ira_cap_pct": self.ira_cap_pct,
-            "cfe_par_bien_ann": self.cfe_par_bien_ann,
+            **tax,
+            "tax_params": tax,
             "hypotheses_marche": self.market_hypotheses,
             "finance_preset_name": self.finance_preset_name,
             "finance_weights_override": dict(self.finance_weights),
