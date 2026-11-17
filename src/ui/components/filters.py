@@ -73,6 +73,7 @@ def render_property_filters(
         "Filtrer les villes",
         villes,
         default=villes if len(villes) <= 12 else [],
+        key="sb_villes",
         help="Aucune ville sélectionnée = toutes les villes sont incluses dans la recherche.",
     )
 
@@ -81,6 +82,7 @@ def render_property_filters(
         "Filtrer les types de bien",
         options=types_bien,
         default=types_bien,
+        key="sb_types",
         format_func=label_for,
         help="Sélectionnez les familles de stratégies à considérer. Aucun type sélectionné = tous les types sont inclus dans la recherche.",
     )
@@ -88,7 +90,7 @@ def render_property_filters(
     # Rent cap
     apply_rent_cap = st.checkbox(
         "Appliquer l'encadrement des loyers si configuré",
-        value=True,
+        key="sb_apply_cap",
     )
 
     return selected_villes, selected_types, apply_rent_cap

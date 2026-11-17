@@ -13,7 +13,9 @@ def _script_tax_section():
     import streamlit as st
 
     from src.ui.components.sidebar import render_tax_section
+    from src.ui.components.sidebar_state import ensure_defaults
 
+    ensure_defaults()  # widgets take their defaults from session state (T65)
     st.session_state["tax_choice"] = render_tax_section()
 
 

@@ -16,7 +16,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from src.application.progress import SearchPhase, SearchProgress
 from src.application.run_context import RunContext
 from src.application.validation import cheapest_brick_apport, validate_durations, validate_search_inputs
-from src.core.defaults import OPERATING, REALISM, SEARCH, TAX
+from src.core.defaults import SEARCH
 from src.core.logging import get_logger
 from src.ui.app_controller import (
     autosave_results,
@@ -26,6 +26,7 @@ from src.ui.app_controller import (
 )
 from src.ui.cached import cached_bricks, filter_and_caps
 from src.ui.components.filters import render_property_filters
+from src.ui.components.scenarios import apply_url_params_once, render_scenario_panel, sync_url
 from src.ui.components.sidebar import (
     render_borrower_profile,
     render_credit_params_tab,
@@ -34,6 +35,7 @@ from src.ui.components.sidebar import (
     render_scoring_preset,
     render_tax_section,
 )
+from src.ui.components.sidebar_state import consume_pending, ensure_defaults
 from src.ui.pages.main import render_main_page
 from src.ui.state import SessionManager
 
@@ -69,30 +71,30 @@ def render_sidebar() -> dict[str, Any]:
 
         # Operating Costs (Exploitation)
         with st.expander("📉 Frais & Charges", expanded=False):
-            cfe = st.number_input("CFE (€/an, meublé)", 0, 2000, value=int(OPERATING.cfe_par_bien_ann), step=50)
-            gestion = st.slider("Gestion (%)", 0.0, 15.0, value=OPERATING.gestion_pct, step=0.5)
+            cfe = st.number_input("CFE (€/an, meublé)", 0, 2000, key="sb_cfe", step=50)
+            gestion = st.slider("Gestion (%)", 0.0, 15.0, key="sb_gestion", step=0.5)
             vacance = st.slider(
-                "Vacance minimale (%)", 0.0, 10.0, value=OPERATING.vacance_pct, step=0.5,
+                "Vacance minimale (%)", 0.0, 10.0, key="sb_vacance", step=0.5,
                 help="Plancher de vacance : chaque bien utilise max(vacance propre au type de bien, ce curseur). "
                      "Le curseur ne peut donc que relever la vacance d'un bien, jamais la baisser.",
             )
             gli_pct = st.slider(
-                "Loyers impayés / GLI (% loyers)", 0.0, 10.0, value=REALISM.gli_pct, step=0.5,
+                "Loyers impayés / GLI (% loyers)", 0.0, 10.0, key="sb_gli", step=0.5,
                 help="Prime d'assurance loyers impayés ou provision pour impayés, en % des loyers encaissés.",
             )
             maintenance_m2_an = st.number_input(
-                "Entretien / gros travaux (€/m²/an)", 0.0, 100.0, value=REALISM.maintenance_m2_an, step=1.0,
+                "Entretien / gros travaux (€/m²/an)", 0.0, 100.0, key="sb_maintenance", step=1.0,
                 help="Provision pour réparations et gros travaux : sortie de trésorerie, déductible au réel.",
             )
             mois_travaux = st.slider(
-                "Mois sans loyer si travaux", 0, 12, value=REALISM.mois_travaux, step=1,
+                "Mois sans loyer si travaux", 0, 12, key="sb_mois_travaux", step=1,
                 help="Année 1 uniquement, pour les biens avec travaux : mois sans loyer.",
             )
             tf_growth_pct = st.slider(
-                "Hausse taxe foncière (%/an)", -2.0, 10.0, value=REALISM.tf_growth_pct, step=0.5,
+                "Hausse taxe foncière (%/an)", -2.0, 10.0, key="sb_tf_growth", step=0.5,
                 help="Croissance annuelle de la taxe foncière (distincte de l'inflation des charges).",
             )
-            frais_vente = st.slider("Frais Revente (%)", 0.0, 10.0, value=TAX.frais_vente_pct, step=0.5)
+            frais_vente = st.slider("Frais Revente (%)", 0.0, 10.0, key="sb_frais_vente", step=0.5)
 
         # Tax
         with st.expander("⚖️ Fiscalité", expanded=False):
@@ -117,7 +119,7 @@ def render_sidebar() -> dict[str, Any]:
         with st.expander("⚙️ Avancé", expanded=False):
             top_n = st.slider(
                 "Nombre max de résultats",
-                min_value=10, max_value=500, value=SEARCH.top_n, step=10,
+                min_value=10, max_value=500, key="sb_top_n", step=10,
                 help="Limite le nombre de stratégies affichées après optimisation."
             )
 
@@ -279,7 +281,13 @@ def main() -> None:
     SessionManager.initialize()
     log.info("app_started")
 
-    # 2. Render sidebar and collect parameters
+    # 2. Sidebar state: URL parameters (first run), requested changes (scenario, diagnostics suggestion), defaults.
+    # All of it must happen before the widgets are drawn (a widget value cannot be set after).
+    apply_url_params_once()
+    consume_pending()
+    ensure_defaults()
+
+    # Render sidebar and collect parameters
     params = render_sidebar()
 
     # 3. Exit early if no data
@@ -305,7 +313,9 @@ def main() -> None:
         handle_analysis(current_ctx, compliant)
 
     # 6. Results and the context they were computed with
+    sync_url(current_ctx)
     strategies = SessionManager.get_strategies()
+    render_scenario_panel(current_ctx, strategies, SessionManager.get_selected_idx() if strategies else None)
     run_ctx = SessionManager.get_run_context()
     stale = run_ctx is not None and run_ctx != current_ctx
 

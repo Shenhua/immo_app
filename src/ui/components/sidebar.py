@@ -10,22 +10,24 @@ from typing import Any
 import streamlit as st
 
 from src.application.validation import MAX_RATE_PCT
-from src.core.defaults import (
-    DEFAULT_PRESET,
-    DPE,
-    FINANCING,
-    HCSF,
-    MARKET,
-    PRESETS,
-    SEARCH,
-    TAX,
+from src.core.defaults import FINANCING, SEARCH
+from src.ui.components.sidebar_state import (
+    DEFAULT_PRESET_LABEL,
+    DPE_LABELS,
+    FINANCIAL_PRESETS,
+    MODE_CLASSIQUE,
+    MODE_EMPIRE,
+    MODE_RENTIER,
+    REGIMES_MEUBLE,
+    REGIMES_NU,
+    STRATEGY_MODES,
+    WEIGHT_KEYS,
 )
 
-# Preset financial profiles, keyed by display label. Weights come from src/core/defaults.py.
-FINANCIAL_PRESETS: dict[str, dict[str, float]] = {
-    pid.label: weights.as_dict() for pid, weights in PRESETS.items()
-}
-DEFAULT_PRESET_LABEL = DEFAULT_PRESET.label
+__all__ = ["FINANCIAL_PRESETS", "DEFAULT_PRESET_LABEL", "REGIMES_MEUBLE", "REGIMES_NU"]
+
+# Preset financial profiles, keyed by display label (weights from src/core/defaults.py), and the widget keys:
+# see sidebar_state.py. Every input has a key so that a RunContext can be applied to the sidebar (T65).
 
 
 PRECISE_TARGETING_HELP = (
@@ -46,8 +48,8 @@ def render_objectives_section() -> dict[str, Any]:
     st.sidebar.markdown("### 🎯 Stratégie d'Investissement")
     strategy_mode = st.sidebar.radio(
         "Mode d'allocation",
-        ["Classique (Levier)", "Rentier (Max Cash-Flow)", "Empire (Max Volume)"],
-        index=0,
+        STRATEGY_MODES,
+        key="sb_mode",
         help=(
             "**Classique (Levier)** : Cherche l'équilibre. Utilise l'apport minimum pour maximiser le retour sur investissement (TRI).\n\n"
             "**Rentier (Max Cash-Flow)** : Investit tout l'apport disponible (jusqu'à 95 % du prêt de chaque bien, ou "
@@ -69,22 +71,22 @@ def render_objectives_section() -> dict[str, Any]:
         # But here we want to guide them.
 
         target_preset = None
-        if "Rentier" in strategy_mode:
+        if strategy_mode == MODE_RENTIER:
             target_preset = "Cash-flow d'abord" # or Sécurité
-        elif "Empire" in strategy_mode:
+        elif strategy_mode == MODE_EMPIRE:
             target_preset = "Patrimoine LT"
-        elif "Classique" in strategy_mode:
+        elif strategy_mode == MODE_CLASSIQUE:
             target_preset = DEFAULT_PRESET_LABEL
 
         if target_preset and target_preset in FINANCIAL_PRESETS:
              st.session_state.finance_preset = target_preset
-             st.session_state.finance_custom = FINANCIAL_PRESETS[target_preset].copy()
+             set_custom_weights(FINANCIAL_PRESETS[target_preset])
              # Notify user via toast (Streamlit 1.30+) or just let them see the change
              # st.toast(f"Profil financier ajusté : {target_preset}")
 
     # Logic flags
-    is_rentier = "Rentier" in strategy_mode
-    is_empire = "Empire" in strategy_mode
+    is_rentier = strategy_mode == MODE_RENTIER
+    is_empire = strategy_mode == MODE_EMPIRE
     use_full_capital = is_rentier
 
     # Max number of properties: its own control (T43), independent of the mode radio. A mode change
@@ -108,7 +110,7 @@ def render_objectives_section() -> dict[str, Any]:
         apport = st.number_input(
             "Apport Total Disponible (€)",
             min_value=0,
-            value=SEARCH.apport,
+            key="sb_apport",
             step=5000,
             format="%d",
             help="Capital total que vous êtes prêt à investir (frais de notaire + apport bancaire)."
@@ -121,7 +123,7 @@ def render_objectives_section() -> dict[str, Any]:
                 "Cash-Flow Cible (/mois)",
                 min_value=-2000.0,
                 max_value=2000.0,
-                value=float(SEARCH.cf_cible),
+                key="sb_cf_cible",
                 step=50.0,
                 help="Le cash-flow net minimum que vous visez (négatif = effort d'épargne). "
                      "En mode Rentier, c'est un plancher : l'apport est investi pour dépasser ce niveau."
@@ -138,7 +140,7 @@ def render_objectives_section() -> dict[str, Any]:
         else:
             is_precise = st.toggle(
                 "Ciblage Précis (±)",
-                value=False,
+                key="sb_precise",
                 help=PRECISE_TARGETING_HELP,
             )
         mode_cf = "target" if is_precise else "min"
@@ -151,7 +153,7 @@ def render_objectives_section() -> dict[str, Any]:
                 tolerance = st.number_input(
                     "Tolérance (±€/mois)",
                     min_value=0,
-                    value=SEARCH.tolerance,
+                    key="sb_tolerance",
                     step=10,
                     help="Écart accepté autour de la cible, en mode Ciblage Précis uniquement.",
                 )
@@ -181,7 +183,7 @@ def render_objectives_section() -> dict[str, Any]:
         priorite_pct = col2.slider(
             "Priorité",
             0, 100,
-            value=SEARCH.priorite_pct,
+            key="sb_priorite",
             step=5,
             format="%d%%",
             label_visibility="collapsed",
@@ -207,15 +209,15 @@ def render_borrower_profile() -> dict[str, Any]:
     """Borrower profile (T60): income and debts for the HCSF bankability check."""
     with st.sidebar.expander("👤 Profil emprunteur", expanded=False):
         revenu = st.number_input(
-            "Revenu net mensuel du foyer (€)", min_value=0.0, value=HCSF.revenu_net_mensuel, step=100.0,
+            "Revenu net mensuel du foyer (€)", min_value=0.0, key="sb_revenu", step=100.0,
             help="Revenus nets du foyer, avant les loyers des biens à acheter.",
         )
         charges = st.number_input(
-            "Mensualités de crédit existantes (€/mois)", min_value=0.0, value=HCSF.charges_mensuelles, step=50.0,
+            "Mensualités de crédit existantes (€/mois)", min_value=0.0, key="sb_charges", step=50.0,
         )
         filtrer = st.toggle(
             "Filtrer les stratégies non finançables",
-            value=HCSF.filtrer,
+            key="sb_filtrer_hcsf",
             help=(
                 "Décision HCSF D-HCSF-2021-7 : taux d'endettement (mensualités assurance comprise / revenus) au plus "
                 "35 %, durée de prêt au plus 25 ans. Les revenus comptent 70 % des loyers bruts des nouveaux biens "
@@ -236,7 +238,7 @@ def render_credit_params_tab() -> dict[str, Any]:
     durees = st.multiselect(
         "Durées de prêt (ans)",
         options=list(range(FINANCING.duree_min_ans, FINANCING.duree_max_ans + 1)),
-        default=list(FINANCING.durees_defaut),
+        key="sb_durees",
         max_selections=FINANCING.max_durations,
         help=(
             f"De {FINANCING.duree_min_ans} à {FINANCING.duree_max_ans} ans, {FINANCING.max_durations} durées au "
@@ -245,11 +247,11 @@ def render_credit_params_tab() -> dict[str, Any]:
     )
     taux_credits: dict[int, float] = {}
     for years in sorted(durees):
+        st.session_state.setdefault(f"taux_duree_{years}", FINANCING.default_rate(years))
         taux_credits[years] = st.number_input(
             f"Taux {years} ans (%)",
             min_value=0.0,
             max_value=MAX_RATE_PCT,
-            value=FINANCING.default_rate(years),
             step=0.05,
             format="%.2f",
             key=f"taux_duree_{years}",
@@ -258,26 +260,23 @@ def render_credit_params_tab() -> dict[str, Any]:
     st.markdown("---")
 
     with st.expander("⚙️ Options Avancées & Coûts", expanded=False):
-        frais_notaire = st.slider("Frais de notaire (%)", 0.0, 12.0, value=FINANCING.frais_notaire_pct, step=0.1)
-        assurance = st.slider("Assurance emprunteur (% cap.)", 0.00, 1.00, value=FINANCING.assurance_ann_pct, step=0.01)
-        frais_pret = st.slider("Frais de prêt (% cap.)", 0.0, 3.0, value=FINANCING.frais_pret_pct, step=0.1)
+        frais_notaire = st.slider("Frais de notaire (%)", 0.0, 12.0, key="sb_frais_notaire", step=0.1)
+        assurance = st.slider("Assurance emprunteur (% cap.)", 0.00, 1.00, key="sb_assurance", step=0.01)
+        frais_pret = st.slider("Frais de prêt (% cap.)", 0.0, 3.0, key="sb_frais_pret", step=0.1)
 
         st.markdown("**Inclusion des coûts dans le financement**")
         c1, c2, c3, c4 = st.columns(4)
-        inclure_travaux = c1.checkbox("Travaux", value=FINANCING.inclure_travaux)
-        inclure_reno = c2.checkbox("Reno E→D", value=FINANCING.inclure_reno_ener)
-        inclure_mobilier = c3.checkbox("Mobilier", value=FINANCING.inclure_mobilier)
-        financer_mobilier = c4.checkbox("Financé", value=FINANCING.financer_mobilier)
+        inclure_travaux = c1.checkbox("Travaux", key="sb_inc_travaux")
+        inclure_reno = c2.checkbox("Reno E→D", key="sb_inc_reno")
+        inclure_mobilier = c3.checkbox("Mobilier", key="sb_inc_mobilier")
+        financer_mobilier = c4.checkbox("Financé", key="sb_fin_mobilier")
 
         st.markdown("**Interdiction de location (DPE)**")
-        dpe_labels = {
-            "Rénover avant l'interdiction": "renover",
-            "Ne pas rénover (loyer nul dès l'interdiction)": "ne_pas_renover",
-        }
+        dpe_labels = DPE_LABELS
         dpe_label = st.radio(
             "Biens E, F, G",
             options=list(dpe_labels),
-            index=list(dpe_labels.values()).index(DPE.policy),
+            key="sb_dpe_policy",
             help="Loi Climat et Résilience : G interdit à la location dès 2025, F dès 2028, E dès 2034. "
             "Par simplification, l'interdiction s'applique au bien dès cette date (en droit, le G ne bloque que "
             "les baux nouveaux ou renouvelés). Rénover : travaux l'année précédente (à l'achat, sur l'apport, si "
@@ -288,23 +287,23 @@ def render_credit_params_tab() -> dict[str, Any]:
         dpe_cout = st.number_input(
             "Coût de rénovation (€/m²/classe)",
             0.0, 1000.0,
-            value=DPE.cout_m2_par_classe,
+            key="sb_dpe_cout",
             step=10.0,
-            disabled=dpe_labels[dpe_label] != "renover",
+            disabled=dpe_labels[str(dpe_label)] != "renover",
             help="Hypothèse : ordre de grandeur ADEME / Effinergie pour une rénovation globale.",
         )
 
         st.markdown("**Part terrain (non amortissable)**")
         override_terrain = st.toggle(
             "Imposer la part terrain",
-            value=False,
+            key="sb_override_terrain",
             help="Désactivé : la part de chaque archétype est utilisée (15 % par défaut, 20 % à Lyon et Annecy).",
         )
         ratio_terrain = st.number_input(
             "Part terrain %",
             min_value=0.0,
             max_value=60.0,
-            value=TAX.ratio_terrain_pct,
+            key="sb_ratio_terrain",
             step=1.0,
             disabled=not override_terrain,
             help="Part du prix (frais de notaire inclus) qui représente le terrain : elle n'est pas amortie en LMNP réel.",
@@ -314,7 +313,7 @@ def render_credit_params_tab() -> dict[str, Any]:
         nb_owners = st.selectbox(
             "Nombre de propriétaires",
             options=[1, 2],
-            index=TAX.nb_owners - 1,
+            key="sb_nb_owners",
             help="Chaque bien est détenu et vendu par 1 ou 2 propriétaires (couple en indivision). "
             "Le seuil de la surtaxe sur les plus-values élevées (50 000 €) s'applique à la part de chacun.",
         )
@@ -322,19 +321,16 @@ def render_credit_params_tab() -> dict[str, Any]:
         st.markdown("**Frais de remboursement anticipés**")
         apply_ira = st.toggle(
             "Appliquer les frais (IRA)",
-            value=st.session_state.get("apply_ira", FINANCING.apply_ira),
+            key="apply_ira",
             help="Indemnité si le prêt est remboursé avant son terme.",
         )
         ira_cap = st.number_input(
             "Plafond % CRD",
             0.0, 10.0,
-            value=st.session_state.get("ira_cap_pct", FINANCING.ira_cap_pct),
+            key="ira_cap_pct",
             step=0.1,
             help="Plafond légal sur le capital restant dû.",
         )
-
-        st.session_state["apply_ira"] = apply_ira
-        st.session_state["ira_cap_pct"] = ira_cap
 
     return {
         "taux_credits": taux_credits,
@@ -343,25 +339,18 @@ def render_credit_params_tab() -> dict[str, Any]:
         "frais_pret_pct": frais_pret,
         "inclure_travaux": inclure_travaux,
         "inclure_reno_ener": inclure_reno,
-        "dpe_policy": dpe_labels[dpe_label],
+        "dpe_policy": dpe_labels[str(dpe_label)],
         "dpe_cout_m2_par_classe": dpe_cout,
         "inclure_mobilier": inclure_mobilier,
         "financer_mobilier": financer_mobilier,
         "apply_ira": apply_ira,
         "ira_cap_pct": ira_cap,
         "ratio_terrain_pct": float(ratio_terrain) if override_terrain else None,
-        "nb_owners": int(nb_owners),
+        "nb_owners": int(nb_owners or 1),
     }
 
 
-# Tax regimes offered per income category (TAX_SPEC 8): label -> engine value.
-REGIMES_MEUBLE: dict[str, str] = {"LMNP réel": "lmnp", "Micro-BIC": "microbic"}
-REGIMES_NU: dict[str, str] = {"Réel (déficit foncier)": "reel", "Micro-foncier": "micro"}
-
-
-def _label_for(options: dict[str, str], value: str) -> int:
-    values = list(options.values())
-    return values.index(value) if value in values else 0
+# Tax regimes offered per income category (TAX_SPEC 8): label -> engine value (REGIMES_*, sidebar_state.py).
 
 
 def render_tax_section() -> dict[str, Any]:
@@ -370,10 +359,9 @@ def render_tax_section() -> dict[str, Any]:
     Returns:
         Dict with tmi, regime (furnished), regime_foncier (unfurnished) and sci_is.
     """
-    tmi = st.slider("TMI (%)", 0, 45, value=int(TAX.tmi_pct), step=1)
+    tmi = st.slider("TMI (%)", 0, 45, key="sb_tmi", step=1)
     sci_is = st.checkbox(
         "SCI à l'IS (tous les biens)",
-        value=TAX.sci_is,
         key="tax_sci_is",
         help=(
             "Tous les biens dans une SCI à l'IS : IS 15 % jusqu'à 42 500 € puis 25 %, amortissements, "
@@ -384,7 +372,6 @@ def render_tax_section() -> dict[str, Any]:
     meuble_label = st.selectbox(
         "Régime des biens meublés",
         list(REGIMES_MEUBLE),
-        index=_label_for(REGIMES_MEUBLE, TAX.regime_fiscal),
         disabled=sci_is,
         key="tax_regime_meuble",
         help=(
@@ -395,7 +382,6 @@ def render_tax_section() -> dict[str, Any]:
     nu_label = st.selectbox(
         "Régime des biens loués nus",
         list(REGIMES_NU),
-        index=_label_for(REGIMES_NU, TAX.regime_foncier),
         disabled=sci_is,
         key="tax_regime_nu",
         help=(
@@ -406,8 +392,8 @@ def render_tax_section() -> dict[str, Any]:
     )
     return {
         "tmi": tmi,
-        "regime": REGIMES_MEUBLE[meuble_label],
-        "regime_foncier": REGIMES_NU[nu_label],
+        "regime": REGIMES_MEUBLE[str(meuble_label)],
+        "regime_foncier": REGIMES_NU[str(nu_label)],
         "sci_is": bool(sci_is),
     }
 
@@ -420,14 +406,6 @@ def render_market_hypotheses() -> dict[str, float]:
     """
     with st.expander("📈 Hypothèses de Marché", expanded=False):
         st.caption("Projections annuelles utilisées pour la simulation long terme.")
-
-        # Initialize session state defaults
-        if "appreciation_bien_pct" not in st.session_state:
-            st.session_state.appreciation_bien_pct = MARKET.appreciation_bien_pct
-        if "revalo_loyer_pct" not in st.session_state:
-            st.session_state.revalo_loyer_pct = MARKET.revalo_loyer_pct
-        if "inflation_charges_pct" not in st.session_state:
-            st.session_state.inflation_charges_pct = MARKET.inflation_charges_pct
 
         appreciation = st.slider(
             "Appréciation annuelle biens (%)",
@@ -460,6 +438,17 @@ def render_market_hypotheses() -> dict[str, float]:
     }
 
 
+def set_custom_weights(weights: dict[str, float]) -> None:
+    """Make the fine-tuning sliders (and their stored copy) show ``weights``. Before the sliders are drawn."""
+    st.session_state.finance_custom = dict(weights)
+    for name, key in WEIGHT_KEYS.items():
+        st.session_state[key] = int(round(weights[name] * 100))
+
+
+def _on_preset_change() -> None:
+    set_custom_weights(FINANCIAL_PRESETS[st.session_state.finance_preset])
+
+
 def render_scoring_preset() -> tuple[str, dict[str, float]]:
     """Render scoring preset selector.
 
@@ -472,42 +461,43 @@ def render_scoring_preset() -> tuple[str, dict[str, float]]:
             "**DSCR** et **Proximité du CF** selon le profil choisi."
         )
 
-        # Initialize session state with robust checks
-        if "finance_preset" not in st.session_state or st.session_state.finance_preset is None:
+        # Defaults are seeded by sidebar_state.ensure_defaults(); these guards cover a bare call.
+        if st.session_state.get("finance_preset") is None:
             st.session_state.finance_preset = DEFAULT_PRESET_LABEL
-        if "finance_custom" not in st.session_state or st.session_state.finance_custom is None:
-            st.session_state.finance_custom = FINANCIAL_PRESETS[DEFAULT_PRESET_LABEL].copy()
+        if st.session_state.get("finance_custom") is None:
+            set_custom_weights(FINANCIAL_PRESETS[st.session_state.finance_preset])
 
         col_p, col_c = st.columns([2, 1])
         with col_p:
             preset = st.selectbox(
                 "Profil de tri",
                 list(FINANCIAL_PRESETS.keys()),
-                index=list(FINANCIAL_PRESETS.keys()).index(st.session_state.finance_preset),
+                key="finance_preset",
+                on_change=_on_preset_change,
             )
-            if preset != st.session_state.finance_preset:
-                st.session_state.finance_preset = preset
-                st.session_state.finance_custom = FINANCIAL_PRESETS[preset].copy()
 
         with col_c:
             custom_on = st.toggle(
                 "Personnaliser",
-                value=False,
+                key="sb_custom_on",
                 help="Ajuster finement les poids (somme renormalisée).",
             )
 
-        weights = FINANCIAL_PRESETS[st.session_state.finance_preset].copy()
+        weights = FINANCIAL_PRESETS[str(preset)].copy()
 
         if custom_on:
             st.write("Réglage fin des poids :")
+            for name, key in WEIGHT_KEYS.items():  # widget state is dropped while the sliders are hidden
+                if st.session_state.get(key) is None:
+                    st.session_state[key] = int(round(st.session_state.finance_custom[name] * 100))
             c1, c2, c3 = st.columns(3)
             c4, c5 = st.columns(2)
 
-            w1 = c1.slider("Enrich. net", 0, 100, int(st.session_state.finance_custom["enrich_net"] * 100), 1)
-            w2 = c2.slider("IRR", 0, 100, int(st.session_state.finance_custom["irr"] * 100), 1)
-            w3 = c3.slider("Efficacité", 0, 100, int(st.session_state.finance_custom["cap_eff"] * 100), 1)
-            w4 = c4.slider("DSCR", 0, 100, int(st.session_state.finance_custom["dscr"] * 100), 1)
-            w5 = c5.slider("Proximité CF", 0, 100, int(st.session_state.finance_custom["cf_proximity"] * 100), 1)
+            w1 = c1.slider("Enrich. net", 0, 100, key=WEIGHT_KEYS["enrich_net"])
+            w2 = c2.slider("IRR", 0, 100, key=WEIGHT_KEYS["irr"])
+            w3 = c3.slider("Efficacité", 0, 100, key=WEIGHT_KEYS["cap_eff"])
+            w4 = c4.slider("DSCR", 0, 100, key=WEIGHT_KEYS["dscr"])
+            w5 = c5.slider("Proximité CF", 0, 100, key=WEIGHT_KEYS["cf_proximity"])
 
             raw_weights = {
                 "enrich_net": float(w1) / 100.0,
