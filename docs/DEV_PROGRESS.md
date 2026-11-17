@@ -65,8 +65,9 @@ Legend: todo · running · done · blocked · skipped
 | T35 RunContext→search parity guard | Sonnet | done | 62fa3e3, 0eb6c26 | 44-case guard; DPE wired into the search | | after T34; DPE fields into EvaluationParams + generic test |
 | T62 regime comparison | Sonnet | done | dea9a99 | new tab |
 | T63 export PDF/Excel | Sonnet | done | 7cf69ed | openpyxl + fpdf2; € prints as "EUR" in the PDF |
-| T36 rent-monotonicity investigation | Sonnet | running | | property test xfailed |
-| T60, T64–T68 features | mixed | todo | | see plan; T66 = offline files, no API |
+| T36 rent-monotonicity investigation | Sonnet | done | 7f49984 | CFE 5k€ cliff (legal), not a bug |
+| T60 HCSF bankability | Sonnet | running | | |
+| T64–T68 features | mixed | todo | | see plan; T66 = offline files, no API |
 
 ## Next waves
 1. **W1:** T01 (alone; touches many files)
@@ -300,3 +301,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-16 evening: the usage limit interrupted T35 (uncommitted edits in worktree agent-a9bb53e9a29a13e6d) and T63 (no changes, worktree agent-aea74a6ff0021e4c3).
 - 2026-11-17: both resumed via SendMessage. If the session dies, relaunch them from their branches.
 - 2026-11-17: T35 and T63 merged. Hypothesis found a rent-monotonicity counterexample (POOL[4], +6.25 % rent → year-2 CF −2.18 €/month), so the test is xfailed and T36 launched.
+- 2026-11-17: T36 merged (1294 passed, no xfail): the CFE threshold is a legal cliff. T60 launched (one agent at a time).
