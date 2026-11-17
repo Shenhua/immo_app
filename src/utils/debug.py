@@ -16,7 +16,7 @@ import pandas as pd
 
 class AIContextEncoder(json.JSONEncoder):
     """Custom encoder to handle NumPy and Pandas types."""
-    def default(self, obj):
+    def default(self, obj: Any) -> Any:
         if isinstance(obj, np.integer):
             return int(obj)
         if isinstance(obj, np.floating):
@@ -30,17 +30,17 @@ class AIContextEncoder(json.JSONEncoder):
         return super().default(obj)
 
 def collect_debug_context(
-    session_state: dict[str, Any] = None,
-    params: dict[str, Any] = None,
-    strategies: list[dict[str, Any]] = None,
-    last_simulation: pd.DataFrame = None,
+    session_state: dict[str, Any] | None = None,
+    params: dict[str, Any] | None = None,
+    strategies: list[dict[str, Any]] | None = None,
+    last_simulation: pd.DataFrame | None = None,
     log_file_path: str = "logs/app.log"
 ) -> dict[str, Any]:
     """Collect full application context."""
 
     timestamp = datetime.now().isoformat()
 
-    context = {
+    context: dict[str, Any] = {
         "meta": {
             "timestamp": timestamp,
             "version": "v27.7 (Hybrid-Traceable)",
@@ -129,7 +129,7 @@ def collect_debug_context(
 
                     # 7. AI Traceability Extraction (Phase 22)
                     # Parse critical events from logs to structurally expose Solver Mode
-                    solver_trace = {}
+                    solver_trace: dict[str, str] = {}
                     for line in reversed(context["logs_tail"]):
                         if "hybrid_solver_selected" in line:
                             # Extract JSON-like content if structlog or just quick parse
@@ -147,21 +147,6 @@ def collect_debug_context(
                             except Exception:
                                 solver_trace["raw_event"] = line
                             break
-
-                    # Extract Tier Distribution if available
-                    for line in reversed(context["logs_tail"]):
-                         if "strategy_tiers" in line:
-                             try:
-                                 parts = line.split()
-                                 tiers = {}
-                                 for p in parts:
-                                     if "tier_" in p:
-                                         k, v = p.split("=")
-                                         tiers[k] = int(v)
-                                 solver_trace["tier_distribution"] = tiers
-                             except Exception:
-                                 pass
-                             break
 
                     if solver_trace:
                         context["results"]["solver_trace"] = solver_trace
