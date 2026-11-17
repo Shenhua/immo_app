@@ -59,8 +59,8 @@ Legend: todo · running · done · blocked · skipped
 | T43 validation and UX | Sonnet | done | ea8da8c | defaults: apport 80k, CF −100 → 7 strategies | | |
 | T50 property tests | Sonnet | done | 2c93b05 | no bugs found | | |
 | T51 AppTest | Sonnet | done | 6642990 | 16 UI tests in ~3 s; the first-load bug it found is fixed by the conductor | | |
-| T52 typing + coverage | Sonnet | running | | |
-| T53 README/docs | Haiku | todo | | |
+| T52 typing + coverage | Sonnet | done | 529b7a2..7419bb1 | mypy 0 (strict domain/application), cov 92 % (gate 85), ruff format applied | | |
+| T53 README/docs | Haiku | running | | |
 | T61 DPE rental ban | Sonnet | done | 0cc60bc (+T35) | |
 | T35 RunContext→search parity guard | Sonnet | done | 62fa3e3, 0eb6c26 | 44-case guard; DPE wired into the search | | after T34; DPE fields into EvaluationParams + generic test |
 | T62 regime comparison | Sonnet | done | dea9a99 | new tab |
@@ -280,7 +280,13 @@ Legend: todo · running · done · blocked · skipped
 - After T51:
   - `tests/ui/` (marker `ui`; helpers in `tests/ui/conftest.py`) holds the UI suite.
   - The older ad-hoc AppTest setups (test_caching, test_tax_ui and others) were not consolidated: optional cleanup.
-- `ruff format` not applied (45 files would be reformatted). Optional later; skip it to avoid merge churn.
+- After T52:
+  - mypy blocks CI; `src.domain` and `src.application` use explicit strict flags.
+  - The coverage gate is 85 %.
+  - The pre-commit mypy hook is local (`language: system`), so it needs the venv on PATH.
+  - `ruff format` is applied repo-wide, and **pre-commit passes**.
+  - Check Markdown hard line breaks in docs/Audit_Report_Roadmap.md (trailing spaces were stripped).
+- ~~`ruff format` not applied~~ (done in T52) (45 files would be reformatted). Optional later; skip it to avoid merge churn.
 
 ## Log
 - 2026-11-13: Plan written, `develop` branch created, venv set up. Starting W1.
@@ -324,3 +330,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-17: T64 merged (1314 passed). T65 launched.
 - 2026-11-17: T65 merged (1333 passed). Phase 6 so far: T60–T65 done. Hardening: T51 launched.
 - 2026-11-17: T51 merged; the conductor fixed the first-load prompt bug it found. T52 launched.
+- 2026-11-17: T52 merged (mypy 0, 1349 passed, cov ≥ 85). T53 launched.
