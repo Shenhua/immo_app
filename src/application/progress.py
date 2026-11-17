@@ -96,7 +96,7 @@ class SearchStats:
     mode: str = "EXHAUSTIVE"
     max_properties: int = 3
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.timestamp:
             self.timestamp = datetime.now().strftime("%H:%M:%S")
 

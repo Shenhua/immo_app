@@ -463,7 +463,7 @@ class StrategyFinder:
         """
         preset = PresetId.parse(preset_name)
 
-        def sort_key(x: dict[str, Any]) -> tuple:
+        def sort_key(x: dict[str, Any]) -> tuple[Any, ...]:
             pareto = -x.get("pareto_rank", PARETO_MAX_RANK + 1)  # last key before the signature
 
             # CF proximity as final tiebreaker (higher is better)

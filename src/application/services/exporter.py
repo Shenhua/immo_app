@@ -25,7 +25,7 @@ class ResultExporter:
         self.output_dir = output_dir
         self._ensure_dir()
 
-    def _ensure_dir(self):
+    def _ensure_dir(self) -> None:
         """Ensure output directory exists."""
         if not os.path.exists(self.output_dir):
             try:

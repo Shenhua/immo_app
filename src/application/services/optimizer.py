@@ -662,7 +662,8 @@ class PortfolioSearch:
             w = min(MAX_WORKERS, (os.cpu_count() or 2) - 1)
         return max(1, min(w, n)) if self.engine_spec is not None else 1
 
-    def _evaluate_pool(self, candidates, prepared, problem, market, workers, report) -> list[Any]:
+    def _evaluate_pool(self, candidates: list[tuple[int, ...]], prepared: list[PreparedBrick], problem: SearchProblem,
+                       market: dict[str, float], workers: int, report: Callable[[int], None]) -> list[Any]:
         assert self.engine_spec is not None
         mkt, tax_params = self.engine_spec
         size = max(1, math.ceil(len(candidates) / (workers * 8)))
