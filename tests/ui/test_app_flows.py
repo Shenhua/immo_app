@@ -6,8 +6,6 @@ module runs in a few seconds. Helpers live in ``tests/ui/conftest.py``.
 
 from __future__ import annotations
 
-import pytest
-
 from src.application.run_context import RunContext
 from src.application.scenario_io import decode_context, encode_context
 
