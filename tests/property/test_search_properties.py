@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 
 import pytest
-from hypothesis import HealthCheck, given, settings
+from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
 
 from src.application.run_context import RunContext
@@ -19,7 +19,7 @@ from src.application.services.brick_factory import (
     build_operating_config,
     create_investment_bricks,
 )
-from src.application.services.simulation import simulate_long_term_strategy
+from src.application.services.simulation import CFE_EXEMPTION_RECEIPTS, simulate_long_term_strategy
 from src.application.services.strategy_finder import StrategyFinder
 from src.core.glossary import cf_accepts
 from src.domain.models.archetype import ArchetypeV2
@@ -108,6 +108,7 @@ def _single_strategy(ctx: RunContext, arch, rent_factor: float = 1.0):
 def _simulate(strategy, ctx: RunContext, horizon: int, **market_over):
     market = {**ctx.to_eval_params()["hypotheses_marche"], **market_over}
     df, bilan = simulate_long_term_strategy(strategy, horizon, market, ctx.to_eval_params())
+    _simulate.last_receipts = [float(x) > CFE_EXEMPTION_RECEIPTS for x in df["Loyers Bruts"]]
     return float(df["Cash-Flow Net d'Impôt"].iloc[1]) / 12.0, bilan
 
 
@@ -115,16 +116,16 @@ arch_st = st.integers(0, len(POOL) - 1).map(lambda i: POOL[i])
 horizon_st = st.sampled_from([10, 15, 20])
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="T36: non-monotonic year-2 CF (POOL[4], f=1.0625, delta=0.0625, horizon=10) under investigation",
-)
 @SETTINGS
 @given(arch_st, st.floats(0.5, 1.5), st.floats(0.01, 0.4), horizon_st)
 def test_higher_rent_raises_irr_and_cf(arch, f, delta, horizon):
     ctx = RunContext()
     cf_lo, b_lo = _simulate(_single_strategy(ctx, arch, f), ctx, horizon)
+    sides_lo = _simulate.last_receipts
     cf_hi, b_hi = _simulate(_single_strategy(ctx, arch, f * (1 + delta)), ctx, horizon)
+    # T36: furnished CFE is due only when yearly receipts exceed 5,000 EUR (CGI 1647 D). Crossing that threshold
+    # in any year is a legal cliff (a higher rent can lower CF), so both rents must sit on the same side every year.
+    assume(sides_lo == _simulate.last_receipts)
     assert cf_hi >= cf_lo - 1e-6
     if b_lo["tri_annuel"] is not None and b_hi["tri_annuel"] is not None:
         assert b_hi["tri_annuel"] >= b_lo["tri_annuel"] - 1e-9
@@ -186,3 +187,20 @@ def test_allocator_over_budget_is_never_ok(mode):
     prepared = [alloc.prepare(b) for b in bricks]
     a = alloc.plan(prepared, 0.0, -10_000.0, 100.0)
     assert not a.ok and not a.within_budget
+
+
+def test_cfe_cliff_lower_cf_when_receipts_cross_5000():
+    """T36: CFE (CGI 1647 D, AN question 7364) is exempt up to 5,000 EUR of receipts and fully due above.
+
+    POOL[4] (furnished) with rent x1.0625: year-2 receipts 4,975 EUR (exempt) -> -483.66 EUR/month; with a further
+    +6.25 % rent: 5,286 EUR (CFE ~306 EUR due) -> -485.83 EUR/month. The extra ~311 EUR rent is more than eaten by
+    CFE plus rent-linked costs: a legitimate legal cliff, not a bug.
+    """
+    ctx = RunContext()
+    cf_lo, _ = _simulate(_single_strategy(ctx, POOL[4], 1.0625), ctx, 10)
+    assert _simulate.last_receipts[1] is False
+    cf_hi, _ = _simulate(_single_strategy(ctx, POOL[4], 1.0625 * 1.0625), ctx, 10)
+    assert _simulate.last_receipts[1] is True
+    assert cf_hi < cf_lo
+    assert cf_lo == pytest.approx(-483.66, abs=0.01)
+    assert cf_hi == pytest.approx(-485.83, abs=0.01)
