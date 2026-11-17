@@ -118,6 +118,9 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
+markers = [
+    "ui: end-to-end Streamlit AppTest flows on app.py (tests/ui); run alone with -m ui",
+]
 filterwarnings = [
     "ignore::DeprecationWarning",
 ]
