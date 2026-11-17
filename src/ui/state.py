@@ -6,7 +6,7 @@ with type-safe accessors and default values.
 
 from __future__ import annotations
 
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 import streamlit as st
 
@@ -28,7 +28,7 @@ def get_state(key: str, default: T) -> T:
     """
     if key not in st.session_state:
         st.session_state[key] = default
-    return st.session_state[key]
+    return cast(T, st.session_state[key])
 
 
 def set_state(key: str, value: Any) -> None:
@@ -58,7 +58,7 @@ class SessionManager:
     """Manages all session state for the app."""
 
     # Default state values
-    DEFAULTS = {
+    DEFAULTS: dict[str, Any] = {
         "strategies": [],
         "run_context": None,
         "selected_strategy_idx": 0,

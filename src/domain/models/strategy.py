@@ -38,7 +38,7 @@ class PortfolioStrategy(BaseModel):
         "extra": "allow",
     }
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]  # pydantic documents this mypy gap
     @property
     def nombre_biens(self) -> int:
         """Number of properties in the strategy."""
@@ -62,13 +62,13 @@ class StrategyResult(BaseModel):
         "extra": "allow",
     }
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]  # pydantic documents this mypy gap
     @property
     def enrichissement_net(self) -> float:
         """Net wealth creation (liquidation - initial investment)."""
-        return self.bilan.get("enrichissement_net", 0.0)
+        return float(self.bilan.get("enrichissement_net", 0.0))
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]  # pydantic documents this mypy gap
     @property
     def tri_pct(self) -> float | None:
         """Internal rate of return percentage."""

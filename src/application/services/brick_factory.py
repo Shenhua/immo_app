@@ -5,6 +5,7 @@ Generates investable 'bricks' (property + financing + costs) from archetypes.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -298,7 +299,7 @@ def validate_brick(brick: dict[str, Any] | InvestmentBrick, strict: bool = False
     return warnings
 
 
-def validate_bricks(bricks: list[dict[str, Any] | InvestmentBrick], strict: bool = False) -> list[str]:
+def validate_bricks(bricks: Sequence[dict[str, Any] | InvestmentBrick], strict: bool = False) -> list[str]:
     """Validate all bricks in a list.
 
     Args:

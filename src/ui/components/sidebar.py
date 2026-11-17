@@ -539,7 +539,7 @@ def render_debug_section(params: dict[str, Any]) -> None:
             # For now, we'll rely on what we can gather.
 
             ctx = collect_debug_context(
-                session_state=dict(st.session_state),
+                session_state={str(k): v for k, v in st.session_state.items()},
                 params=params,
                 strategies=strategies,
                 last_simulation=None # Optional for now

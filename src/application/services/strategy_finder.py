@@ -403,7 +403,7 @@ class StrategyFinder:
             price = b.prix_achat_bien
             score_sum += qs * price
 
-        return score_sum / total_price
+        return float(score_sum / total_price)
 
 
     def dedupe_strategies(self, strategies: list[dict[str, Any]], top_n: int = 10) -> list[dict[str, Any]]:
@@ -413,7 +413,7 @@ class StrategyFinder:
         Labels variations explicitly for UI clarity.
         """
         # Group by signature (property names + count)
-        grouped = {}
+        grouped: dict[tuple[str, ...], list[dict[str, Any]]] = {}
         for s in strategies:
             details = s.get("details", [])
             # Details are InvestmentBrick objects or dicts

@@ -158,7 +158,7 @@ def calculate_dscr_metric(df_sim: pd.DataFrame, stabilised: bool = False) -> flo
     if ds < 1e-9:
         return 10.0 # Infinite DSCR essentially
 
-    return noi / ds
+    return float(noi / ds)
 
 def calculate_enrichment_metrics(
     bilan: dict,

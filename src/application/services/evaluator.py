@@ -4,13 +4,13 @@ Strategy Evaluator - Shared evaluation logic for strategy optimization.
 This module holds the evaluation pipeline used by the portfolio search (optimizer.py)
 and by the detail / parity checks.
 """
-from typing import Any
+from typing import Any, cast
 
 import structlog
 
 from src.core.defaults import BASE_WEIGHTS, SEARCH
 from src.core.exceptions import SimulationError
-from src.core.glossary import calculate_cashflow_metrics, calculate_enrichment_metrics
+from src.core.glossary import CashflowMetrics, calculate_cashflow_metrics, calculate_enrichment_metrics
 from src.domain.calculator.financial import generate_amortization_schedule
 from src.domain.calculator.scoring import calculate_qualitative_score
 
@@ -57,14 +57,14 @@ class StrategyEvaluator:
     def weights(self) -> dict[str, float]:
         """Get scoring weights from scorer or use defaults."""
         if self.scorer and hasattr(self.scorer, 'weights'):
-            return self.scorer.weights
+            return cast(dict[str, float], self.scorer.weights)
         return self.DEFAULT_WEIGHTS
 
     @property
     def quality_weight(self) -> float:
         """Get quality vs finance weighting."""
         if self.scorer and hasattr(self.scorer, 'qualite_weight'):
-            return self.scorer.qualite_weight
+            return float(self.scorer.qualite_weight)
         return SEARCH.qualite_weight
 
     @property
@@ -134,7 +134,7 @@ class StrategyEvaluator:
         df_sim: Any,
         target_cf: float,
         tolerance: float
-    ) -> dict[str, Any]:
+    ) -> CashflowMetrics:
         """
         Calculate cash flow metrics from simulation results.
 
@@ -170,7 +170,7 @@ class StrategyEvaluator:
     def calculate_finance_score(
         self,
         bilan: dict[str, Any],
-        cf_metrics: dict[str, Any],
+        cf_metrics: CashflowMetrics,
         apport_total: float,
         tolerance: float,
         horizon_years: int = 20

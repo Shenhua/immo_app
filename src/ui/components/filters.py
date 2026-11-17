@@ -66,7 +66,7 @@ def render_property_filters(
             code_to_label[code] = lbl
 
     def label_for(code: str) -> str:
-        return code_to_label.get(code, prettify_mode_loyer(code))
+        return str(code_to_label.get(code, prettify_mode_loyer(code)))
 
     # City filter
     selected_villes = st.multiselect(

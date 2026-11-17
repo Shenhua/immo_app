@@ -62,7 +62,7 @@ class InvestmentBrick(BaseModel):
         "extra": "allow",
     }
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]  # pydantic documents this mypy gap
     @property
     def cout_total(self) -> float:
         """Total acquisition cost."""
@@ -74,13 +74,13 @@ class InvestmentBrick(BaseModel):
             + self.mobilier
         )
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]  # pydantic documents this mypy gap
     @property
     def pmt_total(self) -> float:
         """Total monthly loan payment (P&I + insurance)."""
         return self.pmt_principal_interet + self.pmt_assurance
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]  # pydantic documents this mypy gap
     @property
     def cash_flow_mensuel_initial(self) -> float:
         """Initial monthly cash flow before taxes."""
@@ -130,7 +130,7 @@ class InvestmentBrick(BaseModel):
             "duree_pret": "duree_credit_mois",
         }
         actual_key = mapping.get(key, key)
-        return hasattr(self, actual_key) or (self.model_extra and actual_key in self.model_extra)
+        return hasattr(self, actual_key) or bool(self.model_extra and actual_key in self.model_extra)
 
     def get(self, key: str, default: Any = None) -> Any:
         """Legacy dict-style get for backward compatibility."""
