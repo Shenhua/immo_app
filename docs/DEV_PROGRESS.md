@@ -69,7 +69,7 @@ Legend: todo · running · done · blocked · skipped
 | T60 HCSF bankability | Sonnet | done | 17e39cd | defaults still give 7 strategies (debt ratios 6–12 %) |
 | T64 risk scenarios | Sonnet | done | 973ce4c | MC N=200 in ~0.12 s |
 | T65 saved scenarios + URL | Sonnet | done | 06cd1e7 | + apply-suggestion buttons |
-| T37 Patrimoine € ranking + CF label + DPE docs | Sonnet | running | | user decisions 2026-11-17 |
+| T37 Patrimoine € ranking + CF label + DPE docs | Sonnet | done | f9eba71 (+ d67650e) | user decisions 2026-11-17 |
 | T67a per-user storage (SQLite, local profiles; OIDC-ready) | Sonnet | running | | user: "storage per user for now" |
 | T54 user manual + README refresh | Sonnet | todo | | after T37 and T67a |
 | Merge develop → main (local) | conductor | todo | | user approved, after T54 |
@@ -346,3 +346,4 @@ Legend: todo · running · done · blocked · skipped
   - Merge into main after the updates, plus a user manual.
 
   The conductor added LICENSE and CLAUDE.md (CLAUDE.md refers to docs/USER_GUIDE.md, created in T54). T37 and T67a launched in parallel.
+- 2026-11-17: T37 merged. The conductor corrected the pre-tax CF label to "an 2" (since T29 `cash_flow_final` is the stabilised year-2 estimate; "an 1" would be wrong). The user is to be told. T67a still running.
