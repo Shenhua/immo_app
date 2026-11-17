@@ -58,8 +58,8 @@ Legend: todo · running · done · blocked · skipped
 | T42 caching | Sonnet | done | d3c7fd2 | verified with AppTest call counters | | |
 | T43 validation and UX | Sonnet | done | ea8da8c | defaults: apport 80k, CF −100 → 7 strategies | | |
 | T50 property tests | Sonnet | done | 2c93b05 | no bugs found | | |
-| T51 AppTest | Sonnet | running | | |
-| T52 typing + coverage | Sonnet | todo | | |
+| T51 AppTest | Sonnet | done | 6642990 | 16 UI tests in ~3 s; the first-load bug it found is fixed by the conductor | | |
+| T52 typing + coverage | Sonnet | running | | |
 | T53 README/docs | Haiku | todo | | |
 | T61 DPE rental ban | Sonnet | done | 0cc60bc (+T35) | |
 | T35 RunContext→search parity guard | Sonnet | done | 62fa3e3, 0eb6c26 | 44-case guard; DPE wired into the search | | after T34; DPE fields into EvaluationParams + generic test |
@@ -277,6 +277,9 @@ Legend: todo · running · done · blocked · skipped
   - `src/application/scenario_io.py` holds the scenario encode/decode; `?p=` is synced on every run.
   - `src/ui/components/sidebar_state.py` maps widget keys to RunContext fields. **Sidebar widgets now take their values from session_state via keys (no `value=`), and changes are applied in two steps (`request_*` → `consume_pending`).**
   - Not shared: selected cities and types (not in RunContext). Session scenarios are lost on refresh (→ T67).
+- After T51:
+  - `tests/ui/` (marker `ui`; helpers in `tests/ui/conftest.py`) holds the UI suite.
+  - The older ad-hoc AppTest setups (test_caching, test_tax_ui and others) were not consolidated: optional cleanup.
 - `ruff format` not applied (45 files would be reformatted). Optional later; skip it to avoid merge churn.
 
 ## Log
@@ -320,3 +323,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-17: T60 merged (1307 passed; default run checked: 7 strategies). T64 launched.
 - 2026-11-17: T64 merged (1314 passed). T65 launched.
 - 2026-11-17: T65 merged (1333 passed). Phase 6 so far: T60–T65 done. Hardening: T51 launched.
+- 2026-11-17: T51 merged; the conductor fixed the first-load prompt bug it found. T52 launched.
