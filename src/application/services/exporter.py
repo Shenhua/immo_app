@@ -35,10 +35,7 @@ class ResultExporter:
                 log.error("output_directory_creation_failed", error=str(e))
 
     def save_results(
-        self,
-        strategies: list[dict[str, Any]],
-        prefix: str = "simulation",
-        metadata: dict[str, Any] | None = None
+        self, strategies: list[dict[str, Any]], prefix: str = "simulation", metadata: dict[str, Any] | None = None
     ) -> str:
         """Save results to a JSON file.
 
@@ -55,12 +52,8 @@ class ResultExporter:
         filepath = os.path.join(self.output_dir, filename)
 
         payload = {
-            "metadata": {
-                "timestamp": datetime.now().isoformat(),
-                "count": len(strategies),
-                **(metadata or {})
-            },
-            "strategies": strategies
+            "metadata": {"timestamp": datetime.now().isoformat(), "count": len(strategies), **(metadata or {})},
+            "strategies": strategies,
         }
 
         try:

@@ -132,7 +132,7 @@ class TestSimulationEdgeCases:
             "details": [
                 {"prix_achat_bien": 100000, "loyer_mensuel_initial": 500},
                 {"prix_achat_bien": 150000, "loyer_mensuel_initial": 700},
-            ]
+            ],
         }
         schedules = [generate_amortization_schedule(100000, 3.6, 300, 0.35)]  # Only 1
 
@@ -145,22 +145,24 @@ class TestSimulationEdgeCases:
         """DSCR should be present in bilan after simulation."""
         strategy = {
             "apport_total": 10000,
-            "details": [{
-                "prix_achat_bien": 100000,
-                "budget_travaux": 5000,
-                "mobilier": 3000,
-                "renovation_energetique": 0,
-                "frais_notaire": 7500,
-                "credit_final": 100000,
-                "taux_pret": 3.6,
-                "duree_pret": 25,
-                "assurance_ann_pct": 0.35,
-                "loyer_mensuel_initial": 800,
-                "charges_const_mth0": 50,
-                "tf_const_mth0": 40,
-                "frais_gestion_pct": 5.0,
-                "provision_pct": 3.0,
-            }]
+            "details": [
+                {
+                    "prix_achat_bien": 100000,
+                    "budget_travaux": 5000,
+                    "mobilier": 3000,
+                    "renovation_energetique": 0,
+                    "frais_notaire": 7500,
+                    "credit_final": 100000,
+                    "taux_pret": 3.6,
+                    "duree_pret": 25,
+                    "assurance_ann_pct": 0.35,
+                    "loyer_mensuel_initial": 800,
+                    "charges_const_mth0": 50,
+                    "tf_const_mth0": 40,
+                    "frais_gestion_pct": 5.0,
+                    "provision_pct": 3.0,
+                }
+            ],
         }
         schedules = [generate_amortization_schedule(100000, 3.6, 300, 0.35)]
 
@@ -185,16 +187,18 @@ class TestAllocationEdgeCases:
     def test_allocate_all_over_budget(self):
         """All bricks over budget should return minimal state."""
         allocator = PortfolioAllocator(mode_cf="target")
-        bricks = [InvestmentBrick(
-            nom="HighCost",
-            apport_min=100000,  # Way over budget
-            prix_achat_bien=200000,
-            capital_emprunte=100000.0,
-            loyer_mensuel_initial=800,
-            taux_annuel_pct=3.6,
-            duree_credit_mois=300,
-            assurance_annuelle_pct=0.35,
-        )]
+        bricks = [
+            InvestmentBrick(
+                nom="HighCost",
+                apport_min=100000,  # Way over budget
+                prix_achat_bien=200000,
+                capital_emprunte=100000.0,
+                loyer_mensuel_initial=800,
+                taux_annuel_pct=3.6,
+                duree_credit_mois=300,
+                assurance_annuelle_pct=0.35,
+            )
+        ]
 
         # Budget is only 50k but brick needs 100k
         ok, details, cf, apport = allocator.allocate(bricks, 50000, 0, 100)
@@ -292,14 +296,16 @@ class TestOptimizerEdgeCases:
     def test_scorer_single_strategy(self):
         """Single strategy should normalize correctly."""
         scorer = StrategyScorer(mode_cf="min")
-        strategies = [{
-            "enrich_net": 50000,
-            "tri_annuel": 8.0,
-            "cap_eff": 1.5,
-            "dscr_y1": 1.2,
-            "cf_monthly_stab": 100,
-            "qual_score": 60,
-        }]
+        strategies = [
+            {
+                "enrich_net": 50000,
+                "tri_annuel": 8.0,
+                "cap_eff": 1.5,
+                "dscr_y1": 1.2,
+                "cf_monthly_stab": 100,
+                "qual_score": 60,
+            }
+        ]
         scorer.score_strategies(strategies, 100)
 
         # Absolute scoring: a single strategy is scored on fixed benchmarks

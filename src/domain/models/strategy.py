@@ -84,7 +84,9 @@ class SimulationParams(BaseModel):
     # Market hypotheses
     inflation_pct: float = Field(default=MARKET.inflation_charges_pct, description="Annual inflation %")
     hausse_loyers_pct: float = Field(default=MARKET.revalo_loyer_pct, description="Annual rent increase %")
-    hausse_prix_immo_pct: float = Field(default=MARKET.appreciation_bien_pct, description="Annual property price increase %")
+    hausse_prix_immo_pct: float = Field(
+        default=MARKET.appreciation_bien_pct, description="Annual property price increase %"
+    )
     hausse_charges_pct: float = Field(default=MARKET.inflation_charges_pct, description="Annual charges increase %")
 
     # Tax parameters

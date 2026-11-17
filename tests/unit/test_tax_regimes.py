@@ -22,11 +22,30 @@ from src.domain.tax import (
 )
 
 
-def ctx(year=1, pid=0, rent=0.0, charges=0.0, interest=0.0, ins=0.0, works=0.0, energy=0.0,
-        building=0.0, works_amort=0.0, furniture=0.0) -> YearContext:
+def ctx(
+    year=1,
+    pid=0,
+    rent=0.0,
+    charges=0.0,
+    interest=0.0,
+    ins=0.0,
+    works=0.0,
+    energy=0.0,
+    building=0.0,
+    works_amort=0.0,
+    furniture=0.0,
+) -> YearContext:
     return YearContext(
-        year=year, property_id=pid, rent=rent, operating_charges=charges, interest=interest, loan_insurance=ins,
-        works_paid=works, energy_works_paid=energy, amort_building=building, amort_works=works_amort,
+        year=year,
+        property_id=pid,
+        rent=rent,
+        operating_charges=charges,
+        interest=interest,
+        loan_insurance=ins,
+        works_paid=works,
+        energy_works_paid=energy,
+        amort_building=building,
+        amort_works=works_amort,
         amort_furniture=furniture,
     )
 
@@ -187,8 +206,9 @@ def test_sci_amortization_creates_unlimited_losses() -> None:
 def test_sci_exit_on_net_book_value_and_pfu_switch() -> None:
     st = TaxState()
     SciIs().compute_year(1, [ctx(rent=0, building=10_000)], st)  # loss 10,000, cum amort 10,000
-    prop = PropertyExit(property_id=0, name="a", price=100_000, notary_fees=0, works=0, furniture=0,
-                        sale_price=120_000, sale_fees=0)
+    prop = PropertyExit(
+        property_id=0, name="a", price=100_000, notary_fees=0, works=0, furniture=0, sale_price=120_000, sale_fees=0
+    )
     ex_ctx = ExitContext(years_held=1, properties=(prop,), debt_repaid=0.0, cum_cash_flow=0.0, apport=100_000)
     ex = SciIs(distribute_at_exit=False).compute_exit(ex_ctx, st)
     assert ex.details["net_book_value"] == pytest.approx(90_000.0)
@@ -240,10 +260,21 @@ def test_sci_is_overrides_both_categories() -> None:
 # --------------------------------------------------------------------------- #
 def _prop(meuble: bool, rent: float = 900.0, works: float = 0.0, name: str = "b") -> dict:
     return {
-        "nom_bien": name, "prix_achat_bien": 150_000.0, "frais_notaire": 12_000.0, "budget_travaux": works,
-        "renovation_energetique": 0.0, "mobilier": 5_000.0 if meuble else 0.0, "credit_final": 140_000.0,
-        "taux_pret": 3.5, "duree_pret": 20, "assurance_ann_pct": 0.3, "loyer_mensuel_initial": rent,
-        "charges_const_mth0": 100.0, "tf_const_mth0": 70.0, "frais_gestion_pct": 0.0, "provision_pct": 0.0,
+        "nom_bien": name,
+        "prix_achat_bien": 150_000.0,
+        "frais_notaire": 12_000.0,
+        "budget_travaux": works,
+        "renovation_energetique": 0.0,
+        "mobilier": 5_000.0 if meuble else 0.0,
+        "credit_final": 140_000.0,
+        "taux_pret": 3.5,
+        "duree_pret": 20,
+        "assurance_ann_pct": 0.3,
+        "loyer_mensuel_initial": rent,
+        "charges_const_mth0": 100.0,
+        "tf_const_mth0": 70.0,
+        "frais_gestion_pct": 0.0,
+        "provision_pct": 0.0,
         "meuble": meuble,
     }
 

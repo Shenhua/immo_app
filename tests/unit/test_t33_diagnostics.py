@@ -1,4 +1,5 @@
 """T33: rejection counts by reason, near misses, relaxation suggestions."""
+
 from __future__ import annotations
 
 import dataclasses
@@ -10,20 +11,29 @@ from src.domain.models.brick import InvestmentBrick
 from src.ui.components.diagnostics import diagnostics_match, near_miss_lines, no_result_lines
 
 _F = {
-    "charges_const_mth0": 50.0, "tf_const_mth0": 50.0, "frais_gestion_pct": 0.0, "budget_travaux": 0.0,
-    "mobilier": 0.0, "frais_notaire": 7000.0, "taux_annuel_pct": 3.5, "duree_credit_mois": 240,
+    "charges_const_mth0": 50.0,
+    "tf_const_mth0": 50.0,
+    "frais_gestion_pct": 0.0,
+    "budget_travaux": 0.0,
+    "mobilier": 0.0,
+    "frais_notaire": 7000.0,
+    "taux_annuel_pct": 3.5,
+    "duree_credit_mois": 240,
 }
 
 
 def _bricks() -> list[InvestmentBrick]:
     """A (10 k down payment), B (20 k), C (60 k: over a 50 k budget)."""
     return [
-        InvestmentBrick(nom="A", apport_min=10000, prix_achat_bien=100000, capital_emprunte=90000,
-                        loyer_mensuel_initial=500, **_F),
-        InvestmentBrick(nom="B", apport_min=20000, prix_achat_bien=200000, capital_emprunte=180000,
-                        loyer_mensuel_initial=1000, **_F),
-        InvestmentBrick(nom="C", apport_min=60000, prix_achat_bien=300000, capital_emprunte=240000,
-                        loyer_mensuel_initial=1000, **_F),
+        InvestmentBrick(
+            nom="A", apport_min=10000, prix_achat_bien=100000, capital_emprunte=90000, loyer_mensuel_initial=500, **_F
+        ),
+        InvestmentBrick(
+            nom="B", apport_min=20000, prix_achat_bien=200000, capital_emprunte=180000, loyer_mensuel_initial=1000, **_F
+        ),
+        InvestmentBrick(
+            nom="C", apport_min=60000, prix_achat_bien=300000, capital_emprunte=240000, loyer_mensuel_initial=1000, **_F
+        ),
     ]
 
 

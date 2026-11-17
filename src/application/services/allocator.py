@@ -50,7 +50,7 @@ def _get_val(obj: Any, key: str, default: Any = 0.0) -> Any:
     try:
         val = obj[actual_key]
         if key == "duree_pret" and actual_key == "duree_credit_mois":
-             return val // 12
+            return val // 12
         return val
     except (KeyError, TypeError):
         try:
@@ -214,17 +214,21 @@ class PortfolioAllocator:
         for b, x in zip(bricks, extra, strict=True):
             credit = max(0.0, b.capital - x)
             _, _, pmt = calculate_total_monthly_payment(
-                credit, float(b.data.get("taux_annuel_pct", 0.0)), b.duree_mois,
+                credit,
+                float(b.data.get("taux_annuel_pct", 0.0)),
+                b.duree_mois,
                 float(b.data.get("assurance_annuelle_pct", 0.0)),
             )
-            out.append({
-                **b.data,
-                "capital_restant": credit,
-                "pmt_total": pmt,
-                "apport_add_bien": x,
-                "apport_final_bien": b.apport_min + x,
-                "credit_final": credit,
-            })
+            out.append(
+                {
+                    **b.data,
+                    "capital_restant": credit,
+                    "pmt_total": pmt,
+                    "apport_add_bien": x,
+                    "apport_final_bien": b.apport_min + x,
+                    "credit_final": credit,
+                }
+            )
         return out
 
     def allocate(
@@ -264,8 +268,11 @@ class PortfolioAllocator:
             charges = float(_get_val(b, "charges_const_mth0"))
             tf = float(_get_val(b, "tf_const_mth0"))
             prov = float(_get_val(b, "provision_pct")) / 100.0
-            rent_linked = rent * (float(_get_val(b, "frais_gestion_pct")) / 100.0 + prov
-                                  + (1.0 - prov) * float(_get_val(b, "gli_pct")) / 100.0)
+            rent_linked = rent * (
+                float(_get_val(b, "frais_gestion_pct")) / 100.0
+                + prov
+                + (1.0 - prov) * float(_get_val(b, "gli_pct")) / 100.0
+            )
             maint = float(_get_val(b, "maintenance_m2_an")) * float(_get_val(b, "surface")) / 12.0
             depenses0 = float(_get_val(b, "depenses_mensuelles_hors_credit_initial"))
             cfe = max(0.0, depenses0 - charges - tf - rent_linked - maint)

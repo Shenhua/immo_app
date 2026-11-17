@@ -29,39 +29,34 @@ def render_simulation_chart(df: pd.DataFrame, key: str = "sim") -> None:
         fig = go.Figure()
 
         # Area for Net Worth
-        fig.add_trace(go.Scatter(
-            x=df["Année"],
-            y=df["Patrimoine Net"],
-            name="Patrimoine Net",
-            fill='tozeroy',
-            line={"color": '#28a745'},
-            mode='lines'
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=df["Année"],
+                y=df["Patrimoine Net"],
+                name="Patrimoine Net",
+                fill="tozeroy",
+                line={"color": "#28a745"},
+                mode="lines",
+            )
+        )
 
         # Line for Debt
-        fig.add_trace(go.Scatter(
-            x=df["Année"],
-            y=df["Dette"],
-            name="Dette Restante",
-            line={"color": '#dc3545', "width": 3},
-            mode='lines'
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=df["Année"], y=df["Dette"], name="Dette Restante", line={"color": "#dc3545", "width": 3}, mode="lines"
+            )
+        )
 
         fig.update_layout(
             title="Évolution du Patrimoine Net et Dette",
             xaxis_title="Année",
             yaxis_title="Montant (€)",
             hovermode="x unified",
-            legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "xanchor": "right", "x": 1}
+            legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "xanchor": "right", "x": 1},
         )
     else:
         # Fallback if debt not in columns
-        fig = px.area(
-            df,
-            x="Année",
-            y="Patrimoine Net",
-            title="Évolution du Patrimoine Net"
-        )
+        fig = px.area(df, x="Année", y="Patrimoine Net", title="Évolution du Patrimoine Net")
 
     st.plotly_chart(fig, use_container_width=True, key=f"patrimoine_{key}")
 
@@ -86,12 +81,11 @@ def render_credit_breakdown_chart(df: pd.DataFrame, key: str = "cred") -> None:
         y=required,
         title="Répartition des Paiements du Crédit",
         labels={"value": "Montant (€)", "variable": "Type"},
-        color_discrete_map={
-            "Capital Remboursé": "#17a2b8",
-            "Intérêts & Assurance": "#ffc107"
-        }
+        color_discrete_map={"Capital Remboursé": "#17a2b8", "Intérêts & Assurance": "#ffc107"},
     )
-    fig.update_layout(hovermode="x unified", legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "xanchor": "right", "x": 1})
+    fig.update_layout(
+        hovermode="x unified", legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "xanchor": "right", "x": 1}
+    )
     st.plotly_chart(fig, use_container_width=True, key=f"credit_breakdown_{key}")
 
 
@@ -106,24 +100,26 @@ def render_fiscal_chart(df: pd.DataFrame, key: str = "fisc") -> None:
         return
 
     # Check for LMNP specific columns
-    required = ['Loyers Bruts', "Charges d'exploitation", 'Amortissements']
+    required = ["Loyers Bruts", "Charges d'exploitation", "Amortissements"]
     if not all(c in df.columns for c in required):
         return
 
     fig = px.bar(
         df,
-        x='Année',
+        x="Année",
         y=required,
         title="Composition du Résultat Fiscal (LMNP)",
-        barmode='relative',
+        barmode="relative",
         labels={"value": "Montant (€)", "variable": "Poste"},
         color_discrete_map={
             "Loyers Bruts": "#28a745",
             "Charges d'exploitation": "#dc3545",
-            "Amortissements": "#6c757d"
-        }
+            "Amortissements": "#6c757d",
+        },
     )
-    fig.update_layout(hovermode="x unified", legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "xanchor": "right", "x": 1})
+    fig.update_layout(
+        hovermode="x unified", legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "xanchor": "right", "x": 1}
+    )
     st.plotly_chart(fig, use_container_width=True, key=f"fiscal_comp_{key}")
 
 
@@ -161,14 +157,16 @@ def render_risk_reward_scatter(strategies: list[dict[str, Any]], key: str = "sca
 
     data = []
     for i, s in enumerate(strategies, 1):
-        data.append({
-            "Label": f"Strat #{i}",
-            "TRI (%)": s.get("tri_annuel", 0),
-            "DSCR": s.get("dscr_y1", 0),
-            "Cash-Flow (€)": s.get("cash_flow_final", 0),
-            "Score": s.get("balanced_score", 0) * 100,
-            "Taxonomy": s.get("taxonomy", "Autre")
-        })
+        data.append(
+            {
+                "Label": f"Strat #{i}",
+                "TRI (%)": s.get("tri_annuel", 0),
+                "DSCR": s.get("dscr_y1", 0),
+                "Cash-Flow (€)": s.get("cash_flow_final", 0),
+                "Score": s.get("balanced_score", 0) * 100,
+                "Taxonomy": s.get("taxonomy", "Autre"),
+            }
+        )
 
     df_chart = pd.DataFrame(data)
 
@@ -176,13 +174,13 @@ def render_risk_reward_scatter(strategies: list[dict[str, Any]], key: str = "sca
         df_chart,
         x="DSCR",
         y="TRI (%)",
-        size="Score", # Bubble size based on Score
-        color="Cash-Flow (€)", # Color based on CF
+        size="Score",  # Bubble size based on Score
+        color="Cash-Flow (€)",  # Color based on CF
         hover_name="Label",
         hover_data=["Cash-Flow (€)", "Score", "Taxonomy"],
         title="Matrice Risque (DSCR) / Rendement (TRI)",
         color_continuous_scale="RdYlGn",
-        size_max=40
+        size_max=40,
     )
 
     # Add quadrants lines if possible, or just layout
@@ -212,11 +210,11 @@ def render_comparison_heatmap(strategies: list[dict[str, Any]], key: str = "heat
         # Ensure we handle missing keys gracefully with default 0
         row = [
             s.get("tri_norm", 0) * 100,
-            s.get("cf_proximity", 0) * 100, # This is usually the score component for CF
+            s.get("cf_proximity", 0) * 100,  # This is usually the score component for CF
             s.get("dscr_norm", 0) * 100,
-            s.get("qual_score", 50),        # Already 0-100
+            s.get("qual_score", 50),  # Already 0-100
             s.get("cap_eff_norm", 0) * 100,
-            s.get("balanced_score", 0) * 100
+            s.get("balanced_score", 0) * 100,
         ]
         data.append(row)
 
@@ -226,22 +224,25 @@ def render_comparison_heatmap(strategies: list[dict[str, Any]], key: str = "heat
 
     import plotly.graph_objects as go
 
-    fig = go.Figure(data=go.Heatmap(
-        z=data,
-        x=metrics,
-        y=labels,
-        colorscale="RdYlGn",
-        zmin=0, zmax=100,
-        hoverongaps=False,
-        texttemplate="%{z:.0f}",
-        showscale=True
-    ))
+    fig = go.Figure(
+        data=go.Heatmap(
+            z=data,
+            x=metrics,
+            y=labels,
+            colorscale="RdYlGn",
+            zmin=0,
+            zmax=100,
+            hoverongaps=False,
+            texttemplate="%{z:.0f}",
+            showscale=True,
+        )
+    )
 
     fig.update_layout(
         title="Carte de Chaleur - Performance Relative (0-100)",
         xaxis_side="top",
-        height=300 + (len(strategies) * 30), # Dynamic height
-        margin={"t": 100} # Space for x-axis labels
+        height=300 + (len(strategies) * 30),  # Dynamic height
+        margin={"t": 100},  # Space for x-axis labels
     )
 
     st.plotly_chart(fig, use_container_width=True, key=f"comp_heatmap_{key}")
@@ -264,14 +265,16 @@ def render_comparison_charts(
     # Build comparison DataFrame
     data = []
     for i, s in enumerate(strategies, 1):
-        data.append({
-            "Stratégie": f"#{i}",
-            "TRI (%)": s.get("tri_annuel", 0),
-            "Cash-Flow (€)": s.get("cash_flow_final", 0),
-            "Patrimoine (€)": s.get("patrimoine_acquis", 0),
-            "Apport (€)": s.get("apport_total", 0),
-            "Score": s.get("balanced_score", 0) * 100,
-        })
+        data.append(
+            {
+                "Stratégie": f"#{i}",
+                "TRI (%)": s.get("tri_annuel", 0),
+                "Cash-Flow (€)": s.get("cash_flow_final", 0),
+                "Patrimoine (€)": s.get("patrimoine_acquis", 0),
+                "Apport (€)": s.get("apport_total", 0),
+                "Score": s.get("balanced_score", 0) * 100,
+            }
+        )
 
     comp_df = pd.DataFrame(data)
 
@@ -350,13 +353,15 @@ def render_strategy_radar(strategy: dict[str, Any], key: str = "radar") -> None:
     ]
 
     fig = go.Figure()
-    fig.add_trace(go.Scatterpolar(
-        r=values,
-        theta=categories,
-        fill="toself",
-        name="Performance",
-        line_color="#4CAF50",
-    ))
+    fig.add_trace(
+        go.Scatterpolar(
+            r=values,
+            theta=categories,
+            fill="toself",
+            name="Performance",
+            line_color="#4CAF50",
+        )
+    )
 
     fig.update_layout(
         polar={

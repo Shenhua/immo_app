@@ -124,4 +124,3 @@ def get_logger(name: str | None = None) -> structlog.BoundLogger:
     if name:
         return logger.bind(logger_name=name)
     return logger
-

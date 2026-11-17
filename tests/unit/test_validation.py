@@ -103,8 +103,13 @@ def _search(ctx: RunContext, archetypes) -> list:
         build_operating_config(ctx.gestion_pct, ctx.vacance_pct, ctx.cfe_par_bien_ann),
     )
     finder = StrategyFinder(
-        bricks=bricks, apport_disponible=ctx.apport, cash_flow_cible=ctx.cf_cible, tolerance=ctx.tolerance,
-        qualite_weight=ctx.qualite_weight, mode_cf=ctx.mode_cf, max_properties=ctx.max_properties,
+        bricks=bricks,
+        apport_disponible=ctx.apport,
+        cash_flow_cible=ctx.cf_cible,
+        tolerance=ctx.tolerance,
+        qualite_weight=ctx.qualite_weight,
+        mode_cf=ctx.mode_cf,
+        max_properties=ctx.max_properties,
     )
     return finder.find_strategies(eval_params=ctx.to_eval_params(), horizon_years=ctx.horizon_ans, top_n=ctx.top_n)
 

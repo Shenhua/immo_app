@@ -13,13 +13,13 @@ ENC_NEUTRAL = 0.6  # rent-cap margin score for a non-regulated property or a ren
 
 # Default weights for qualitative scoring
 DEFAULT_QUAL_WEIGHTS = {
-    "tension": 0.25,       # Market tension (high = low vacancy)
-    "transport": 0.15,     # Transport accessibility
-    "dpe": 0.15,           # Energy rating
-    "encadrement": 0.15,   # Rent cap margin
-    "vacance": 0.10,       # Vacancy proxy (uses tension)
-    "travaux": 0.10,       # Renovation ratio (inverse)
-    "liquidite": 0.10,     # Resale liquidity
+    "tension": 0.25,  # Market tension (high = low vacancy)
+    "transport": 0.15,  # Transport accessibility
+    "dpe": 0.15,  # Energy rating
+    "encadrement": 0.15,  # Rent cap margin
+    "vacance": 0.10,  # Vacancy proxy (uses tension)
+    "travaux": 0.10,  # Renovation ratio (inverse)
+    "liquidite": 0.10,  # Resale liquidity
 }
 
 # DPE rating to score mapping
@@ -125,10 +125,7 @@ def calculate_property_qualitative_score(
     }
 
     # Weighted sum
-    score_01 = sum(
-        w.get(k, 0.0) * max(0.0, min(1.0, features.get(k, 0.5)))
-        for k in w
-    )
+    score_01 = sum(w.get(k, 0.0) * max(0.0, min(1.0, features.get(k, 0.5))) for k in w)
 
     return round(score_01 * 100.0, 1), features
 
@@ -203,6 +200,6 @@ def calculate_balanced_score(
     dscr_score = min(100.0, max(0.0, (dscr - 0.8) / 1.2 * 100.0))
 
     # Weighted combination
-    finance_score = (tri_score * 0.4 + enrich_score * 0.4 + dscr_score * 0.2)
+    finance_score = tri_score * 0.4 + enrich_score * 0.4 + dscr_score * 0.2
 
     return round(finance_score * finance_weight + qual_score * qualite_weight, 1)

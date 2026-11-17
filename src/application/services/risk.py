@@ -68,7 +68,9 @@ def _mean_provision(strategy: dict[str, Any]) -> float:
     return sum(float(b.get("provision_pct", 0.0) or 0.0) for b in bricks) / len(bricks)
 
 
-def break_even_vacancy(strategy: dict[str, Any], ctx: RunContext, target: float | None = None) -> dict[str, float] | None:
+def break_even_vacancy(
+    strategy: dict[str, Any], ctx: RunContext, target: float | None = None
+) -> dict[str, float] | None:
     """Vacancy at which the stabilised monthly CF reaches ``target`` (default: the user's CF target).
 
     Returns ``{"delta_pts", "vacance_pct"}`` (delta on every brick's provision; absolute value is the mean
@@ -107,7 +109,9 @@ def break_even_appreciation(strategy: dict[str, Any], ctx: RunContext) -> dict[s
     return {"delta_pts": root, "appreciation_pct": ctx.appreciation_bien_pct + root}
 
 
-def _truncated_normal(rng: np.random.Generator, mean: float, sd: float, bounds: tuple[float, float], n: int) -> np.ndarray:
+def _truncated_normal(
+    rng: np.random.Generator, mean: float, sd: float, bounds: tuple[float, float], n: int
+) -> np.ndarray:
     """Normal draws truncated to ``bounds`` by rejection (deterministic given the generator)."""
     lo, hi = bounds
     out = np.empty(0)
@@ -124,7 +128,10 @@ def monte_carlo_draws(n: int, seed: int = MONTE_CARLO.seed) -> list[Deltas]:
     appr = _truncated_normal(rng, 0.0, MONTE_CARLO.appreciation_sd, MONTE_CARLO.appreciation_bounds, n)
     reva = _truncated_normal(rng, 0.0, MONTE_CARLO.revalo_sd, MONTE_CARLO.revalo_bounds, n)
     vac = _truncated_normal(rng, MONTE_CARLO.vacance_mean, MONTE_CARLO.vacance_sd, MONTE_CARLO.vacance_bounds, n)
-    return [Deltas(appreciation_pts=float(a), revalo_pts=float(r), vacance_pts=float(v)) for a, r, v in zip(appr, reva, vac, strict=True)]
+    return [
+        Deltas(appreciation_pts=float(a), revalo_pts=float(r), vacance_pts=float(v))
+        for a, r, v in zip(appr, reva, vac, strict=True)
+    ]
 
 
 def _percentiles(values: list[float]) -> dict[str, float] | None:
@@ -134,7 +141,9 @@ def _percentiles(values: list[float]) -> dict[str, float] | None:
     return {"p10": p10, "p50": p50, "p90": p90}
 
 
-def monte_carlo(strategy: dict[str, Any], ctx: RunContext, n: int = MONTE_CARLO.n_default, seed: int = MONTE_CARLO.seed) -> dict[str, Any]:
+def monte_carlo(
+    strategy: dict[str, Any], ctx: RunContext, n: int = MONTE_CARLO.n_default, seed: int = MONTE_CARLO.seed
+) -> dict[str, Any]:
     """Run the draws. Returns the samples and P10/P50/P90 of IRR and net enrichment.
 
     Draws whose IRR failed (None) are left out of the IRR percentiles only (``n_irr_failed`` counts them).

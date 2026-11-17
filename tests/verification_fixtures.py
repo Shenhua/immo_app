@@ -45,17 +45,19 @@ def generate_loan_fixtures():
         pmt = calculate_monthly_payment(principal, rate, months)
         ins = calculate_insurance(principal, 0.35)
 
-        fixtures.append({
-            "Description": desc,
-            "Principal (€)": principal,
-            "Rate (%)": rate,
-            "Duration (months)": months,
-            "PMT (€/month)": round(pmt, 2),
-            "Insurance (€/month)": round(ins, 2),
-            "Total Payment (€/month)": round(pmt + ins, 2),
-            "Excel Formula PMT": f'=PMT({rate}%/12, {months}, -{principal})',
-            "Excel Formula Ins": f'={principal}*0.35%/12',
-        })
+        fixtures.append(
+            {
+                "Description": desc,
+                "Principal (€)": principal,
+                "Rate (%)": rate,
+                "Duration (months)": months,
+                "PMT (€/month)": round(pmt, 2),
+                "Insurance (€/month)": round(ins, 2),
+                "Total Payment (€/month)": round(pmt + ins, 2),
+                "Excel Formula PMT": f"=PMT({rate}%/12, {months}, -{principal})",
+                "Excel Formula Ins": f"={principal}*0.35%/12",
+            }
+        )
 
     return fixtures
 
@@ -95,13 +97,11 @@ def generate_simulation_fixture():
         ira=IRACalculator(apply_ira=False),
     )
 
-    schedules = [
-        generate_amortization_schedule(100_000, 3.6, 300, 0.35)
-    ]
+    schedules = [generate_amortization_schedule(100_000, 3.6, 300, 0.35)]
 
     df, bilan = engine.simulate(strategy, 25, schedules)
 
-    return df.to_dict('records'), bilan
+    return df.to_dict("records"), bilan
 
 
 def save_fixtures():
@@ -113,7 +113,7 @@ def save_fixtures():
     loan_fixtures = generate_loan_fixtures()
     loan_file = f"results/loan_validation_{timestamp}.csv"
 
-    with open(loan_file, 'w', newline='', encoding='utf-8') as f:
+    with open(loan_file, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=loan_fixtures[0].keys())
         writer.writeheader()
         writer.writerows(loan_fixtures)
@@ -124,7 +124,7 @@ def save_fixtures():
     sim_records, bilan = generate_simulation_fixture()
     sim_file = f"results/simulation_validation_{timestamp}.csv"
 
-    with open(sim_file, 'w', newline='', encoding='utf-8') as f:
+    with open(sim_file, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=sim_records[0].keys())
         writer.writeheader()
         writer.writerows(sim_records)
@@ -134,7 +134,7 @@ def save_fixtures():
     # Bilan summary
     bilan_file = f"results/bilan_validation_{timestamp}.csv"
 
-    with open(bilan_file, 'w', newline='', encoding='utf-8') as f:
+    with open(bilan_file, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(["Metric", "Value"])
         for key, value in bilan.items():
@@ -143,9 +143,9 @@ def save_fixtures():
     print(f"✓ Final bilan saved to: {bilan_file}")
 
     # Print summary
-    print("\n" + "="*50)
+    print("\n" + "=" * 50)
     print("VALIDATION FIXTURE SUMMARY")
-    print("="*50)
+    print("=" * 50)
     print(f"\nLoan Calculations ({len(loan_fixtures)} cases):")
     for fix in loan_fixtures:
         print(f"  {fix['Description']}: PMT = {fix['PMT (€/month)']}€")

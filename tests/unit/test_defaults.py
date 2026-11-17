@@ -119,9 +119,7 @@ def test_sidebar_has_no_positional_numeric_defaults(path: Path) -> None:
     """Slider / number_input calls pass their default as value=<defaults constant>."""
     text = path.read_text(encoding="utf-8")
     # st.slider("label", lo, hi, <default>, ...) with a bare numeric 4th positional argument.
-    positional = re.findall(
-        r"st\.(?:slider|number_input)\(\s*\"[^\"]*\",\s*[-\d.]+,\s*[-\d.]+,\s*[-\d.]+\s*[,)]", text
-    )
+    positional = re.findall(r"st\.(?:slider|number_input)\(\s*\"[^\"]*\",\s*[-\d.]+,\s*[-\d.]+,\s*[-\d.]+\s*[,)]", text)
     assert not positional, positional
 
 

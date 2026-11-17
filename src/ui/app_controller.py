@@ -54,10 +54,7 @@ def load_archetypes_from_disk(data_path: str) -> list[dict[str, Any]]:
     for a in archetypes:
         if a.get("soumis_encadrement") and a.get("loyer_m2_max"):
             if a.get("loyer_m2", 0) > a["loyer_m2_max"]:
-                log.warning("archetype_rent_exceeds_cap",
-                           nom=a.get("nom"),
-                           loyer=a["loyer_m2"],
-                           cap=a["loyer_m2_max"])
+                log.warning("archetype_rent_exceeds_cap", nom=a.get("nom"), loyer=a["loyer_m2"], cap=a["loyer_m2_max"])
                 cap_violations += 1
 
     if cap_violations > 0:
@@ -87,8 +84,6 @@ def load_archetypes() -> list[dict[str, Any]]:
         log.error("data_load_failed", error=str(e))
         st.error(f"Erreur lors du chargement des données: {e}")
         return []
-
-
 
 
 def run_strategy_search(
@@ -169,11 +164,7 @@ def run_strategy_search(
                 "run_context": ctx.to_dict(),
             }
 
-            debug_ctx = collect_debug_context(
-                params=ctx_params,
-                strategies=strategies,
-                log_file_path="logs/app.log"
-            )
+            debug_ctx = collect_debug_context(params=ctx_params, strategies=strategies, log_file_path="logs/app.log")
             # Use timestamped name
             debug_path = os.path.join(RESULTS_DIR, f"debug_context_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
             save_debug_context(debug_ctx, filepath=debug_path)
@@ -244,6 +235,7 @@ def autosave_results(
         return
     try:
         from src.application.services.exporter import ResultExporter
+
         exporter = ResultExporter(RESULTS_DIR)
         exporter.save_results(strategies, metadata=metadata)
     except Exception as e:

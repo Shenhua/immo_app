@@ -10,47 +10,58 @@ from typing import Any
 
 class AppImmoError(Exception):
     """Base exception for all app_immo errors."""
+
     pass
 
 
 # --- Data Errors ---
 
+
 class DataLoadError(AppImmoError):
     """Failed to load or parse data files (e.g., archetypes JSON)."""
+
     pass
 
 
 class ArchetypeError(AppImmoError):
     """Invalid or missing archetype data."""
+
     pass
 
 
 # --- Calculation Errors ---
 
+
 class SimulationError(AppImmoError):
     """Error during financial simulation."""
+
     pass
 
 
 class AmortizationError(AppImmoError):
     """Error generating amortization schedule."""
+
     pass
 
 
 class AllocationError(AppImmoError):
     """Error in capital allocation."""
+
     pass
 
 
 # --- Strategy Errors ---
 
+
 class StrategyError(AppImmoError):
     """General strategy-related error."""
+
     pass
 
 
 class NoStrategiesFoundError(StrategyError):
     """No valid strategies match the given criteria."""
+
     pass
 
 
@@ -69,6 +80,8 @@ class InvalidParameterError(AppImmoError):
 
 # --- Configuration Errors ---
 
+
 class ConfigurationError(AppImmoError):
     """Error in application configuration."""
+
     pass

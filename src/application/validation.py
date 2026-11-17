@@ -59,9 +59,7 @@ def validate_search_inputs(
     if tolerance < 0:
         errors.append("Tolérance : doit être supérieure ou égale à 0.")
     if not SEARCH.max_properties_min <= int(max_properties) <= SEARCH.max_properties_max:
-        errors.append(
-            f"Nombre max de biens : entre {SEARCH.max_properties_min} et {SEARCH.max_properties_max}."
-        )
+        errors.append(f"Nombre max de biens : entre {SEARCH.max_properties_min} et {SEARCH.max_properties_max}.")
     if n_archetypes is not None and n_archetypes <= 0:
         errors.append("Aucun bien ne correspond aux filtres (villes / types de bien).")
     if min_brick_apport is not None and apport < min_brick_apport:

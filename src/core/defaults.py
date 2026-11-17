@@ -336,9 +336,21 @@ PARETO_MAX_RANK: int = 10
 # Vacancy is a floor on each archetype's own provision, so a negative vacancy delta cannot go below 0.
 # Pessimistic is deliberately harsher than optimistic (downside risk is larger than upside).
 RISK_SCENARIOS: dict[str, dict[str, float]] = {
-    "Pessimiste": {"appreciation_pts": -1.5, "revalo_pts": -1.0, "vacance_pts": 5.0, "inflation_pts": 1.0, "taux_pts": 1.0},
+    "Pessimiste": {
+        "appreciation_pts": -1.5,
+        "revalo_pts": -1.0,
+        "vacance_pts": 5.0,
+        "inflation_pts": 1.0,
+        "taux_pts": 1.0,
+    },
     "Central": {},
-    "Optimiste": {"appreciation_pts": 1.0, "revalo_pts": 0.5, "vacance_pts": -2.0, "inflation_pts": -0.5, "taux_pts": -0.5},
+    "Optimiste": {
+        "appreciation_pts": 1.0,
+        "revalo_pts": 0.5,
+        "vacance_pts": -2.0,
+        "inflation_pts": -0.5,
+        "taux_pts": -0.5,
+    },
 }
 
 

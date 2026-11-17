@@ -40,7 +40,7 @@ body,
 }
 
 /* Hover effect on containers that are likely rows */
-/* We will target specific containers via Python logic if possible, 
+/* We will target specific containers via Python logic if possible,
    but globally enabling hover on bordered containers in main area works well */
 .element-container:has(iframe) {
     /* Safe fallback */
@@ -55,7 +55,7 @@ div[data-testid="stMetricValue"] {
 }
 
 /* Alternating Backgrounds Helper */
-/* Since we can't easily target rows, we rely on Python to inject specific styles 
+/* Since we can't easily target rows, we rely on Python to inject specific styles
    or accept that exact alternating colors in Streamlit basic containers is hard without unsafe_allow_html wrappers.
    Instead, we create a 'row-card' class logic. */
 

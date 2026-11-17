@@ -91,7 +91,8 @@ Add temporary logging to verify intermediate values:
 ```python
 # In strategy_finder.py, add after scoring:
 for s in strategies[:3]:
-    log.info("strategy_debug",
+    log.info(
+        "strategy_debug",
         qual_score=s.get("qual_score"),
         finance_score=s.get("finance_score"),
         balanced_score=s.get("balanced_score"),
@@ -142,17 +143,20 @@ Consider adding:
 ```python
 # tests/test_parameter_effects.py
 
+
 def test_apport_affects_strategy_count():
     """More apport should enable more strategies."""
     low = run_analysis(apport=30000)
     high = run_analysis(apport=150000)
     assert len(high) >= len(low)
 
+
 def test_qualite_weight_changes_ranking():
     """Different weights should produce different rankings."""
     finance_first = run_analysis(qualite_weight=0.0)
     quality_first = run_analysis(qualite_weight=1.0)
     assert finance_first[0] != quality_first[0]
+
 
 def test_qual_scores_vary():
     """Properties should have different quality scores."""

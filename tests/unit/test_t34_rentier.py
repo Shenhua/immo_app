@@ -1,21 +1,30 @@
 """T34: Rentier mode (use_full_capital) and the tax-correction loop convergence."""
+
 from __future__ import annotations
 
 from src.application.services.strategy_finder import StrategyFinder
 from src.domain.models.brick import InvestmentBrick
 
 _F = {
-    "charges_const_mth0": 50.0, "tf_const_mth0": 50.0, "frais_gestion_pct": 0.0, "budget_travaux": 0.0,
-    "mobilier": 0.0, "frais_notaire": 7000.0, "taux_annuel_pct": 3.5, "duree_credit_mois": 240,
+    "charges_const_mth0": 50.0,
+    "tf_const_mth0": 50.0,
+    "frais_gestion_pct": 0.0,
+    "budget_travaux": 0.0,
+    "mobilier": 0.0,
+    "frais_notaire": 7000.0,
+    "taux_annuel_pct": 3.5,
+    "duree_credit_mois": 240,
 }
 
 
 def _bricks() -> list[InvestmentBrick]:
     return [
-        InvestmentBrick(nom="A", apport_min=10000, prix_achat_bien=100000, capital_emprunte=90000,
-                        loyer_mensuel_initial=500, **_F),
-        InvestmentBrick(nom="B", apport_min=20000, prix_achat_bien=200000, capital_emprunte=180000,
-                        loyer_mensuel_initial=1000, **_F),
+        InvestmentBrick(
+            nom="A", apport_min=10000, prix_achat_bien=100000, capital_emprunte=90000, loyer_mensuel_initial=500, **_F
+        ),
+        InvestmentBrick(
+            nom="B", apport_min=20000, prix_achat_bien=200000, capital_emprunte=180000, loyer_mensuel_initial=1000, **_F
+        ),
     ]
 
 
@@ -74,8 +83,9 @@ def _real_year2(regime_fiscal: str) -> list[tuple[float, float, float]]:
     ctx = RunContext(regime_fiscal=regime_fiscal)
     out = []
     for s in run_strategy_search(load_archetypes_from_disk("data/archetypes_2026_v1.json"), ctx, run_info={}):
-        df, _ = simulate_long_term_strategy(s, duration_years=ctx.horizon_ans,
-                                            market_hypotheses=ctx.market_hypotheses, tax_params=ctx.to_tax_params())
+        df, _ = simulate_long_term_strategy(
+            s, duration_years=ctx.horizon_ans, market_hypotheses=ctx.market_hypotheses, tax_params=ctx.to_tax_params()
+        )
         out.append((float(df.iloc[1]["Loyers Bruts"]) / 12, float(df.iloc[1]["Impôt Dû"]) / 12, ctx.tmi_pct))
     return out
 
@@ -87,6 +97,7 @@ def test_year2_income_tax_is_plausible_on_a_real_search():
     assert all(tax < 1.0 for _, tax, _ in lmnp)
     # micro-BIC: 50 % abatement, then TMI + social levies (18.6 % since 2026) on what is left.
     from src.core.defaults import TAX_RATES
+
     micro = _real_year2("microbic")
     assert micro
     for rent, tax, tmi in micro:

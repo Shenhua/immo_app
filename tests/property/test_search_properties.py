@@ -34,16 +34,24 @@ SETTINGS = settings(max_examples=40, deadline=None, suppress_health_check=list(H
 def _bricks(ctx: RunContext, archetypes):
     fin = build_financing_config(ctx.to_credit_params())
     op = build_operating_config(
-        ctx.gestion_pct, ctx.vacance_pct, ctx.cfe_par_bien_ann,
-        maintenance_m2_an=ctx.maintenance_m2_an, gli_pct=ctx.gli_pct, mois_travaux=ctx.mois_travaux,
+        ctx.gestion_pct,
+        ctx.vacance_pct,
+        ctx.cfe_par_bien_ann,
+        maintenance_m2_an=ctx.maintenance_m2_an,
+        gli_pct=ctx.gli_pct,
+        mois_travaux=ctx.mois_travaux,
     )
     return create_investment_bricks(archetypes, fin, op)
 
 
 def _search(ctx: RunContext, archetypes):
     finder = StrategyFinder(
-        bricks=_bricks(ctx, archetypes), apport_disponible=ctx.apport, cash_flow_cible=ctx.cf_cible,
-        tolerance=ctx.tolerance, qualite_weight=ctx.qualite_weight, mode_cf=ctx.mode_cf,
+        bricks=_bricks(ctx, archetypes),
+        apport_disponible=ctx.apport,
+        cash_flow_cible=ctx.cf_cible,
+        tolerance=ctx.tolerance,
+        qualite_weight=ctx.qualite_weight,
+        mode_cf=ctx.mode_cf,
         max_properties=ctx.max_properties,
     )
     finder.n_workers = 1
@@ -67,8 +75,11 @@ def search_inputs(draw):
 
 def _sig(res):
     return [
-        (tuple(sorted((d["nom"], d["duree_credit_mois"]) for d in s["details"])), round(s["apport_total"], 6),
-         round(s["balanced_score"], 12))
+        (
+            tuple(sorted((d["nom"], d["duree_credit_mois"]) for d in s["details"])),
+            round(s["apport_total"], 6),
+            round(s["balanced_score"], 12),
+        )
         for s in res
     ]
 
@@ -99,7 +110,7 @@ def _single_strategy(ctx: RunContext, arch, rent_factor: float = 1.0):
     """One brick, minimum down payment, simulated with the run's engine inputs."""
     brick = _bricks(ctx, [arch])[0]
     alloc = PortfolioAllocator("min", market=ctx.to_eval_params()["hypotheses_marche"])
-    _, details, _, apport = alloc.allocate([brick], 10**9, -10**6)
+    _, details, _, apport = alloc.allocate([brick], 10**9, -(10**6))
     for d in details:
         d["loyer_mensuel_initial"] *= rent_factor
     return {"details": details, "apport_total": apport}
@@ -155,7 +166,9 @@ def test_higher_appreciation_raises_wealth(arch, app, delta, horizon):
 @SETTINGS
 @given(
     st.lists(st.integers(0, len(POOL) - 1), min_size=1, max_size=3, unique=True),
-    st.integers(0, 300_000), st.integers(0, 150_000), st.integers(-1500, 300),
+    st.integers(0, 300_000),
+    st.integers(0, 150_000),
+    st.integers(-1500, 300),
     st.sampled_from(["min", "target"]),
 )
 def test_allocator_budget_and_monotone_in_budget(idx, budget, more, target, mode):

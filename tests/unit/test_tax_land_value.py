@@ -4,7 +4,6 @@ Per French LMNP tax law, land value is NOT amortizable - only the building/const
 and improvements (travaux) can be depreciated.
 """
 
-
 from src.application.services.simulation import (
     IRACalculator,
     MarketHypotheses,
@@ -28,22 +27,24 @@ class TestLandValueExclusion:
 
         strategy = {
             "apport_total": 20000,
-            "details": [{
-                "prix_achat_bien": 100000,
-                "budget_travaux": 10000,
-                "mobilier": 5000,
-                "renovation_energetique": 0,
-                "frais_notaire": 8000,
-                "credit_final": 90000,
-                "taux_pret": 3.6,
-                "duree_pret": 25,
-                "assurance_ann_pct": 0.35,
-                "loyer_mensuel_initial": 700,
-                "charges_const_mth0": 60,
-                "tf_const_mth0": 40,
-                "frais_gestion_pct": 5.0,
-                "provision_pct": 3.0,
-            }]
+            "details": [
+                {
+                    "prix_achat_bien": 100000,
+                    "budget_travaux": 10000,
+                    "mobilier": 5000,
+                    "renovation_energetique": 0,
+                    "frais_notaire": 8000,
+                    "credit_final": 90000,
+                    "taux_pret": 3.6,
+                    "duree_pret": 25,
+                    "assurance_ann_pct": 0.35,
+                    "loyer_mensuel_initial": 700,
+                    "charges_const_mth0": 60,
+                    "tf_const_mth0": 40,
+                    "frais_gestion_pct": 5.0,
+                    "provision_pct": 3.0,
+                }
+            ],
         }
 
         schedules = [generate_amortization_schedule(90000, 3.6, 300, 0.35)]
@@ -54,8 +55,7 @@ class TestLandValueExclusion:
 
         # Amortissements are displayed as negative in DataFrame
         actual_amort = abs(df.iloc[0]["Amortissements"])
-        assert abs(actual_amort - expected_amort) < 10, \
-            f"Expected {expected_amort:.2f}, got {actual_amort:.2f}"
+        assert abs(actual_amort - expected_amort) < 10, f"Expected {expected_amort:.2f}, got {actual_amort:.2f}"
 
     def test_land_ratio_excludes_terrain_from_base(self):
         """With ratio_terrain_pct=20, the land share of price + notary fees is excluded."""
@@ -68,22 +68,24 @@ class TestLandValueExclusion:
 
         strategy = {
             "apport_total": 20000,
-            "details": [{
-                "prix_achat_bien": 100000,
-                "budget_travaux": 10000,
-                "mobilier": 5000,
-                "renovation_energetique": 0,
-                "frais_notaire": 8000,
-                "credit_final": 90000,
-                "taux_pret": 3.6,
-                "duree_pret": 25,
-                "assurance_ann_pct": 0.35,
-                "loyer_mensuel_initial": 700,
-                "charges_const_mth0": 60,
-                "tf_const_mth0": 40,
-                "frais_gestion_pct": 5.0,
-                "provision_pct": 3.0,
-            }]
+            "details": [
+                {
+                    "prix_achat_bien": 100000,
+                    "budget_travaux": 10000,
+                    "mobilier": 5000,
+                    "renovation_energetique": 0,
+                    "frais_notaire": 8000,
+                    "credit_final": 90000,
+                    "taux_pret": 3.6,
+                    "duree_pret": 25,
+                    "assurance_ann_pct": 0.35,
+                    "loyer_mensuel_initial": 700,
+                    "charges_const_mth0": 60,
+                    "tf_const_mth0": 40,
+                    "frais_gestion_pct": 5.0,
+                    "provision_pct": 3.0,
+                }
+            ],
         }
 
         schedules = [generate_amortization_schedule(90000, 3.6, 300, 0.35)]
@@ -95,29 +97,30 @@ class TestLandValueExclusion:
 
         # Amortissements are displayed as negative in DataFrame
         actual_amort = abs(df.iloc[0]["Amortissements"])
-        assert abs(actual_amort - expected_amort) < 10, \
-            f"Expected {expected_amort:.2f}, got {actual_amort:.2f}"
+        assert abs(actual_amort - expected_amort) < 10, f"Expected {expected_amort:.2f}, got {actual_amort:.2f}"
 
     def test_land_ratio_higher_taxable_income(self):
         """Higher land ratio should lead to lower amortization, thus higher tax."""
         strategy_base = {
             "apport_total": 20000,
-            "details": [{
-                "prix_achat_bien": 100000,
-                "budget_travaux": 10000,
-                "mobilier": 5000,
-                "renovation_energetique": 0,
-                "frais_notaire": 8000,
-                "credit_final": 90000,
-                "taux_pret": 3.6,
-                "duree_pret": 25,
-                "assurance_ann_pct": 0.35,
-                "loyer_mensuel_initial": 700,
-                "charges_const_mth0": 60,
-                "tf_const_mth0": 40,
-                "frais_gestion_pct": 5.0,
-                "provision_pct": 3.0,
-            }]
+            "details": [
+                {
+                    "prix_achat_bien": 100000,
+                    "budget_travaux": 10000,
+                    "mobilier": 5000,
+                    "renovation_energetique": 0,
+                    "frais_notaire": 8000,
+                    "credit_final": 90000,
+                    "taux_pret": 3.6,
+                    "duree_pret": 25,
+                    "assurance_ann_pct": 0.35,
+                    "loyer_mensuel_initial": 700,
+                    "charges_const_mth0": 60,
+                    "tf_const_mth0": 40,
+                    "frais_gestion_pct": 5.0,
+                    "provision_pct": 3.0,
+                }
+            ],
         }
 
         schedules = [generate_amortization_schedule(90000, 3.6, 300, 0.35)]
@@ -145,13 +148,11 @@ class TestLandValueExclusion:
         amort_20 = abs(df_20.iloc[0]["Amortissements"])
 
         # Land exclusion should reduce amortization
-        assert amort_20 < amort_0, \
-            f"Amort with land exclusion ({amort_20:.2f}) should be < without ({amort_0:.2f})"
+        assert amort_20 < amort_0, f"Amort with land exclusion ({amort_20:.2f}) should be < without ({amort_0:.2f})"
 
         # With land exclusion, amortization is lower, so taxable base is higher
         # Thus tax should be higher (or equal if still in deficit)
         tax_0 = df_0.iloc[0]["Impôt Dû"]
         tax_20 = df_20.iloc[0]["Impôt Dû"]
 
-        assert tax_20 >= tax_0, \
-            f"Tax with land exclusion ({tax_20:.2f}) should be >= tax without ({tax_0:.2f})"
+        assert tax_20 >= tax_0, f"Tax with land exclusion ({tax_20:.2f}) should be >= tax without ({tax_0:.2f})"

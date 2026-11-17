@@ -63,8 +63,12 @@ def _cached_bricks(_archetypes: list[dict[str, Any]], archetypes_hash: str, bric
     p = json.loads(brick_params_json)
     fin_config = build_financing_config(p["credit"])
     op_config = build_operating_config(
-        p["gestion_pct"], p["vacance_pct"], p["cfe_par_bien_ann"],
-        maintenance_m2_an=p["maintenance_m2_an"], gli_pct=p["gli_pct"], mois_travaux=p["mois_travaux"],
+        p["gestion_pct"],
+        p["vacance_pct"],
+        p["cfe_par_bien_ann"],
+        maintenance_m2_an=p["maintenance_m2_an"],
+        gli_pct=p["gli_pct"],
+        mois_travaux=p["mois_travaux"],
     )
     return create_investment_bricks(_archetypes, fin_config, op_config)
 
@@ -94,9 +98,16 @@ def cached_regime_comparison(strategy_json: str, ctx_json: str) -> dict[str, Any
     cmp = compare_regimes(json.loads(strategy_json), RunContext.model_validate_json(ctx_json))
     rows = [
         {
-            "label": r.label, "is_user": r.is_user_choice, "is_best": r is cmp.best_by_wealth,
-            "years": r.years, "tax": r.tax, "cash_flow": r.cash_flow, "cumulative_cf": r.cumulative_cf,
-            "tri_annuel": r.tri_annuel, "enrichissement_net": r.enrichissement_net, "exit_tax": r.exit_tax,
+            "label": r.label,
+            "is_user": r.is_user_choice,
+            "is_best": r is cmp.best_by_wealth,
+            "years": r.years,
+            "tax": r.tax,
+            "cash_flow": r.cash_flow,
+            "cumulative_cf": r.cumulative_cf,
+            "tri_annuel": r.tri_annuel,
+            "enrichissement_net": r.enrichissement_net,
+            "exit_tax": r.exit_tax,
             "warnings": r.warnings,
         }
         for r in cmp.results

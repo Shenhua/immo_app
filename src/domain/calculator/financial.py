@@ -176,11 +176,7 @@ def generate_amortization_schedule(
     }
 
 
-def k_factor(
-    annual_rate_pct: float,
-    duration_years: int,
-    annual_insurance_pct: float
-) -> float:
+def k_factor(annual_rate_pct: float, duration_years: int, annual_insurance_pct: float) -> float:
     """Calculate the loan constant (K factor).
 
     K = (Monthly Payment + Monthly Insurance) / Principal
@@ -196,7 +192,7 @@ def k_factor(
     r = (annual_rate_pct / 100.0) / 12.0
     n = max(1, duration_years * 12)
 
-    base = (1.0 / n) if r == 0 else r / (1.0 - (1.0 + r)**(-n))
+    base = (1.0 / n) if r == 0 else r / (1.0 - (1.0 + r) ** (-n))
     assur = (annual_insurance_pct / 100.0) / 12.0
 
     return base + assur
@@ -239,4 +235,3 @@ def calculate_remaining_balance(
     remaining = principal * (factor_n - factor_p) / (factor_n - 1)
 
     return max(0.0, remaining)
-

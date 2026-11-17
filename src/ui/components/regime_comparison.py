@@ -45,12 +45,21 @@ def render_regime_comparison(strategy: dict[str, Any], ctx: RunContext, key: str
     for r in rows:
         fig.add_trace(
             go.Scatter(
-                x=r["years"], y=r["cumulative_cf"], mode="lines", name=r["label"],
-                line={"width": 4 if r["is_best"] else 2, "dash": "dot" if r["is_user"] and not r["is_best"] else "solid"},
+                x=r["years"],
+                y=r["cumulative_cf"],
+                mode="lines",
+                name=r["label"],
+                line={
+                    "width": 4 if r["is_best"] else 2,
+                    "dash": "dot" if r["is_user"] and not r["is_best"] else "solid",
+                },
             )
         )
     fig.update_layout(
-        title="Cash-flow cumulé après impôt", xaxis_title="Année", yaxis_title="€", height=380,
+        title="Cash-flow cumulé après impôt",
+        xaxis_title="Année",
+        yaxis_title="€",
+        height=380,
         margin={"l": 10, "r": 10, "t": 40, "b": 10},
     )
     st.plotly_chart(fig, use_container_width=True, key=f"regime_cmp_{key}")

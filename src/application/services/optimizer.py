@@ -28,6 +28,7 @@ Pipeline
 
 Every result satisfies: ``apport_total <= budget``, unique ``nom``, ``len(details) <= max_props``.
 """
+
 from __future__ import annotations
 
 import itertools
@@ -151,11 +152,13 @@ class BrickTable:
         g_price = (1.0 + problem.appreciation_pct / 100.0) ** h
         price = np.array([float(b.data.get("prix_achat_bien", 0.0) or 0.0) for b in self.prepared])
         self.value = 12.0 * self.noi * growth_sum + price * g_price * (1.0 - problem.frais_vente_pct / 100.0)
-        self.debt = np.array([
-            b.k * min(b.duree_mois, 12 * h) + _balance_fraction(float(b.data.get("taux_annuel_pct", 0.0)),
-                                                                  b.duree_mois, 12 * h)
-            for b in self.prepared
-        ])
+        self.debt = np.array(
+            [
+                b.k * min(b.duree_mois, 12 * h)
+                + _balance_fraction(float(b.data.get("taux_annuel_pct", 0.0)), b.duree_mois, 12 * h)
+                for b in self.prepared
+            ]
+        )
         self.cf0 = self.noi - self.k * self.capital
 
         # Properties: distinct names, options sorted by duration (then input order). Duplicated (nom, duration)
@@ -179,9 +182,9 @@ class BrickTable:
         self.n_options = np.array([len(options[nm]) for nm in self.names], dtype=np.int64)
         self.prop_min_apport = np.array([min(self.apport_min[i] for i in options[nm]) for nm in self.names])
         # Best stand-alone cash flow option per property (greedy start).
-        self.best_cf_option = np.array([
-            int(np.argmax([self.cf0[i] for i in options[nm]])) for nm in self.names
-        ], dtype=np.int64)
+        self.best_cf_option = np.array(
+            [int(np.argmax([self.cf0[i] for i in options[nm]])) for nm in self.names], dtype=np.int64
+        )
         assert n == len(self.apport_min)
 
 
@@ -195,8 +198,9 @@ def _balance_fraction(rate_pct: float, n_months: int, paid_months: int) -> float
     return ((1 + r) ** n_months - (1 + r) ** paid_months) / ((1 + r) ** n_months - 1)
 
 
-def enumerate_subsets(table: BrickTable, budget: float, max_props: int,
-                      diag: SearchDiagnostics | None = None) -> Iterator[tuple[int, ...]]:
+def enumerate_subsets(
+    table: BrickTable, budget: float, max_props: int, diag: SearchDiagnostics | None = None
+) -> Iterator[tuple[int, ...]]:
     """Property subsets (indices into ``table.names``) whose cheapest down payments fit the budget.
 
     Depth-first, properties in ``table.names`` order (cheapest first), so a branch stops at the first property
@@ -335,8 +339,13 @@ def _roe_proxy(table: BrickTable, rows: np.ndarray, X: np.ndarray, amin: np.ndar
 class CandidateEvaluator:
     """Allocates and simulates one assignment; accepts it on the after-tax stabilised CF."""
 
-    def __init__(self, allocator: PortfolioAllocator, evaluator: StrategyEvaluator, prepared: Sequence[PreparedBrick],
-                 problem: SearchProblem):
+    def __init__(
+        self,
+        allocator: PortfolioAllocator,
+        evaluator: StrategyEvaluator,
+        prepared: Sequence[PreparedBrick],
+        problem: SearchProblem,
+    ):
         self.allocator = allocator
         self.evaluator = evaluator
         self.prepared = list(prepared)
@@ -361,8 +370,7 @@ class CandidateEvaluator:
         reject: tuple[str, float, float] | None = None
         self.last_reject = None
         for _ in range(TAX_CORRECTION_ROUNDS):
-            plan = self.allocator.plan(P, pb.budget, pb.target_cf + bias, pb.tolerance,
-                                       pb.use_full_capital)
+            plan = self.allocator.plan(P, pb.budget, pb.target_cf + bias, pb.tolerance, pb.use_full_capital)
             if not plan.within_budget:
                 self.last_reject = ("budget", max(0.0, plan.apport_total - pb.budget), math.nan)
                 return None
@@ -407,8 +415,14 @@ class CandidateEvaluator:
 _WORKER: CandidateEvaluator | None = None
 
 
-def _worker_init(prepared: list[PreparedBrick], problem: SearchProblem, mode_cf: str, market: dict[str, float],
-                 tax_params: dict[str, Any], scorer: Any) -> None:
+def _worker_init(
+    prepared: list[PreparedBrick],
+    problem: SearchProblem,
+    mode_cf: str,
+    market: dict[str, float],
+    tax_params: dict[str, Any],
+    scorer: Any,
+) -> None:
     global _WORKER
     import logging
 
@@ -467,12 +481,19 @@ class PortfolioSearch:
         prepared = [self.allocator.prepare(b) for b in all_bricks]
         table = BrickTable(prepared, problem, market)
         diag = self.diagnostics = SearchDiagnostics(
-            budget=problem.budget, target_cf=problem.target_cf, tolerance=problem.tolerance,
-            max_props=problem.max_props, mode_cf=problem.mode_cf)
+            budget=problem.budget,
+            target_cf=problem.target_cf,
+            tolerance=problem.tolerance,
+            max_props=problem.max_props,
+            mode_cf=problem.mode_cf,
+        )
 
         if progress_callback:
-            progress_callback(SearchProgress(phase=SearchPhase.COMBO_GENERATION, phase_index=2,
-                                             message="Génération des combinaisons..."))
+            progress_callback(
+                SearchProgress(
+                    phase=SearchPhase.COMBO_GENERATION, phase_index=2, message="Génération des combinaisons..."
+                )
+            )
 
         t0 = time.perf_counter()
         candidates, exact = self._screen_all(table, problem, diag)
@@ -524,8 +545,9 @@ class PortfolioSearch:
                     diag.add_budget_gap(bud[1])
 
     # ------------------------------------------------------------------ screening
-    def _screen_all(self, table: BrickTable, problem: SearchProblem,
-                    diag: SearchDiagnostics | None = None) -> tuple[list[tuple[int, ...]], bool]:
+    def _screen_all(
+        self, table: BrickTable, problem: SearchProblem, diag: SearchDiagnostics | None = None
+    ) -> tuple[list[tuple[int, ...]], bool]:
         """Candidates to simulate, in deterministic order, and whether the duration choice was exhaustive."""
         if table.n_props == 0 or problem.max_props <= 0:
             self.stats = {"subsets": 0, "assignments": 0}
@@ -545,7 +567,7 @@ class PortfolioSearch:
                 grid = np.array(list(itertools.product(range(table.m), repeat=k)), dtype=np.int64)
                 per_chunk = max(1, _SCREEN_CHUNK_ROWS // len(grid))
                 for c0 in range(0, len(subsets), per_chunk):
-                    S = subsets[c0:c0 + per_chunk]
+                    S = subsets[c0 : c0 + per_chunk]
                     B = table.options[S[:, None, :], grid[None, :, :]]  # (ns, g, k)
                     ns, g, _ = B.shape
                     rows = B.reshape(ns * g, k)
@@ -568,7 +590,7 @@ class PortfolioSearch:
                 n_assign += len(rows) * (1 + k * max(0, table.m - 1))
                 sc = screen(table, rows, problem, pct)
                 for ii in np.flatnonzero(sc.passes).tolist():
-                    sub_rows.append((rows[ii:ii + 1], sc.proxy[ii:ii + 1]))
+                    sub_rows.append((rows[ii : ii + 1], sc.proxy[ii : ii + 1]))
                 if diag is not None:
                     for ii in np.flatnonzero(~sc.passes).tolist():
                         self._screen_reject(diag, table, subsets[ii], float(sc.cf_gap[ii]), float(sc.cf_best[ii]))
@@ -590,16 +612,18 @@ class PortfolioSearch:
         return out, False
 
     @staticmethod
-    def _screen_reject(diag: SearchDiagnostics, table: BrickTable, subset: np.ndarray, gap: float,
-                       cf_best: float | None = None) -> None:
+    def _screen_reject(
+        diag: SearchDiagnostics, table: BrickTable, subset: np.ndarray, gap: float, cf_best: float | None = None
+    ) -> None:
         """A subset none of whose assignments passes the pre-filter: a (lower bound) CF rejection."""
         names = tuple(table.names[int(p)] for p in subset)
         gap = max(0.0, gap)
         diag.record(NearMiss("cf", names, gap, "€/mois", cf=cf_best, estimated=True))
         diag.add_cf_gap(names, gap, estimated=True)
 
-    def _greedy_assignments(self, table: BrickTable, subsets: np.ndarray, problem: SearchProblem,
-                            pct: float) -> np.ndarray:
+    def _greedy_assignments(
+        self, table: BrickTable, subsets: np.ndarray, problem: SearchProblem, pct: float
+    ) -> np.ndarray:
         """One assignment per subset: best stand-alone CF duration everywhere, then one pass of swaps."""
         choice = table.best_cf_option[subsets]  # (ns, k) option positions
         ns, k = subsets.shape
@@ -620,8 +644,14 @@ class PortfolioSearch:
         return np.asarray(table.options[subsets, choice], dtype=np.int64)
 
     # ------------------------------------------------------------------ evaluation
-    def _evaluate(self, candidates: list[tuple[int, ...]], prepared: list[PreparedBrick], problem: SearchProblem,
-                  market: dict[str, float], progress_callback: Callable[[Any], None] | None) -> list[Any]:
+    def _evaluate(
+        self,
+        candidates: list[tuple[int, ...]],
+        prepared: list[PreparedBrick],
+        problem: SearchProblem,
+        market: dict[str, float],
+        progress_callback: Callable[[Any], None] | None,
+    ) -> list[Any]:
         from src.application.progress import SearchPhase, SearchProgress
 
         n = len(candidates)
@@ -629,8 +659,15 @@ class PortfolioSearch:
 
         def report(done: int) -> None:
             if progress_callback:
-                progress_callback(SearchProgress(phase=SearchPhase.EVALUATION, phase_index=3, items_processed=done,
-                                                 items_total=n, valid_count=found))
+                progress_callback(
+                    SearchProgress(
+                        phase=SearchPhase.EVALUATION,
+                        phase_index=3,
+                        items_processed=done,
+                        items_total=n,
+                        valid_count=found,
+                    )
+                )
 
         report(0)
         workers = self._workers(n)
@@ -662,16 +699,25 @@ class PortfolioSearch:
             w = min(MAX_WORKERS, (os.cpu_count() or 2) - 1)
         return max(1, min(w, n)) if self.engine_spec is not None else 1
 
-    def _evaluate_pool(self, candidates: list[tuple[int, ...]], prepared: list[PreparedBrick], problem: SearchProblem,
-                       market: dict[str, float], workers: int, report: Callable[[int], None]) -> list[Any]:
+    def _evaluate_pool(
+        self,
+        candidates: list[tuple[int, ...]],
+        prepared: list[PreparedBrick],
+        problem: SearchProblem,
+        market: dict[str, float],
+        workers: int,
+        report: Callable[[int], None],
+    ) -> list[Any]:
         assert self.engine_spec is not None
         mkt, tax_params = self.engine_spec
         size = max(1, math.ceil(len(candidates) / (workers * 8)))
-        chunks = [candidates[i:i + size] for i in range(0, len(candidates), size)]
+        chunks = [candidates[i : i + size] for i in range(0, len(candidates), size)]
         out: list[Any] = []
-        with ProcessPoolExecutor(max_workers=workers, initializer=_worker_init,
-                                 initargs=(prepared, problem, self.allocator.mode_cf, mkt, tax_params,
-                                           self.scorer)) as ex:
+        with ProcessPoolExecutor(
+            max_workers=workers,
+            initializer=_worker_init,
+            initargs=(prepared, problem, self.allocator.mode_cf, mkt, tax_params, self.scorer),
+        ) as ex:
             for part in ex.map(_worker_run, chunks):  # map keeps submission order
                 out.extend(part)
                 report(len(out))

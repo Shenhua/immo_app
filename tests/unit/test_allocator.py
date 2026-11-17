@@ -1,4 +1,3 @@
-
 import pytest
 
 from src.application.services.allocator import PortfolioAllocator
@@ -8,9 +7,11 @@ from src.domain.models.brick import InvestmentBrick
 class MockBrick(dict):
     pass
 
+
 @pytest.fixture
 def allocator():
     return PortfolioAllocator()
+
 
 @pytest.fixture
 def sample_bricks():
@@ -39,9 +40,10 @@ def sample_bricks():
             duree_credit_mois=240,
             assurance_annuelle_pct=0.36,
             loyer_mensuel_initial=600.0,
-            depenses_mensuelles_hors_credit_initial=100.0
+            depenses_mensuelles_hors_credit_initial=100.0,
         )
     ]
+
 
 def test_allocator_step_logic_coarse(allocator, sample_bricks):
     """Test that large gaps trigger coarse steps."""
@@ -55,8 +57,8 @@ def test_allocator_step_logic_coarse(allocator, sample_bricks):
     ok, details, cf_final, apport_used = allocator.allocate(
         sample_bricks,
         apport_disponible=100000.0,
-        target_cf=100.0, # Target +100
-        tolerance=10.0
+        target_cf=100.0,  # Target +100
+        tolerance=10.0,
     )
 
     # We expect it to find a solution
@@ -68,6 +70,7 @@ def test_allocator_step_logic_coarse(allocator, sample_bricks):
     assert abs(cf_final - 100.0) <= 10.0
     assert 30000 < apport_used < 45000
 
+
 def test_allocator_precise_landing(allocator, sample_bricks):
     """Test that allocator lands precisely within tolerance when close."""
     # Target -70 CF. Current -80. Gap 10.
@@ -77,8 +80,8 @@ def test_allocator_precise_landing(allocator, sample_bricks):
     ok, details, cf_final, apport_used = allocator.allocate(
         sample_bricks,
         apport_disponible=50000.0,
-        target_cf=-75.0, # Just 5€ boost
-        tolerance=1.0
+        target_cf=-75.0,  # Just 5€ boost
+        tolerance=1.0,
     )
 
     # Delta CF 5€. k ~ 0.0055.
@@ -91,13 +94,14 @@ def test_allocator_precise_landing(allocator, sample_bricks):
     assert ok is True
     assert abs(cf_final - (-75.0)) <= 1.0
 
+
 def test_allocator_impossible_target(allocator, sample_bricks):
     """Test strict fail behavior."""
     ok, _, _, _ = allocator.allocate(
         sample_bricks,
-        apport_disponible=1000.0, # Not enough money
-        target_cf=1000.0, # Impossible CF
-        tolerance=10.0
+        apport_disponible=1000.0,  # Not enough money
+        target_cf=1000.0,  # Impossible CF
+        tolerance=10.0,
     )
     assert ok is False
 

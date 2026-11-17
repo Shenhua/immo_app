@@ -73,7 +73,7 @@ class SessionManager:
         "inflation": MARKET.inflation_charges_pct,
         "apply_ira": FINANCING.apply_ira,
         "ira_cap_pct": FINANCING.ira_cap_pct,
-        "show_details": False, # New state for Details Panel visibility
+        "show_details": False,  # New state for Details Panel visibility
     }
 
     @classmethod
@@ -141,8 +141,6 @@ class SessionManager:
         """Get selected strategy index."""
         return get_state("selected_strategy_idx", 0)
 
-
-
     @classmethod
     def get_run_context(cls) -> RunContext | None:
         """RunContext of the last analysis (None before the first run)."""
@@ -152,4 +150,3 @@ class SessionManager:
     def set_run_context(cls, ctx: RunContext | None) -> None:
         """Store the RunContext next to the results it produced."""
         st.session_state["run_context"] = ctx
-

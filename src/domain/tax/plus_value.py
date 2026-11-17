@@ -161,9 +161,19 @@ def sum_breakdowns(items: list[PlusValueBreakdown]) -> PlusValueBreakdown:
         return float(sum(getattr(i, attr) * i.plus_value_brute for i in items)) / total_pv
 
     fields = (
-        "sale_price", "sale_fees", "net_sale_price", "acquisition_fees_retained", "works_majoration",
-        "amortization_addback", "corrected_acquisition_price", "plus_value_brute", "base_ir", "base_ps",
-        "ir_pv", "ps_pv", "surtax",
+        "sale_price",
+        "sale_fees",
+        "net_sale_price",
+        "acquisition_fees_retained",
+        "works_majoration",
+        "amortization_addback",
+        "corrected_acquisition_price",
+        "plus_value_brute",
+        "base_ir",
+        "base_ps",
+        "ir_pv",
+        "ps_pv",
+        "surtax",
     )
     kwargs = {f: sum(getattr(i, f) for i in items) for f in fields}
     return PlusValueBreakdown(

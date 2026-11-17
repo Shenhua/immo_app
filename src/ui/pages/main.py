@@ -62,11 +62,17 @@ def _render_report_downloads(strategy: dict[str, Any], ctx: RunContext, idx: int
         return
     c1, c2 = st.columns(2)
     c1.download_button(
-        "⬇️ Rapport Excel", xlsx, file_name=f"rapport_strategie_{idx + 1}.xlsx", key=f"report_xlsx_{idx}",
+        "⬇️ Rapport Excel",
+        xlsx,
+        file_name=f"rapport_strategie_{idx + 1}.xlsx",
+        key=f"report_xlsx_{idx}",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
     c2.download_button(
-        "⬇️ Rapport PDF", pdf, file_name=f"rapport_strategie_{idx + 1}.pdf", key=f"report_pdf_{idx}",
+        "⬇️ Rapport PDF",
+        pdf,
+        file_name=f"rapport_strategie_{idx + 1}.pdf",
+        key=f"report_pdf_{idx}",
         mime="application/pdf",
     )
 
@@ -120,7 +126,7 @@ def render_strategy_list(
     # 1. TOP SECTION: The Stage (Selected Strategy)
     if strategies and 0 <= selected_idx < len(strategies):
         current_strat = strategies[selected_idx]
-        is_hero = (selected_idx == 0)
+        is_hero = selected_idx == 0
 
         # Dynamic Header
         if is_hero:
@@ -146,22 +152,22 @@ def render_strategy_list(
             with tab1:
                 render_strategy_details(current_strat, horizon)
             with tab2:
-               if df_sim is not None and not df_sim.empty:
-                   # Row 1: Patrimoine & CashFlow
-                   col1, col2 = st.columns(2)
-                   with col1:
-                       render_simulation_chart(df_sim, key=f"strat_chart_{selected_idx}")
-                   with col2:
-                       render_cashflow_chart(df_sim, key=f"strat_cf_{selected_idx}")
+                if df_sim is not None and not df_sim.empty:
+                    # Row 1: Patrimoine & CashFlow
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        render_simulation_chart(df_sim, key=f"strat_chart_{selected_idx}")
+                    with col2:
+                        render_cashflow_chart(df_sim, key=f"strat_cf_{selected_idx}")
 
-                   # Row 2: Credit breakdown & Fiscal (if LMNP)
-                   col3, col4 = st.columns(2)
-                   with col3:
-                       render_credit_breakdown_chart(df_sim, key=f"strat_cred_{selected_idx}")
-                   with col4:
-                       render_fiscal_chart(df_sim, key=f"strat_fisc_{selected_idx}")
-               else:
-                   st.info("Projections disponibles après sélection.")
+                    # Row 2: Credit breakdown & Fiscal (if LMNP)
+                    col3, col4 = st.columns(2)
+                    with col3:
+                        render_credit_breakdown_chart(df_sim, key=f"strat_cred_{selected_idx}")
+                    with col4:
+                        render_fiscal_chart(df_sim, key=f"strat_fisc_{selected_idx}")
+                else:
+                    st.info("Projections disponibles après sélection.")
             with tab3:
                 render_strategy_radar(current_strat, key=f"strat_radar_{selected_idx}")
             with tab4:
@@ -184,9 +190,9 @@ def render_strategy_list(
             index=selected_idx + 1,
             horizon=horizon,
             cf_cible=ctx.cf_cible,
-            is_selected=True, # Always selected in the Stage
+            is_selected=True,  # Always selected in the Stage
             show_details=show_details,
-            expanded_content=expanded_fn
+            expanded_content=expanded_fn,
         ):
             # Toggle logic for the Stage Card button
             set_state("show_details", not show_details)
@@ -206,20 +212,22 @@ def render_strategy_list(
         for i, s in enumerate(strategies):
             taxonomy = s.get("taxonomy", "Mix")
             icon = {"Optimisé": "🚀", "Patrimonial": "🏛️", "Mix": "⚖️"}.get(taxonomy, "🔀")
-            is_hero = (i == 0)
+            is_hero = i == 0
             hero_mark = "🏆 " if is_hero else ""
 
             enrich = int(s.get("liquidation_nette", 0) / 1000)
             max_enrich = max(max_enrich, enrich)
             min_enrich = min(min_enrich, enrich)
 
-            data.append({
-                "Stratégie": f"{hero_mark}{icon} Stratégie #{i+1}",
-                "Cash-Flow": s.get("cash_flow_final", 0),
-                "TRI (%)": s.get("tri_annuel", 0),
-                "Enrich. (k€)": enrich,
-                "Score": int(s.get("balanced_score", 0) * 100)
-            })
+            data.append(
+                {
+                    "Stratégie": f"{hero_mark}{icon} Stratégie #{i + 1}",
+                    "Cash-Flow": s.get("cash_flow_final", 0),
+                    "TRI (%)": s.get("tri_annuel", 0),
+                    "Enrich. (k€)": enrich,
+                    "Score": int(s.get("balanced_score", 0) * 100),
+                }
+            )
 
         df_display = pd.DataFrame(data)
 
@@ -230,21 +238,20 @@ def render_strategy_list(
             # Red (0) -> Green (100)
             # Simple threshold logic for readability
             if val >= 80:
-                return 'color: #28a745; font-weight: bold'
+                return "color: #28a745; font-weight: bold"
             if val >= 50:
-                return 'color: #ffc107'
-            return 'color: #dc3545'
+                return "color: #ffc107"
+            return "color: #dc3545"
 
         def color_tri(val):
             if val >= 8.0:
-                return 'color: #28a745; font-weight: bold'
+                return "color: #28a745; font-weight: bold"
             if val >= 4.0:
-                return 'color: #ffc107'
-            return 'color: #dc3545'
+                return "color: #ffc107"
+            return "color: #dc3545"
 
         # Create Styler
-        styler = df_display.style.map(color_score, subset=["Score"])\
-                                 .map(color_tri, subset=["TRI (%)"])
+        styler = df_display.style.map(color_score, subset=["Score"]).map(color_tri, subset=["TRI (%)"])
 
         column_config = {
             "Stratégie": st.column_config.TextColumn("Stratégie", width="medium"),
@@ -261,13 +268,13 @@ def render_strategy_list(
 
         # Interactive Table
         selection = st.dataframe(
-            styler, # Pass styler instead of raw df
+            styler,  # Pass styler instead of raw df
             use_container_width=True,
             hide_index=True,
             column_config=column_config,
             on_select="rerun",
             selection_mode="single-row",
-            key="strategy_table"
+            key="strategy_table",
         )
 
         # Handle Selection
@@ -351,11 +358,14 @@ def render_main_page(
     render_header()
 
     if stale:
-        st.warning("Paramètres modifiés — relancer l'analyse. Les résultats affichés correspondent à l'analyse précédente.")
+        st.warning(
+            "Paramètres modifiés — relancer l'analyse. Les résultats affichés correspondent à l'analyse précédente."
+        )
 
     # Render persistent search info zone (Phase 22)
     from src.application.progress import SearchStats
     from src.ui.components.progress_display import render_search_info_zone
+
     search_stats = get_state("search_stats", None)
     if search_stats is not None:
         # Convert dict back to SearchStats if needed
@@ -372,11 +382,11 @@ def render_main_page(
         ["📝 Liste & Détails", "⚖️ Comparaison Globale"],
         index=1 if show_comparison else 0,
         horizontal=True,
-        label_visibility="collapsed"
+        label_visibility="collapsed",
     )
 
     # Update state only if changed
-    new_show_comp = (mode == "⚖️ Comparaison Globale")
+    new_show_comp = mode == "⚖️ Comparaison Globale"
     if new_show_comp != show_comparison:
         set_state("show_comparison", new_show_comp)
         st.rerun()

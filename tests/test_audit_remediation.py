@@ -2,13 +2,13 @@
 Tests for Zero-Trust Audit Remediation.
 Verifies fixes for critical risks and edge cases identified in the audit.
 """
+
 import pytest
 
 from src.application.services.simulation import IRACalculator, MarketHypotheses, SimulationEngine, TaxParams
 
 
 class TestAuditRemediation:
-
     def test_simulation_zero_amortization_error(self):
         """Verify explicit ValueError on zero amortization years."""
         market = MarketHypotheses()

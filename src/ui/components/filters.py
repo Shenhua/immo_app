@@ -117,9 +117,6 @@ def filter_archetypes(
         result = [a for a in result if a.get("ville") in villes]
 
     if types:
-        result = [
-            a for a in result
-            if str(a.get("mode_loyer", "")).strip() in types
-        ]
+        result = [a for a in result if str(a.get("mode_loyer", "")).strip() in types]
 
     return result

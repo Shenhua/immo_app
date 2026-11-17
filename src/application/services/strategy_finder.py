@@ -34,8 +34,6 @@ from .scoring import assign_pareto_ranks, score_components
 log = get_logger(__name__)
 
 
-
-
 def strategy_key(strategy: dict[str, Any]) -> tuple[tuple[str, int], ...]:
     """Explicit tie-breaker (T31): the sorted (property name, loan months) pairs of a strategy."""
     out = []
@@ -58,8 +56,18 @@ def _default_market() -> dict[str, float]:
 
 # Legacy flat keys accepted by ``from_dict`` when no ``tax_params`` dict is given (hand-built dicts, tests).
 _LEGACY_TAX_KEYS = (
-    "tmi_pct", "regime_fiscal", "regime_foncier", "sci_is", "apply_ira", "ira_cap_pct", "cfe_par_bien_ann",
-    "frais_vente_pct", "ratio_terrain_pct", "nb_owners", "dpe_policy", "dpe_cout_m2_par_classe",
+    "tmi_pct",
+    "regime_fiscal",
+    "regime_foncier",
+    "sci_is",
+    "apply_ira",
+    "ira_cap_pct",
+    "cfe_par_bien_ann",
+    "frais_vente_pct",
+    "ratio_terrain_pct",
+    "nb_owners",
+    "dpe_policy",
+    "dpe_cout_m2_par_classe",
 )
 
 
@@ -159,11 +167,11 @@ class StrategyScorer:
         """Compute weighted finance score for a single strategy."""
         w = self.weights
         score: float = (
-            w.get("enrich_net", 0.0) * float(strategy.get("enrich_norm", 0.0)) +
-            w.get("irr", 0.0) * float(strategy.get("tri_norm", 0.0)) +
-            w.get("cap_eff", 0.0) * float(strategy.get("cap_eff_norm", 0.0)) +
-            w.get("dscr", 0.0) * float(strategy.get("dscr_norm", 0.0)) +
-            w.get("cf_proximity", 0.0) * float(strategy.get("cf_proximity", 0.0))
+            w.get("enrich_net", 0.0) * float(strategy.get("enrich_norm", 0.0))
+            + w.get("irr", 0.0) * float(strategy.get("tri_norm", 0.0))
+            + w.get("cap_eff", 0.0) * float(strategy.get("cap_eff_norm", 0.0))
+            + w.get("dscr", 0.0) * float(strategy.get("dscr_norm", 0.0))
+            + w.get("cf_proximity", 0.0) * float(strategy.get("cf_proximity", 0.0))
         )
         return score
 
@@ -184,14 +192,16 @@ class StrategyScorer:
         """
         for s in strategies:
             cf = s.get("cf_monthly_stab", s.get("cash_flow_final", 0.0))
-            s.update(score_components(
-                irr_pct=s.get("tri_annuel", 0.0),
-                enrich_net=s.get("enrich_net", 0.0),
-                apport=s.get("apport_total", 0.0),
-                dscr_stab=s.get("dscr_stab", 0.0),
-                cf_gap=cf_penalty(float(cf), cash_flow_cible, self.mode_cf),
-                horizon=horizon,
-            ))
+            s.update(
+                score_components(
+                    irr_pct=s.get("tri_annuel", 0.0),
+                    enrich_net=s.get("enrich_net", 0.0),
+                    apport=s.get("apport_total", 0.0),
+                    dscr_stab=s.get("dscr_stab", 0.0),
+                    cf_gap=cf_penalty(float(cf), cash_flow_cible, self.mode_cf),
+                    horizon=horizon,
+                )
+            )
             s["finance_score"] = self.compute_finance_score(s)
             s["balanced_score"] = self.compute_balanced_score(s)
 
@@ -260,25 +270,30 @@ class StrategyFinder:
 
         # Validate bricks before proceeding (fail-fast)
         from .brick_factory import validate_bricks
+
         validation_warnings = validate_bricks(self.bricks)
         if validation_warnings:
-            log.warning("brick_validation_warnings", count=len(validation_warnings),
-                        first_warning=validation_warnings[0] if validation_warnings else None)
+            log.warning(
+                "brick_validation_warnings",
+                count=len(validation_warnings),
+                first_warning=validation_warnings[0] if validation_warnings else None,
+            )
 
-        log.info("strategy_search_started",
-                 brick_count=len(self.bricks),
-                 apport=self.apport_disponible)
+        log.info("strategy_search_started", brick_count=len(self.bricks), apport=self.apport_disponible)
 
         # Report Phase 1: Brick generation (already done in __init__)
         from src.application.progress import SearchPhase, SearchProgress
+
         if progress_callback:
-            progress_callback(SearchProgress(
-                phase=SearchPhase.BRICK_GENERATION,
-                phase_index=1,
-                items_processed=len(self.bricks),
-                items_total=len(self.bricks),
-                message=f"{len(self.bricks)} briques créées"
-            ))
+            progress_callback(
+                SearchProgress(
+                    phase=SearchPhase.BRICK_GENERATION,
+                    phase_index=1,
+                    items_processed=len(self.bricks),
+                    items_total=len(self.bricks),
+                    message=f"{len(self.bricks)} briques créées",
+                )
+            )
 
         # 2. Subset search (T31): deterministic, every result within budget with unique properties.
         refund_max, tax_rate_max = tax_bounds(ep.to_tax_params())
@@ -296,11 +311,15 @@ class StrategyFinder:
             frais_vente_pct=float(ep.frais_vente_pct),
         )
         search = PortfolioSearch(
-            allocator=allocator, simulator=engine, scorer=self.scorer,
-            engine_spec=(ep.hypotheses_marche, ep.to_tax_params()), n_workers=self.n_workers,
+            allocator=allocator,
+            simulator=engine,
+            scorer=self.scorer,
+            engine_spec=(ep.hypotheses_marche, ep.to_tax_params()),
+            n_workers=self.n_workers,
         )
-        strategies = search.solve(self.bricks, problem, market=ep.hypotheses_marche,
-                                  progress_callback=progress_callback)
+        strategies = search.solve(
+            self.bricks, problem, market=ep.hypotheses_marche, progress_callback=progress_callback
+        )
         self.solver_mode = search.solver_mode
         self.last_diagnostics = search.diagnostics
         log.info("search_solver", mode=self.solver_mode, **search.stats)
@@ -310,21 +329,25 @@ class StrategyFinder:
 
         # Guard against empty results from optimizer (the UI explains why from ``last_diagnostics``)
         if not strategies:
-            log.warning("no_strategies_found",
-                        reason="optimizer_returned_empty",
-                        brick_count=len(self.bricks),
-                        budget=self.apport_disponible)
+            log.warning(
+                "no_strategies_found",
+                reason="optimizer_returned_empty",
+                brick_count=len(self.bricks),
+                budget=self.apport_disponible,
+            )
             return []
 
         # 4. Score & Rank (Post-Optimization)
         # Report Phase 4: Scoring
         if progress_callback:
-            progress_callback(SearchProgress(
-                phase=SearchPhase.SCORING,
-                phase_index=4,
-                items_total=len(strategies),
-                message="Scoring et classement..."
-            ))
+            progress_callback(
+                SearchProgress(
+                    phase=SearchPhase.SCORING,
+                    phase_index=4,
+                    items_total=len(strategies),
+                    message="Scoring et classement...",
+                )
+            )
 
         # We re-run relative scoring on the "Elite" set to populate UI-friendly normalized fields (A-score, etc.)
         self.scorer.score_strategies(strategies, self.cash_flow_cible, horizon_years)
@@ -332,12 +355,14 @@ class StrategyFinder:
         # Dedupe
         # Report Phase 5: Deduplication
         if progress_callback:
-            progress_callback(SearchProgress(
-                phase=SearchPhase.DEDUPLICATION,
-                phase_index=5,
-                items_total=len(strategies),
-                message="Déduplication et filtrage..."
-            ))
+            progress_callback(
+                SearchProgress(
+                    phase=SearchPhase.DEDUPLICATION,
+                    phase_index=5,
+                    items_total=len(strategies),
+                    message="Déduplication et filtrage...",
+                )
+            )
 
         strategies = self.dedupe_strategies(strategies, top_n=top_n)
 
@@ -346,9 +371,7 @@ class StrategyFinder:
 
         top_strategies = self.rank_strategies(strategies, ep.finance_preset_name, top_n)
         check_invariants(top_strategies, self.apport_disponible, self.max_properties)
-        log.info("strategy_search_completed",
-                 total_evaluated=len(strategies),
-                 top_kept=len(top_strategies))
+        log.info("strategy_search_completed", total_evaluated=len(strategies), top_kept=len(top_strategies))
 
         return top_strategies
 
@@ -405,7 +428,6 @@ class StrategyFinder:
 
         return float(score_sum / total_price)
 
-
     def dedupe_strategies(self, strategies: list[dict[str, Any]], top_n: int = 10) -> list[dict[str, Any]]:
         """Remove near-duplicate strategies.
 
@@ -417,20 +439,19 @@ class StrategyFinder:
         for s in strategies:
             details = s.get("details", [])
             # Details are InvestmentBrick objects or dicts
-            sig = tuple(sorted(
-                (d.nom if hasattr(d, "nom") else d.get("nom_bien", d.get("nom", "")))
-                for d in details
-            ))
+            sig = tuple(sorted((d.nom if hasattr(d, "nom") else d.get("nom_bien", d.get("nom", ""))) for d in details))
             if sig not in grouped:
                 grouped[sig] = []
             grouped[sig].append(s)
 
         # Sort each group by score descending
         for sig in grouped:
-            grouped[sig].sort(key=lambda x: (
-                -x.get("balanced_score", -float("inf")),
-                strategy_key(x),  # explicit tie-breaker
-            ))
+            grouped[sig].sort(
+                key=lambda x: (
+                    -x.get("balanced_score", -float("inf")),
+                    strategy_key(x),  # explicit tie-breaker
+                )
+            )
 
         # Selection logic: Strictly keep only the best variation per signature
         # This forces the result list to be composed of DISTINCT strategies.
@@ -494,4 +515,3 @@ class StrategyFinder:
         by_signature = sorted(strategies, key=strategy_key)
         sorted_strategies = sorted(by_signature, key=sort_key, reverse=True)
         return sorted_strategies[:top_n]
-

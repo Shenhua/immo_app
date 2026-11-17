@@ -74,24 +74,44 @@ def render_sidebar() -> dict[str, Any]:
             cfe = st.number_input("CFE (€/an, meublé)", 0, 2000, key="sb_cfe", step=50)
             gestion = st.slider("Gestion (%)", 0.0, 15.0, key="sb_gestion", step=0.5)
             vacance = st.slider(
-                "Vacance minimale (%)", 0.0, 10.0, key="sb_vacance", step=0.5,
+                "Vacance minimale (%)",
+                0.0,
+                10.0,
+                key="sb_vacance",
+                step=0.5,
                 help="Plancher de vacance : chaque bien utilise max(vacance propre au type de bien, ce curseur). "
-                     "Le curseur ne peut donc que relever la vacance d'un bien, jamais la baisser.",
+                "Le curseur ne peut donc que relever la vacance d'un bien, jamais la baisser.",
             )
             gli_pct = st.slider(
-                "Loyers impayés / GLI (% loyers)", 0.0, 10.0, key="sb_gli", step=0.5,
+                "Loyers impayés / GLI (% loyers)",
+                0.0,
+                10.0,
+                key="sb_gli",
+                step=0.5,
                 help="Prime d'assurance loyers impayés ou provision pour impayés, en % des loyers encaissés.",
             )
             maintenance_m2_an = st.number_input(
-                "Entretien / gros travaux (€/m²/an)", 0.0, 100.0, key="sb_maintenance", step=1.0,
+                "Entretien / gros travaux (€/m²/an)",
+                0.0,
+                100.0,
+                key="sb_maintenance",
+                step=1.0,
                 help="Provision pour réparations et gros travaux : sortie de trésorerie, déductible au réel.",
             )
             mois_travaux = st.slider(
-                "Mois sans loyer si travaux", 0, 12, key="sb_mois_travaux", step=1,
+                "Mois sans loyer si travaux",
+                0,
+                12,
+                key="sb_mois_travaux",
+                step=1,
                 help="Année 1 uniquement, pour les biens avec travaux : mois sans loyer.",
             )
             tf_growth_pct = st.slider(
-                "Hausse taxe foncière (%/an)", -2.0, 10.0, key="sb_tf_growth", step=0.5,
+                "Hausse taxe foncière (%/an)",
+                -2.0,
+                10.0,
+                key="sb_tf_growth",
+                step=0.5,
                 help="Croissance annuelle de la taxe foncière (distincte de l'inflation des charges).",
             )
             frais_vente = st.slider("Frais Revente (%)", 0.0, 10.0, key="sb_frais_vente", step=0.5)
@@ -119,8 +139,11 @@ def render_sidebar() -> dict[str, Any]:
         with st.expander("⚙️ Avancé", expanded=False):
             top_n = st.slider(
                 "Nombre max de résultats",
-                min_value=10, max_value=500, key="sb_top_n", step=10,
-                help="Limite le nombre de stratégies affichées après optimisation."
+                min_value=10,
+                max_value=500,
+                key="sb_top_n",
+                step=10,
+                help="Limite le nombre de stratégies affichées après optimisation.",
             )
 
     return {
@@ -175,7 +198,7 @@ def save_search_stats(
     strategies: list[dict[str, Any]],
     bricks_count: int,
     solver_mode: str,
-    max_props: int
+    max_props: int,
 ) -> None:
     """Save search statistics to session state.
 
@@ -195,17 +218,20 @@ def save_search_stats(
         mode=solver_mode,
         max_properties=max_props,
     )
-    set_state("search_stats", {
-        "timestamp": stats.timestamp,
-        "duration_seconds": stats.duration_seconds,
-        "bricks_count": stats.bricks_count,
-        "combos_generated": stats.combos_generated,
-        "combos_evaluated": stats.combos_evaluated,
-        "valid_strategies": stats.valid_strategies,
-        "strategies_after_dedupe": stats.strategies_after_dedupe,
-        "mode": stats.mode,
-        "max_properties": stats.max_properties,
-    })
+    set_state(
+        "search_stats",
+        {
+            "timestamp": stats.timestamp,
+            "duration_seconds": stats.duration_seconds,
+            "bricks_count": stats.bricks_count,
+            "combos_generated": stats.combos_generated,
+            "combos_evaluated": stats.combos_evaluated,
+            "valid_strategies": stats.valid_strategies,
+            "strategies_after_dedupe": stats.strategies_after_dedupe,
+            "mode": stats.mode,
+            "max_properties": stats.max_properties,
+        },
+    )
 
 
 def handle_analysis(ctx: RunContext, archetypes: list[dict[str, Any]]) -> None:
@@ -245,7 +271,9 @@ def handle_analysis(ctx: RunContext, archetypes: list[dict[str, Any]]) -> None:
     SessionManager.reset_selection()
     SessionManager.set_strategies(strategies)
     SessionManager.set_run_context(ctx)
-    autosave_results(strategies, {"horizon": ctx.horizon_ans, "compliance": ctx.apply_cap, "run_context": ctx.to_dict()})
+    autosave_results(
+        strategies, {"horizon": ctx.horizon_ans, "compliance": ctx.apply_cap, "run_context": ctx.to_dict()}
+    )
     st.rerun()
 
 
@@ -304,12 +332,15 @@ def main() -> None:
     errors = collect_input_errors(current_ctx, compliant)
     for message in errors:
         st.sidebar.error(message, icon="🚫")
-    if st.sidebar.button(
-        "🚀 Lancer l'analyse",
-        type="primary",
-        disabled=bool(errors),
-        help="Corrigez les erreurs ci-dessus pour lancer la recherche." if errors else None,
-    ) and not errors:
+    if (
+        st.sidebar.button(
+            "🚀 Lancer l'analyse",
+            type="primary",
+            disabled=bool(errors),
+            help="Corrigez les erreurs ci-dessus pour lancer la recherche." if errors else None,
+        )
+        and not errors
+    ):
         handle_analysis(current_ctx, compliant)
 
     # 6. Results and the context they were computed with
@@ -330,6 +361,7 @@ def main() -> None:
 
     # 9. Render Debug Tools (at bottom of sidebar)
     from src.ui.components.sidebar import render_debug_section
+
     render_debug_section(params)
 
 

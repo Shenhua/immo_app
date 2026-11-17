@@ -72,7 +72,8 @@ class ArchetypeV2(BaseModel):
 
     # Status
     meuble: bool | None = Field(
-        default=None, description="Is furnished (explicit value wins; default derived from mode_loyer: nu* = unfurnished)"
+        default=None,
+        description="Is furnished (explicit value wins; default derived from mode_loyer: nu* = unfurnished)",
     )
     soumis_encadrement: bool = Field(default=False, description="Subject to rent control")
     dpe_initial: str = Field(default="D", description="Initial DPE rating (A-G)")

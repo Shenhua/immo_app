@@ -26,9 +26,8 @@ class SciIs:
         """IS on a taxable base (CGI 219 I b; PME conditions assumed, TAX_SPEC 11.12)."""
         base = max(0.0, base)
         r = self.rates
-        return (
-            r.is_reduced_pct / 100.0 * min(base, r.is_reduced_limit)
-            + r.is_normal_pct / 100.0 * max(0.0, base - r.is_reduced_limit)
+        return r.is_reduced_pct / 100.0 * min(base, r.is_reduced_limit) + r.is_normal_pct / 100.0 * max(
+            0.0, base - r.is_reduced_limit
         )
 
     def compute_year(self, year: int, ctxs: list[YearContext], state: TaxState) -> TaxResult:

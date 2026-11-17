@@ -29,13 +29,22 @@ ALL = [ArchetypeV2(**a).model_dump() for a in json.loads(DATA.read_text(encoding
 def _finder(ctx: RunContext, archetypes=None, n_workers: int | None = 1) -> StrategyFinder:
     fin = build_financing_config(ctx.to_credit_params())
     op = build_operating_config(
-        ctx.gestion_pct, ctx.vacance_pct, ctx.cfe_par_bien_ann,
-        maintenance_m2_an=ctx.maintenance_m2_an, gli_pct=ctx.gli_pct, mois_travaux=ctx.mois_travaux,
+        ctx.gestion_pct,
+        ctx.vacance_pct,
+        ctx.cfe_par_bien_ann,
+        maintenance_m2_an=ctx.maintenance_m2_an,
+        gli_pct=ctx.gli_pct,
+        mois_travaux=ctx.mois_travaux,
     )
     bricks = create_investment_bricks(ALL if archetypes is None else archetypes, fin, op)
     finder = StrategyFinder(
-        bricks=bricks, apport_disponible=ctx.apport, cash_flow_cible=ctx.cf_cible, tolerance=ctx.tolerance,
-        qualite_weight=ctx.qualite_weight, mode_cf=ctx.mode_cf, max_properties=ctx.max_properties,
+        bricks=bricks,
+        apport_disponible=ctx.apport,
+        cash_flow_cible=ctx.cf_cible,
+        tolerance=ctx.tolerance,
+        qualite_weight=ctx.qualite_weight,
+        mode_cf=ctx.mode_cf,
+        max_properties=ctx.max_properties,
     )
     finder.n_workers = n_workers
     return finder
@@ -43,15 +52,19 @@ def _finder(ctx: RunContext, archetypes=None, n_workers: int | None = 1) -> Stra
 
 def _run(ctx: RunContext, archetypes=None, n_workers: int | None = 1, cb=None):
     finder = _finder(ctx, archetypes, n_workers)
-    res = finder.find_strategies(eval_params=ctx.to_eval_params(), horizon_years=ctx.horizon_ans, top_n=ctx.top_n,
-                                 progress_callback=cb)
+    res = finder.find_strategies(
+        eval_params=ctx.to_eval_params(), horizon_years=ctx.horizon_ans, top_n=ctx.top_n, progress_callback=cb
+    )
     return finder, res
 
 
 def _sig(res):
     return [
-        (tuple(sorted((d["nom"], d["duree_credit_mois"]) for d in s["details"])), round(s["apport_total"], 6),
-         round(s["balanced_score"], 12))
+        (
+            tuple(sorted((d["nom"], d["duree_credit_mois"]) for d in s["details"])),
+            round(s["apport_total"], 6),
+            round(s["balanced_score"], 12),
+        )
         for s in res
     ]
 
@@ -65,10 +78,14 @@ def _assert_invariants(res, ctx):
         assert cf_accepts(s["cf_monthly_stab"], ctx.cf_cible, ctx.tolerance, ctx.mode_cf)
 
 
-@pytest.mark.parametrize("ctx", [
-    RunContext(apport=150000, cf_cible=-900.0, mode_cf="min", max_properties=3),
-    RunContext(apport=150000, cf_cible=-900.0, tolerance=150.0, mode_cf="target", max_properties=3),
-], ids=["min", "target"])
+@pytest.mark.parametrize(
+    "ctx",
+    [
+        RunContext(apport=150000, cf_cible=-900.0, mode_cf="min", max_properties=3),
+        RunContext(apport=150000, cf_cible=-900.0, tolerance=150.0, mode_cf="target", max_properties=3),
+    ],
+    ids=["min", "target"],
+)
 def test_invariants_and_after_tax_acceptance(ctx):
     _, res = _run(ctx, ALL[:6])
     assert res
@@ -89,8 +106,15 @@ def test_unfurnished_refund_is_not_rejected_late():
     """Review case: déficit-foncier refund lifts the after-tax CF above the pre-tax one (-724 vs -622 for a
     -800 +/- 100 window). The search must size the down payment on the after-tax CF and accept it."""
     nu = [a for a in ALL if not a.get("meuble")]
-    ctx = RunContext(apport=200000, cf_cible=-800.0, tolerance=100.0, mode_cf="target", max_properties=1,
-                     regime_foncier="reel", tmi_pct=30.0)
+    ctx = RunContext(
+        apport=200000,
+        cf_cible=-800.0,
+        tolerance=100.0,
+        mode_cf="target",
+        max_properties=1,
+        regime_foncier="reel",
+        tmi_pct=30.0,
+    )
     _, res = _run(ctx, nu)
     assert res
     _assert_invariants(res, ctx)

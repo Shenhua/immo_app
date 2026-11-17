@@ -48,7 +48,9 @@ class RenovationEvent:
 
 
 def renovation_plan(
-    dpe: object, first_year: int = DPE.first_year, ban_years: tuple[tuple[str, int], ...] = DPE.ban_years,
+    dpe: object,
+    first_year: int = DPE.first_year,
+    ban_years: tuple[tuple[str, int], ...] = DPE.ban_years,
 ) -> list[RenovationEvent]:
     """Renovations needed over time: before each ban that hits the current class, go to the minimum allowed class.
 

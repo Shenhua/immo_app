@@ -21,20 +21,47 @@ Run = Callable[..., tuple[pd.DataFrame, dict[str, Any]]]
 
 
 def prop(
-    name: str, price: float, rent: float, *, meuble: bool = True, rate: float = 3.5, years: int = 20,
-    works: float = 0.0, energy: float = 0.0, furn: float = 0.0, land: float = 15.0, copro: float = 1200,
-    tf: float = 1000, vac: float = 0.0, mois: int = 0,
+    name: str,
+    price: float,
+    rent: float,
+    *,
+    meuble: bool = True,
+    rate: float = 3.5,
+    years: int = 20,
+    works: float = 0.0,
+    energy: float = 0.0,
+    furn: float = 0.0,
+    land: float = 15.0,
+    copro: float = 1200,
+    tf: float = 1000,
+    vac: float = 0.0,
+    mois: int = 0,
 ) -> Prop:
     notary = price * 0.08
     cost = price + notary + works + energy + furn
     loan = cost * 0.9
     return {
-        "nom_bien": name, "prix_achat_bien": price, "frais_notaire": notary, "budget_travaux": works,
-        "renovation_energetique": energy, "mobilier": furn, "ratio_terrain_pct": land, "credit_final": loan,
-        "taux_pret": rate, "duree_pret": years, "assurance_ann_pct": 0.3, "loyer_mensuel_initial": rent,
-        "charges_const_mth0": copro / 12, "tf_const_mth0": tf / 12, "frais_gestion_pct": 0.0,
-        "provision_pct": vac, "meuble": meuble, "mois_travaux": mois, "maintenance_m2_an": 0.0,
-        "gli_pct": 0.0, "surface": 40,
+        "nom_bien": name,
+        "prix_achat_bien": price,
+        "frais_notaire": notary,
+        "budget_travaux": works,
+        "renovation_energetique": energy,
+        "mobilier": furn,
+        "ratio_terrain_pct": land,
+        "credit_final": loan,
+        "taux_pret": rate,
+        "duree_pret": years,
+        "assurance_ann_pct": 0.3,
+        "loyer_mensuel_initial": rent,
+        "charges_const_mth0": copro / 12,
+        "tf_const_mth0": tf / 12,
+        "frais_gestion_pct": 0.0,
+        "provision_pct": vac,
+        "meuble": meuble,
+        "mois_travaux": mois,
+        "maintenance_m2_an": 0.0,
+        "gli_pct": 0.0,
+        "surface": 40,
     }, cost - loan
 
 
@@ -56,7 +83,10 @@ def run() -> Run:
         strategy = {"details": details, "apport_total": sum(a for _, a in props)}
         schedules = [
             generate_amortization_schedule(
-                float(p["credit_final"]), float(p["taux_pret"]), int(p["duree_pret"]) * 12, float(p["assurance_ann_pct"])
+                float(p["credit_final"]),
+                float(p["taux_pret"]),
+                int(p["duree_pret"]) * 12,
+                float(p["assurance_ann_pct"]),
             )
             for p in details
         ]
