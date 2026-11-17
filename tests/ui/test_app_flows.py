@@ -42,12 +42,6 @@ def test_first_load_shows_defaults_and_enabled_search_button():
     assert not at.session_state["strategies"]  # nothing searched yet
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="bug: before any search `strategies` is [] (SessionManager.initialize), so render_main_page never takes "
-    "the `strategies is None` branch: the first load shows 'Aucune stratégie trouvée' instead of the "
-    "'Configurez vos paramètres ... lancez l'analyse' prompt (src/ui/pages/main.py, src/ui/state.py)",
-)
 def test_first_load_shows_the_configure_prompt_not_the_empty_results_message():
     at = new_app()
     assert any("lancez l'analyse" in str(i.value) for i in at.info)

@@ -381,7 +381,9 @@ def render_main_page(
         set_state("show_comparison", new_show_comp)
         st.rerun()
 
-    if strategies is None:
+    # No search has run yet: ctx is only stored once "Lancer l'analyse" is clicked
+    # (SessionManager initialises strategies to [], so it cannot signal this alone).
+    if strategies is None or ctx is None:
         st.info("👈 Configurez vos paramètres dans la barre latérale puis lancez l'analyse.")
     else:
         render_main_content(strategies, ctx, df_sim, show_comparison)
