@@ -38,7 +38,7 @@ def test_counts_by_reason_on_small_instance():
     d = finder.last_diagnostics
     assert strategies == []
     # C is over budget, {A, B} exceeds max_props=1, A and B miss the CF target.
-    assert d.counts == {"budget": 1, "cf": 2, "max_props": 1, "evaluator": 0}
+    assert d.counts == {"budget": 1, "cf": 2, "max_props": 1, "evaluator": 0, "hcsf": 0}
     assert d.evaluated == 2 and d.accepted == 0
     assert d.top_reason() == "cf"
     by_reason = {n.reason: n for n in d.all_near_misses() if n.reason != "cf"}

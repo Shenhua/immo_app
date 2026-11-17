@@ -27,6 +27,7 @@ from src.ui.app_controller import (
 from src.ui.cached import cached_bricks, filter_and_caps
 from src.ui.components.filters import render_property_filters
 from src.ui.components.sidebar import (
+    render_borrower_profile,
     render_credit_params_tab,
     render_market_hypotheses,
     render_objectives_section,
@@ -59,6 +60,8 @@ def render_sidebar() -> dict[str, Any]:
 
         # Objectives
         objectives = render_objectives_section()
+
+        borrower = render_borrower_profile()
 
         # Credit
         with st.expander("🏦 Financement", expanded=False):
@@ -127,6 +130,7 @@ def render_sidebar() -> dict[str, Any]:
         "horizon": objectives["horizon"],
         "max_properties": objectives.get("max_properties", SEARCH.max_properties_classique),
         "use_full_capital": objectives.get("use_full_capital", False),
+        **borrower,
         "credit_params": credit_params,
         "cfe": cfe,
         "gestion": gestion,

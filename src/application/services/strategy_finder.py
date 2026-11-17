@@ -12,6 +12,7 @@ from typing import Any
 from src.core.defaults import (
     BASE_WEIGHTS,
     DEFAULT_PRESET,
+    HCSF,
     MARKET,
     OPERATING,
     PARETO_MAX_RANK,
@@ -22,10 +23,11 @@ from src.core.defaults import (
 )
 from src.core.glossary import cf_penalty
 from src.core.logging import get_logger
+from src.domain.hcsf import hcsf_check
 from src.domain.models.brick import InvestmentBrick
 
 from .allocator import PortfolioAllocator
-from .diagnostics import SearchDiagnostics
+from .diagnostics import NearMiss, SearchDiagnostics
 from .optimizer import PortfolioSearch, SearchProblem, check_invariants, tax_bounds
 from .scoring import assign_pareto_ranks, score_components
 
@@ -75,6 +77,8 @@ class EvaluationParams:
     tax_params: dict[str, Any] = field(default_factory=dict)
     finance_weights_override: dict[str, float] | None = None
     finance_preset_name: str = DEFAULT_PRESET.label
+    # T60: {"revenu_net_mensuel", "charges_mensuelles", "filtrer"}; empty = no HCSF check (direct callers, tests).
+    hcsf: dict[str, Any] = field(default_factory=dict)
 
     def to_tax_params(self) -> dict[str, Any]:
         """Tax / exit / operating parameters for ``build_engine``."""
@@ -122,6 +126,7 @@ class EvaluationParams:
             tax_params=dict(tax),
             finance_weights_override=d.get("finance_weights_override"),
             finance_preset_name=d.get("finance_preset_name", DEFAULT_PRESET.label),
+            hcsf=dict(d.get("hcsf") or {}),
         )
 
 
@@ -300,6 +305,7 @@ class StrategyFinder:
         self.last_diagnostics = search.diagnostics
         log.info("search_solver", mode=self.solver_mode, **search.stats)
 
+        strategies = self._apply_hcsf(strategies, ep.hcsf)
         log.info("optimization_finished", count=len(strategies))
 
         # Guard against empty results from optimizer (the UI explains why from ``last_diagnostics``)
@@ -345,6 +351,39 @@ class StrategyFinder:
                  top_kept=len(top_strategies))
 
         return top_strategies
+
+    def _apply_hcsf(self, strategies: list[dict[str, Any]], cfg: dict[str, Any]) -> list[dict[str, Any]]:
+        """T60: attach ``taux_endettement`` / ``hcsf_ok`` to every strategy; drop the unbankable ones if asked.
+
+        Runs on every duration assignment, before the per-subset dedupe, so a subset survives when any of its
+        duration sets is bankable. A subset with none is recorded in the diagnostics as an "hcsf" rejection.
+        """
+        if not cfg:
+            return strategies
+        income = float(cfg.get("revenu_net_mensuel", HCSF.revenu_net_mensuel))
+        debts = float(cfg.get("charges_mensuelles", HCSF.charges_mensuelles))
+        keep_only_ok = bool(cfg.get("filtrer", HCSF.filtrer))
+        diag = self.last_diagnostics
+        diag.revenu_net = income
+        out: list[dict[str, Any]] = []
+        best_failed: dict[tuple[str, ...], tuple[Any, ...]] = {}
+        passed: set[tuple[str, ...]] = set()
+        for s in strategies:
+            res = hcsf_check(s.get("details", []), income, debts)
+            s["taux_endettement"] = res.taux_endettement
+            s["hcsf_ok"] = res.hcsf_ok
+            names = tuple(sorted(str(d.get("nom", d.get("nom_bien", ""))) for d in s.get("details", [])))
+            if res.hcsf_ok or not keep_only_ok:
+                out.append(s)
+                passed.add(names)
+            elif names not in best_failed or res.taux_endettement < best_failed[names][0]:
+                best_failed[names] = (res.taux_endettement, res.revenu_requis)
+        for names, (ratio, required) in best_failed.items():
+            if names in passed:
+                continue
+            diag.record(NearMiss("hcsf", names, max(0.0, ratio - HCSF.taux_max_pct), "pt", cf=ratio))
+            diag.add_hcsf_gap(names, max(0.0, required - income))
+        return out
 
     def _calculate_qualitative_score(self, strategy: dict[str, Any]) -> float:
         """Calculate qualitative score (internal helper)."""
