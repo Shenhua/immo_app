@@ -377,6 +377,11 @@ Where the spec left room, T23 (`src/domain/tax/`) implements these readings:
 5. **Déficit-foncier recapture with several properties.** Imputations are tracked at foyer level. Every property is sold at H, so the recapture covers all imputations of years N > H − 3.
 6. **Vacancy (reworked in T26a).** Vacancy reduces the gross receipts (rent x (1 - vacancy)); it is no longer a deductible charge, so micro allowances apply to the receipts net of vacancy. Year-1 works months also reduce receipts. New operating charges: maintenance/capex provision (EUR/m2/yr, deductible in réel, inside the allowance in micro) and GLI / unpaid-rent premium (% of collected rent, same treatment). Taxe foncière grows at its own rate (default 3 %).
 
+## 11d. DPE assumptions (2026-11-17)
+The user asked the conductor to decide; both assumptions are kept (`src/core/defaults.py` `DPE`, `src/domain/dpe.py`):
+1. **Renovation cost: 150 EUR/m2 per DPE class gained.** An order-of-magnitude assumption (ADEME / Effinergie: 150-300 EUR/m2 for 1-2 classes), adjustable in the sidebar.
+2. **Unrentable from the ban year unless renovated.** G from 2025, F from 2028, E from 2034. In law the ban applies at a new or renewed lease, but furnished leases turn over every 1-3 years, so over an investor's horizon the ban reaches the property anyway. The reading is realistic and conservative.
+
 ## 12. Sources
 - Légifrance, LFSS 2026 (loi 2025-1403 du 30/12/2025) art. 12: https://www.legifrance.gouv.fr/jorf/article_jo/JORFARTI000053226452
 - impots.gouv, "Principales nouveautés revenus 2025" (CSG 10.6 %, exclusions, micro-BIC Le Meur): https://www.impots.gouv.fr/www2/fichiers/documentation/brochure/ir_2026/pdf_som/nouveautes.pdf

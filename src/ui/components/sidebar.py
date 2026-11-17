@@ -283,7 +283,8 @@ def render_credit_params_tab() -> dict[str, Any]:
             key="sb_dpe_policy",
             help="Loi Climat et Résilience : G interdit à la location dès 2025, F dès 2028, E dès 2034. "
             "Par simplification, l'interdiction s'applique au bien dès cette date (en droit, le G ne bloque que "
-            "les baux nouveaux ou renouvelés). Rénover : travaux l'année précédente (à l'achat, sur l'apport, si "
+            "les baux nouveaux ou renouvelés ; un meublé change de locataire tous les 1 à 3 ans, donc sur l'horizon "
+            "d'un investisseur c'est réaliste et prudent). Rénover : travaux l'année précédente (à l'achat, sur l'apport, si "
             "l'interdiction est déjà en vigueur), traités comme des travaux énergétiques. Ne pas rénover : loyer "
             "nul, charges, taxe foncière et prêt maintenus. L'option « Reno E→D » ci-dessus est la même rénovation, "
             "faite à l'achat : le bien est alors classé D et n'est jamais compté deux fois.",
@@ -295,7 +296,8 @@ def render_credit_params_tab() -> dict[str, Any]:
             key="sb_dpe_cout",
             step=10.0,
             disabled=dpe_labels[str(dpe_label)] != "renover",
-            help="Hypothèse : ordre de grandeur ADEME / Effinergie pour une rénovation globale.",
+            help="Hypothèse : 150 €/m² par classe DPE gagnée, ordre de grandeur ADEME / Effinergie pour une "
+            "rénovation globale (150 à 300 €/m² pour 1 à 2 classes). Ajustable selon votre devis.",
         )
 
         st.markdown("**Part terrain (non amortissable)**")
