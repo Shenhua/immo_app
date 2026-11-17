@@ -22,8 +22,8 @@ COPY . .
 
 # Run as an unprivileged user; logs/ and results/ must be writable by it
 RUN useradd --create-home --uid 1000 app \
-    && mkdir -p /app/logs /app/results \
-    && chown -R app:app /app/logs /app/results
+    && mkdir -p /app/logs /app/results /app/data_user \
+    && chown -R app:app /app/logs /app/results /app/data_user
 USER app
 
 # Expose Streamlit port

@@ -7,11 +7,13 @@ services:
     volumes:
       - ./results:/app/results
       - ./data:/app/data
+      - ./data_user:/app/data_user  # per-user saved scenarios (SQLite): persists across restarts
     env_file:
       - path: .env
         required: false  # .env is untracked; compose v2.24+ long syntax
     environment:
       - STREAMLIT_SERVER_HEADLESS=true
+      - APP_DATA_DIR=/app/data_user
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8502/_stcore/health"]
       interval: 30s

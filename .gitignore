@@ -67,3 +67,6 @@ results/
 
 # Agent worktrees
 .claude/worktrees/
+
+# Per-user scenario storage (T67a)
+data_user/

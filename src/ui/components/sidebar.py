@@ -564,3 +564,61 @@ def render_debug_section(params: dict[str, Any]) -> None:
                 mime="application/json",
             )
             st.success("Contexte capturé !")
+
+
+def _switch_profile() -> None:
+    """A profile was picked or created: show that profile's last used context, if it has one."""
+    from src.ui.components.profile import current_user_id, get_store
+    from src.ui.components.sidebar_state import request_apply
+
+    store = get_store()
+    last = store.load_last_context(current_user_id()) if store else None
+    if last is not None:
+        request_apply(last)
+
+
+def _create_profile() -> None:
+    from src.ui.components.profile import PROFILE_KEY, get_store, profile_id_from_name
+
+    name = str(st.session_state.get("profile_new", "")).strip()
+    pid = profile_id_from_name(name)
+    store = get_store()
+    if not pid or store is None:
+        return
+    store.ensure_user(pid, name)
+    st.session_state[PROFILE_KEY] = pid
+    st.session_state["profile_new"] = ""
+    _switch_profile()
+
+
+def render_profile_selector() -> None:
+    """Profile choice (T67a). Hidden when an OIDC user is logged in: their email is then the user_id."""
+    from src.application.scenario_store import DEFAULT_USER_ID
+    from src.ui.components.profile import PROFILE_KEY, STORE_ERROR, get_store, oidc_identity
+
+    store = get_store()
+    identity = oidc_identity()
+    if identity:
+        if store:
+            store.ensure_user(*identity)
+        st.caption(f"👤 Connecté : {identity[1]}")
+        return
+    if store is None:
+        st.caption(f"👤 {STORE_ERROR}")
+        return
+    store.ensure_user(DEFAULT_USER_ID)
+    users = store.list_users()
+    names = {u.id: u.display_name for u in users}
+    if st.session_state.get(PROFILE_KEY) not in names:
+        st.session_state[PROFILE_KEY] = DEFAULT_USER_ID
+    with st.expander("👤 Profil", expanded=False):
+        st.selectbox(
+            "Profil",
+            list(names),
+            key=PROFILE_KEY,
+            format_func=lambda uid: names.get(uid, uid),
+            on_change=_switch_profile,
+            help="Les scénarios enregistrés sont rangés par profil, sur ce serveur (pas de mot de passe).",
+        )
+        st.text_input("Nouveau profil", key="profile_new", placeholder="Prénom ou nom")
+        st.button("Créer le profil", key="profile_create", on_click=_create_profile)

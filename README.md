@@ -43,7 +43,7 @@ pip install -e ".[dev]"
 docker compose up
 ```
 
-The app is then served on http://localhost:8502. The container runs as a non-root user. `./results` and `./data` are mounted from the host. An optional `.env` file is passed to the container as its environment (see [Configuration](#configuration)). Add `--build` after code changes to rebuild the image.
+The app is then served on http://localhost:8502. The container runs as a non-root user. `./results`, `./data` and `./data_user` (saved scenarios) are mounted from the host. An optional `.env` file is passed to the container as its environment (see [Configuration](#configuration)). Add `--build` after code changes to rebuild the image.
 
 ## Project structure
 
@@ -113,11 +113,14 @@ Environment variables, read in `src/core/defaults.py` (except `LOGLEVEL` and `AP
 |---|---|---|
 | `APP_AUTOSAVE` | `0` | Set to `1` to save each search's results and a debug context to `APP_RESULTS_DIR`. |
 | `APP_RESULTS_DIR` | `results` | Directory for autosaved results. |
+| `APP_DATA_DIR` | `data_user` | Directory of the per-user SQLite database of saved scenarios (`scenarios.db`, created with user-only permissions). Mounted as a volume in Docker Compose. |
 | `APP_LOG_DIR` | `<repo>/logs` | Directory for `app.log`. |
 | `LOGLEVEL` | `INFO` | Log level: `DEBUG`, `INFO`, `WARNING` or `ERROR`. |
 | `MAX_EXTRA_APPORT_PCT` | `0.95` | Upper bound on the extra down payment per property, as a fraction of the loan, used by the allocator to prevent full loan payoff at t = 0. |
 
 The app does not read `.env` itself. Export the variables in your shell, or let Docker Compose pass them through its `env_file`. `.env.example` lists them.
+
+**Saved scenarios and profiles.** Scenarios are stored per user in `APP_DATA_DIR/scenarios.db`. Without authentication, the sidebar "Profil" selector picks a local profile (default `local`; no password, so it separates people who share a server, it does not protect against them). Streamlit OIDC login is not configured, but the app is ready for it: when `st.user` reports a logged-in user, their email becomes the user_id and the selector is hidden. To enable it later, add an `[auth]` section to `.streamlit/secrets.toml` (`redirect_uri`, `cookie_secret`, `client_id`, `client_secret`, `server_metadata_url` of your identity provider), see the Streamlit "Authentication" docs, and add a login button (`st.login()`) to the app. Nothing else changes.
 
 All other defaults (market, financing, operating costs, tax rates and ceilings, search settings, realism assumptions, DPE and HCSF parameters, scoring presets and benchmarks, risk scenarios, Monte Carlo settings) live in `src/core/defaults.py`. Change them there, not in the UI modules.
 
