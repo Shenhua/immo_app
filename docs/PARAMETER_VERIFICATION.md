@@ -1,5 +1,7 @@
 # App Immo - Parameter Verification Guide
 
+> **Partly outdated (checked in T53).** The UI labels and some defaults have changed since this guide was written: for example "Profil de Tri Financier" and "Priorité de recherche" in the sidebar, the regime choices, the TAX_SPEC-based tax rules and the 2026 defaults in `src/core/defaults.py`. The numeric examples in §2 are illustrative only. The §6 "Automated Verification (Future)" checks exist in `tests/unit/test_parameter_effects.py`. For current definitions, see `src/core/glossary.py`, `src/core/defaults.py` and `docs/TAX_SPEC.md`.
+
 This document outlines how to verify that all UI parameters correctly influence calculations and that results are accurate.
 
 ---
