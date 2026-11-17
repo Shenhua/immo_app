@@ -61,10 +61,11 @@ Legend: todo · running · done · blocked · skipped
 | T51 AppTest | Sonnet | todo | | |
 | T52 typing + coverage | Sonnet | todo | | |
 | T53 README/docs | Haiku | todo | | |
-| T61 DPE rental ban | Sonnet | partial | 0cc60bc | search not wired → T35 |
-| T35 RunContext→search parity guard | Sonnet | running | | after T34; DPE fields into EvaluationParams + generic test |
+| T61 DPE rental ban | Sonnet | done | 0cc60bc (+T35) | |
+| T35 RunContext→search parity guard | Sonnet | done | 62fa3e3, 0eb6c26 | 44-case guard; DPE wired into the search | | after T34; DPE fields into EvaluationParams + generic test |
 | T62 regime comparison | Sonnet | done | dea9a99 | new tab |
-| T63 export PDF/Excel | Sonnet | running | | |
+| T63 export PDF/Excel | Sonnet | done | 7cf69ed | openpyxl + fpdf2; € prints as "EUR" in the PDF |
+| T36 rent-monotonicity investigation | Sonnet | running | | property test xfailed |
 | T60, T64–T68 features | mixed | todo | | see plan; T66 = offline files, no API |
 
 ## Next waves
@@ -253,6 +254,13 @@ Legend: todo · running · done · blocked · skipped
     - In Rentier mode the top-ranked strategy is not always the max-CF one (the preset scorer ranks).
     - The tolerance column is still shown in Rentier mode.
 - **Phase 3 complete.**
+- After T35:
+  - `EvaluationParams` holds the RunContext `tax_params` and `hypotheses_marche` dicts verbatim; `EvaluationParams.build_engine()` is used by the search.
+  - Guard test: `tests/integration/test_runcontext_engine_parity.py`. **Any new RunContext field must either reach the engine or be added to `NOT_ENGINE_FIELDS` with a reason.**
+- After T63:
+  - `src/application/services/report.py` holds the report (Excel via openpyxl, PDF via fpdf2); the UI has a lazy "Préparer le rapport" button.
+  - The PDF font is latin-1, so € prints as "EUR". Bundle a TTF later if wanted.
+- Worktree cleanup: harness locks can be stale. If the branch is merged, `git worktree unlock` then remove. Agents may leave `*-e` sed backup files, which are safe to `--force` remove.
 - `ruff format` not applied (45 files would be reformatted). Optional later; skip it to avoid merge churn.
 
 ## Log
@@ -291,3 +299,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-16: T62 merged (1238 passed). T63 launched (T35 still running).
 - 2026-11-16 evening: the usage limit interrupted T35 (uncommitted edits in worktree agent-a9bb53e9a29a13e6d) and T63 (no changes, worktree agent-aea74a6ff0021e4c3).
 - 2026-11-17: both resumed via SendMessage. If the session dies, relaunch them from their branches.
+- 2026-11-17: T35 and T63 merged. Hypothesis found a rent-monotonicity counterexample (POOL[4], +6.25 % rent → year-2 CF −2.18 €/month), so the test is xfailed and T36 launched.
