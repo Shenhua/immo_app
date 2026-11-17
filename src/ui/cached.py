@@ -108,3 +108,11 @@ def cached_regime_comparison(strategy_json: str, ctx_json: str) -> dict[str, Any
         "gain": cmp.wealth_gain_vs_user,
         "break_even_year": cmp.break_even_year,
     }
+
+
+@st.cache_data(show_spinner=False, max_entries=8)
+def cached_report_files(strategy_json: str, ctx_json: str, name: str) -> tuple[bytes, bytes]:
+    """(xlsx, pdf) report of one strategy (T63), keyed on strategy JSON + ctx JSON + display name."""
+    from src.application.services.report import build_report_files
+
+    return build_report_files(json.loads(strategy_json), RunContext.model_validate_json(ctx_json), name=name)

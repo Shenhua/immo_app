@@ -42,6 +42,35 @@ def strategy_warnings(strategy: dict[str, Any]) -> list[str]:
     return list(dict.fromkeys(out))
 
 
+def _render_report_downloads(strategy: dict[str, Any], ctx: RunContext, idx: int) -> None:
+    """Excel and PDF report buttons (T63). The files are built on demand, then cached by (strategy, ctx)."""
+    import json
+
+    from src.ui.cached import cached_report_files
+
+    name = f"Stratégie #{idx + 1}"
+    flag = f"report_ready_{idx}_{hash((json.dumps(strategy, sort_keys=True, default=str), ctx.model_dump_json()))}"
+    if not get_state(flag, False):
+        if st.button("📄 Préparer le rapport (Excel + PDF)", key=f"report_prepare_{idx}"):
+            set_state(flag, True)
+            st.rerun()
+        return
+    try:
+        xlsx, pdf = cached_report_files(json.dumps(strategy, sort_keys=True, default=str), ctx.model_dump_json(), name)
+    except Exception as e:  # report is optional: never break the detail view
+        st.warning(f"Rapport indisponible : {e}")
+        return
+    c1, c2 = st.columns(2)
+    c1.download_button(
+        "⬇️ Rapport Excel", xlsx, file_name=f"rapport_strategie_{idx + 1}.xlsx", key=f"report_xlsx_{idx}",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    c2.download_button(
+        "⬇️ Rapport PDF", pdf, file_name=f"rapport_strategie_{idx + 1}.pdf", key=f"report_pdf_{idx}",
+        mime="application/pdf",
+    )
+
+
 def render_header() -> None:
     """Render page header."""
     st.markdown(
@@ -110,6 +139,7 @@ def render_strategy_list(
             if df_sim is not None:
                 for warning in df_sim.attrs.get("tax_warnings", []):
                     st.warning(f"⚖️ {warning}")
+            _render_report_downloads(current_strat, ctx, selected_idx)
             tab1, tab2, tab3, tab4, tab5 = st.tabs(
                 ["🏠 Biens", "📈 Projections", "🎯 Radar", "⚡ Stress Test", "⚖️ Comparaison fiscale"]
             )
