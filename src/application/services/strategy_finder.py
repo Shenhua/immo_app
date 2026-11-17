@@ -12,7 +12,6 @@ from typing import Any
 from src.core.defaults import (
     BASE_WEIGHTS,
     DEFAULT_PRESET,
-    FINANCING,
     MARKET,
     OPERATING,
     PARETO_MAX_RANK,
@@ -46,65 +45,81 @@ def strategy_key(strategy: dict[str, Any]) -> tuple[tuple[str, int], ...]:
     return tuple(sorted(out))
 
 
-@dataclass
-class EvaluationParams:
-    """Parameters for strategy evaluation."""
-
-    duree_simulation_ans: int = SEARCH.horizon_ans
-    hypotheses_marche: dict[str, float] = field(default_factory=lambda: {
+def _default_market() -> dict[str, float]:
+    return {
         "appreciation_bien_pct": MARKET.appreciation_bien_pct,
         "revalo_loyer_pct": MARKET.revalo_loyer_pct,
         "inflation_charges_pct": MARKET.inflation_charges_pct,
         "tf_growth_pct": REALISM.tf_growth_pct,
-    })
-    regime_fiscal: str = TAX.regime_fiscal  # furnished regime (TAX_SPEC 8)
-    regime_foncier: str = TAX.regime_foncier  # unfurnished regime
-    sci_is: bool = TAX.sci_is  # one SCI at IS for every property, overrides both
-    tmi_pct: float = TAX.tmi_pct
-    frais_vente_pct: float = TAX.frais_vente_pct
-    ratio_terrain_pct: float | None = None  # None: each brick keeps its archetype value
-    nb_owners: int = TAX.nb_owners
-    cfe_par_bien_ann: float = OPERATING.cfe_par_bien_ann
-    apply_ira: bool = FINANCING.apply_ira
-    ira_cap_pct: float = FINANCING.ira_cap_pct
+    }
+
+
+# Legacy flat keys accepted by ``from_dict`` when no ``tax_params`` dict is given (hand-built dicts, tests).
+_LEGACY_TAX_KEYS = (
+    "tmi_pct", "regime_fiscal", "regime_foncier", "sci_is", "apply_ira", "ira_cap_pct", "cfe_par_bien_ann",
+    "frais_vente_pct", "ratio_terrain_pct", "nb_owners", "dpe_policy", "dpe_cout_m2_par_classe",
+)
+
+
+@dataclass
+class EvaluationParams:
+    """Parameters for strategy evaluation.
+
+    The engine parameters (``hypotheses_marche`` and ``tax_params``) are the RunContext-derived dicts kept
+    verbatim, so the search builds its engine from exactly what ``RunContext.build_engine()`` uses and a new
+    engine field cannot be forgotten here (T35). Missing keys fall back to the defaults inside ``build_engine``.
+    """
+
+    duree_simulation_ans: int = SEARCH.horizon_ans
+    hypotheses_marche: dict[str, float] = field(default_factory=_default_market)
+    tax_params: dict[str, Any] = field(default_factory=dict)
     finance_weights_override: dict[str, float] | None = None
     finance_preset_name: str = DEFAULT_PRESET.label
 
     def to_tax_params(self) -> dict[str, Any]:
         """Tax / exit / operating parameters for ``build_engine``."""
-        return {
-            "tmi_pct": self.tmi_pct,
-            "regime_fiscal": self.regime_fiscal,
-            "regime_foncier": self.regime_foncier,
-            "sci_is": self.sci_is,
-            "apply_ira": self.apply_ira,
-            "ira_cap_pct": self.ira_cap_pct,
-            "cfe_par_bien_ann": self.cfe_par_bien_ann,
-            "frais_vente_pct": self.frais_vente_pct,
-            "ratio_terrain_pct": self.ratio_terrain_pct,
-            "nb_owners": self.nb_owners,
-        }
+        return self.tax_params
+
+    def build_engine(self) -> Any:
+        """The search engine: same builder and same dicts as ``RunContext.build_engine()``."""
+        from .simulation import build_engine
+
+        return build_engine(self.hypotheses_marche, self.tax_params)
+
+    # Read-only views used by the search and the tests (defaults mirror ``build_engine``).
+    @property
+    def regime_fiscal(self) -> str:
+        return self.tax_params.get("regime_fiscal", TAX.regime_fiscal)
+
+    @property
+    def regime_foncier(self) -> str:
+        return self.tax_params.get("regime_foncier", TAX.regime_foncier)
+
+    @property
+    def sci_is(self) -> bool:
+        return bool(self.tax_params.get("sci_is", TAX.sci_is))
+
+    @property
+    def tmi_pct(self) -> float:
+        return self.tax_params.get("tmi_pct", TAX.tmi_pct)
+
+    @property
+    def frais_vente_pct(self) -> float:
+        return self.tax_params.get("frais_vente_pct", TAX.frais_vente_pct)
+
+    @property
+    def cfe_par_bien_ann(self) -> float:
+        return self.tax_params.get("cfe_par_bien_ann", OPERATING.cfe_par_bien_ann)
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> EvaluationParams:
+        tax = d.get("tax_params")
+        if tax is None:
+            tax = {k: d[k] for k in _LEGACY_TAX_KEYS if k in d}
         return cls(
             duree_simulation_ans=d.get("duree_simulation_ans", SEARCH.horizon_ans),
-            hypotheses_marche=d.get("hypotheses_marche") or {
-                "appreciation_bien_pct": MARKET.appreciation_bien_pct,
-                "revalo_loyer_pct": MARKET.revalo_loyer_pct,
-                "inflation_charges_pct": MARKET.inflation_charges_pct,
-                "tf_growth_pct": REALISM.tf_growth_pct,
-            },
-            regime_fiscal=d.get("regime_fiscal", TAX.regime_fiscal),
-            regime_foncier=d.get("regime_foncier", TAX.regime_foncier),
-            sci_is=bool(d.get("sci_is", TAX.sci_is)),
-            tmi_pct=d.get("tmi_pct", TAX.tmi_pct),
-            frais_vente_pct=d.get("frais_vente_pct", TAX.frais_vente_pct),
-            ratio_terrain_pct=d.get("ratio_terrain_pct"),
-            nb_owners=int(d.get("nb_owners", TAX.nb_owners)),
-            cfe_par_bien_ann=d.get("cfe_par_bien_ann", OPERATING.cfe_par_bien_ann),
-            apply_ira=d.get("apply_ira", FINANCING.apply_ira),
-            ira_cap_pct=d.get("ira_cap_pct", FINANCING.ira_cap_pct),
+            hypotheses_marche=d.get("hypotheses_marche") or _default_market(),
+            tax_params=dict(tax),
             finance_weights_override=d.get("finance_weights_override"),
             finance_preset_name=d.get("finance_preset_name", DEFAULT_PRESET.label),
         )
@@ -227,9 +242,6 @@ class StrategyFinder:
         Args:
             progress_callback: Optional callback function(SearchProgress) for UI updates
         """
-        # Dependencies
-        from .simulation import build_engine
-
         # 1. Setup
         ep = EvaluationParams.from_dict(eval_params or {})
 
@@ -237,7 +249,7 @@ class StrategyFinder:
         if ep.finance_weights_override:
             self.scorer.weights = self.scorer._normalize_weights(ep.finance_weights_override)
 
-        engine = build_engine(ep.hypotheses_marche, ep.to_tax_params())
+        engine = ep.build_engine()
 
         allocator = PortfolioAllocator(self.mode_cf, market=ep.hypotheses_marche)
 
