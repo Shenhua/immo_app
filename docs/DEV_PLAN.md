@@ -288,7 +288,7 @@ Fix tasks from the review. Run T27 first; T28 and T29 can then run in parallel (
   - The scorer receives `mode_cf`.
 - **Accept:**
   - In "min" mode, a surplus is never penalised and a deficit is never accepted.
-  - Closes `docs/feedbacks.md` 2.2.
+  - Closes `docs/archive/feedbacks.md` 2.2.
 
 ### T31 — Search algorithm rewrite · Opus
 - **Problem:**
@@ -407,7 +407,7 @@ Fix tasks from the review. Run T27 first; T28 and T29 can then run in parallel (
 ### T53 — README and docs · Haiku
 - **Spec**
   - Update the README structure and env vars, and add a "how scoring works" section.
-  - Archive the obsolete docs (`Audit_Report_Roadmap.md`, `Some insights to ponder.md`) to `docs/archive/`.
+  - Archive the obsolete docs (`docs/archive/Audit_Report_Roadmap.md`, `docs/archive/Some insights to ponder.md`) to `docs/archive/`.
 
 ---
 

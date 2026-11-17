@@ -60,7 +60,7 @@ Legend: todo · running · done · blocked · skipped
 | T50 property tests | Sonnet | done | 2c93b05 | no bugs found | | |
 | T51 AppTest | Sonnet | done | 6642990 | 16 UI tests in ~3 s; the first-load bug it found is fixed by the conductor | | |
 | T52 typing + coverage | Sonnet | done | 529b7a2..7419bb1 | mypy 0 (strict domain/application), cov 92 % (gate 85), ruff format applied | | |
-| T53 README/docs | Haiku | running | | |
+| T53 README/docs | Haiku | done | 68b0d62 | obsolete docs moved to docs/archive | | |
 | T61 DPE rental ban | Sonnet | done | 0cc60bc (+T35) | |
 | T35 RunContext→search parity guard | Sonnet | done | 62fa3e3, 0eb6c26 | 44-case guard; DPE wired into the search | | after T34; DPE fields into EvaluationParams + generic test |
 | T62 regime comparison | Sonnet | done | dea9a99 | new tab |
@@ -285,7 +285,7 @@ Legend: todo · running · done · blocked · skipped
   - The coverage gate is 85 %.
   - The pre-commit mypy hook is local (`language: system`), so it needs the venv on PATH.
   - `ruff format` is applied repo-wide, and **pre-commit passes**.
-  - Check Markdown hard line breaks in docs/Audit_Report_Roadmap.md (trailing spaces were stripped).
+  - Check Markdown hard line breaks in docs/archive/Audit_Report_Roadmap.md (trailing spaces were stripped).
 - ~~`ruff format` not applied~~ (done in T52) (45 files would be reformatted). Optional later; skip it to avoid merge churn.
 
 ## Log
@@ -331,3 +331,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-17: T65 merged (1333 passed). Phase 6 so far: T60–T65 done. Hardening: T51 launched.
 - 2026-11-17: T51 merged; the conductor fixed the first-load prompt bug it found. T52 launched.
 - 2026-11-17: T52 merged (mypy 0, 1349 passed, cov ≥ 85). T53 launched.
+- 2026-11-17: T53 merged. **Phases 0–5 complete; Phase 6: T60–T65 done.** Remaining: T66 (offline data pipeline), T67 (hosting), T68 (Jeanbrun, blocked until the decrees are published). Paused for user decisions.
