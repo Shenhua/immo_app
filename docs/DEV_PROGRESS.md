@@ -66,8 +66,9 @@ Legend: todo · running · done · blocked · skipped
 | T62 regime comparison | Sonnet | done | dea9a99 | new tab |
 | T63 export PDF/Excel | Sonnet | done | 7cf69ed | openpyxl + fpdf2; € prints as "EUR" in the PDF |
 | T36 rent-monotonicity investigation | Sonnet | done | 7f49984 | CFE 5k€ cliff (legal), not a bug |
-| T60 HCSF bankability | Sonnet | running | | |
-| T64–T68 features | mixed | todo | | see plan; T66 = offline files, no API |
+| T60 HCSF bankability | Sonnet | done | 17e39cd | defaults still give 7 strategies (debt ratios 6–12 %) |
+| T64 risk scenarios | Sonnet | running | | |
+| T65–T68 features | mixed | todo | | see plan; T66 = offline files, no API |
 
 ## Next waves
 1. **W1:** T01 (alone; touches many files)
@@ -262,6 +263,10 @@ Legend: todo · running · done · blocked · skipped
   - `src/application/services/report.py` holds the report (Excel via openpyxl, PDF via fpdf2); the UI has a lazy "Préparer le rapport" button.
   - The PDF font is latin-1, so € prints as "EUR". Bundle a TTF later if wanted.
 - Worktree cleanup: harness locks can be stale. If the branch is merged, `git worktree unlock` then remove. Agents may leave `*-e` sed backup files, which are safe to `--force` remove.
+- After T60:
+  - `src/domain/hcsf.py` and `defaults.HCSF`: RunContext has `revenu_net_mensuel`, `charges_mensuelles` and `filtrer_hcsf` (in `NOT_ENGINE_FIELDS`).
+  - The check is a post-search step in `StrategyFinder._apply_hcsf`.
+  - Diagnostics have an "hcsf" reason.
 - `ruff format` not applied (45 files would be reformatted). Optional later; skip it to avoid merge churn.
 
 ## Log
@@ -302,3 +307,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-17: both resumed via SendMessage. If the session dies, relaunch them from their branches.
 - 2026-11-17: T35 and T63 merged. Hypothesis found a rent-monotonicity counterexample (POOL[4], +6.25 % rent → year-2 CF −2.18 €/month), so the test is xfailed and T36 launched.
 - 2026-11-17: T36 merged (1294 passed, no xfail): the CFE threshold is a legal cliff. T60 launched (one agent at a time).
+- 2026-11-17: T60 merged (1307 passed; default run checked: 7 strategies). T64 launched.
