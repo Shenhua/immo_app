@@ -89,11 +89,11 @@ class EvaluationParams:
     # Read-only views used by the search and the tests (defaults mirror ``build_engine``).
     @property
     def regime_fiscal(self) -> str:
-        return self.tax_params.get("regime_fiscal", TAX.regime_fiscal)
+        return str(self.tax_params.get("regime_fiscal", TAX.regime_fiscal))
 
     @property
     def regime_foncier(self) -> str:
-        return self.tax_params.get("regime_foncier", TAX.regime_foncier)
+        return str(self.tax_params.get("regime_foncier", TAX.regime_foncier))
 
     @property
     def sci_is(self) -> bool:
@@ -101,15 +101,15 @@ class EvaluationParams:
 
     @property
     def tmi_pct(self) -> float:
-        return self.tax_params.get("tmi_pct", TAX.tmi_pct)
+        return float(self.tax_params.get("tmi_pct", TAX.tmi_pct))
 
     @property
     def frais_vente_pct(self) -> float:
-        return self.tax_params.get("frais_vente_pct", TAX.frais_vente_pct)
+        return float(self.tax_params.get("frais_vente_pct", TAX.frais_vente_pct))
 
     @property
     def cfe_par_bien_ann(self) -> float:
-        return self.tax_params.get("cfe_par_bien_ann", OPERATING.cfe_par_bien_ann)
+        return float(self.tax_params.get("cfe_par_bien_ann", OPERATING.cfe_par_bien_ann))
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> EvaluationParams:
