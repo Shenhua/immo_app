@@ -105,12 +105,18 @@ def test_dpe_ban_reaches_the_search():
     ctx = RunContext(apport=80000, cf_cible=-500, dpe_policy="ne_pas_renover", horizon_ans=25, inclure_reno_ener=False)
     archs = [a for a in load_archetypes() if a.get("dpe_initial") in ("E", "F", "G")][:10]
     assert archs
-    fin = FinancingConfig(credit_rates={15: 3.5, 20: 3.6, 25: 3.8}, frais_notaire_pct=8.0, assurance_ann_pct=0.35,
-                          frais_pret_pct=1.0, inclure_reno_ener=False)
+    fin = FinancingConfig(
+        credit_rates={15: 3.5, 20: 3.6, 25: 3.8},
+        frais_notaire_pct=8.0,
+        assurance_ann_pct=0.35,
+        frais_pret_pct=1.0,
+        inclure_reno_ener=False,
+    )
     op = OperatingConfig(frais_gestion_pct=5.0, provision_pct=3.0, cfe_par_bien_ann=500)
     bricks = create_investment_bricks(archs, fin, op)
-    finder = StrategyFinder(bricks=bricks, apport_disponible=ctx.apport, cash_flow_cible=ctx.cf_cible,
-                            tolerance=500.0, mode_cf="min")
+    finder = StrategyFinder(
+        bricks=bricks, apport_disponible=ctx.apport, cash_flow_cible=ctx.cf_cible, tolerance=500.0, mode_cf="min"
+    )
     res = finder.find_strategies(eval_params=ctx.to_eval_params(), horizon_years=ctx.horizon_ans, top_n=1)
     assert res
     _, bilan = simulate_long_term_strategy(res[0], ctx.horizon_ans, ctx.market_hypotheses, ctx.to_tax_params())

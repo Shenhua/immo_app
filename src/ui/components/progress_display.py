@@ -3,6 +3,7 @@ Streamlit progress display component.
 
 Renders real-time progress during strategy search.
 """
+
 import streamlit as st
 
 from src.application.progress import PHASE_LABELS, PHASES_ORDER, SearchPhase, SearchProgress, SearchStats
@@ -40,8 +41,7 @@ def render_progress_display(progress: SearchProgress) -> None:
                 col1, col2 = st.columns(2)
                 with col1:
                     st.caption(
-                        f"📊 {progress.items_processed:,} / {progress.items_total:,} "
-                        f"({progress.percentage:.0f}%)"
+                        f"📊 {progress.items_processed:,} / {progress.items_total:,} ({progress.percentage:.0f}%)"
                     )
                 with col2:
                     if progress.valid_count > 0:
@@ -56,7 +56,7 @@ def render_progress_display(progress: SearchProgress) -> None:
             # Pending phase
             st.markdown(
                 f"<span style='color: #888'>⏳ Étape {i}/{len(PHASES_ORDER)}: {phase_label}</span>",
-                unsafe_allow_html=True
+                unsafe_allow_html=True,
             )
 
 

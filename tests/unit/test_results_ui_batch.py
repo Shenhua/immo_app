@@ -21,9 +21,15 @@ from src.domain.models.brick import InvestmentBrick
 
 def test_scoring_and_dedupe_do_not_overwrite_combos_evaluated():
     tracker = {"combos_evaluated": 0, "valid_strategies": 0}
-    app.track_progress(tracker, SearchProgress(
-        phase=SearchPhase.EVALUATION, items_processed=500, items_total=500, valid_count=7,
-    ))
+    app.track_progress(
+        tracker,
+        SearchProgress(
+            phase=SearchPhase.EVALUATION,
+            items_processed=500,
+            items_total=500,
+            valid_count=7,
+        ),
+    )
     app.track_progress(tracker, SearchProgress(phase=SearchPhase.SCORING, items_total=7))
     app.track_progress(tracker, SearchProgress(phase=SearchPhase.DEDUPLICATION, items_total=3))
 
@@ -33,9 +39,14 @@ def test_scoring_and_dedupe_do_not_overwrite_combos_evaluated():
 
 def test_brick_generation_does_not_count_as_evaluation():
     tracker = {"combos_evaluated": 0, "valid_strategies": 0}
-    app.track_progress(tracker, SearchProgress(
-        phase=SearchPhase.BRICK_GENERATION, items_processed=42, items_total=42,
-    ))
+    app.track_progress(
+        tracker,
+        SearchProgress(
+            phase=SearchPhase.BRICK_GENERATION,
+            items_processed=42,
+            items_total=42,
+        ),
+    )
     assert tracker["combos_evaluated"] == 0
 
 
@@ -46,17 +57,35 @@ def test_brick_generation_does_not_count_as_evaluation():
 
 # Fields the simulation engine needs (it no longer swallows a KeyError from an incomplete brick).
 _SIM_FIELDS = {
-    "charges_const_mth0": 50.0, "tf_const_mth0": 50.0, "frais_gestion_pct": 0.0, "budget_travaux": 0.0, "mobilier": 0.0,
-    "frais_notaire": 7000.0, "taux_annuel_pct": 3.5, "duree_credit_mois": 240,
+    "charges_const_mth0": 50.0,
+    "tf_const_mth0": 50.0,
+    "frais_gestion_pct": 0.0,
+    "budget_travaux": 0.0,
+    "mobilier": 0.0,
+    "frais_notaire": 7000.0,
+    "taux_annuel_pct": 3.5,
+    "duree_credit_mois": 240,
 }
 
 
 def test_finder_reports_exhaustive_solver_after_run():
     bricks = [
-        InvestmentBrick(nom="A", apport_min=10000, prix_achat_bien=100000,
-                        capital_emprunte=90000, loyer_mensuel_initial=500, **_SIM_FIELDS),
-        InvestmentBrick(nom="B", apport_min=20000, prix_achat_bien=200000,
-                        capital_emprunte=180000, loyer_mensuel_initial=1000, **_SIM_FIELDS),
+        InvestmentBrick(
+            nom="A",
+            apport_min=10000,
+            prix_achat_bien=100000,
+            capital_emprunte=90000,
+            loyer_mensuel_initial=500,
+            **_SIM_FIELDS,
+        ),
+        InvestmentBrick(
+            nom="B",
+            apport_min=20000,
+            prix_achat_bien=200000,
+            capital_emprunte=180000,
+            loyer_mensuel_initial=1000,
+            **_SIM_FIELDS,
+        ),
     ]
     finder = StrategyFinder(bricks=bricks, apport_disponible=50000, cash_flow_cible=0.0)
     assert finder.solver_mode == ""
@@ -131,13 +160,15 @@ def _script_details_apport():
     from src.ui.components.results import render_strategy_details
 
     strategy = {
-        "details": [{
-            "nom_bien": "Studio",
-            "ville": "Lyon",
-            "apport_min": 10000,
-            "apport_final_bien": 25000,
-            "credit_final": 90000,
-        }],
+        "details": [
+            {
+                "nom_bien": "Studio",
+                "ville": "Lyon",
+                "apport_min": 10000,
+                "apport_final_bien": 25000,
+                "credit_final": 90000,
+            }
+        ],
     }
     render_strategy_details(strategy, horizon=20)
 

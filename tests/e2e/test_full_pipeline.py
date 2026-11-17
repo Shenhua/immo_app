@@ -6,7 +6,6 @@ These tests exercise the complete flow:
 Run with: python -m pytest tests/e2e/test_full_pipeline.py -v
 """
 
-
 import pytest
 
 from src.application.services.brick_factory import (
@@ -94,9 +93,7 @@ class TestFullPipeline:
         critical_warnings = [w for w in warnings if "Missing" in w or "Invalid" in w]
         assert len(critical_warnings) == 0, f"Validation warnings: {critical_warnings}"
 
-    def test_strategy_search_returns_results(
-        self, archetypes, finance_config, operating_config, eval_params
-    ):
+    def test_strategy_search_returns_results(self, archetypes, finance_config, operating_config, eval_params):
         """Full strategy search should return valid strategies."""
         from src.application.services.brick_factory import create_investment_bricks
 
@@ -125,9 +122,7 @@ class TestFullPipeline:
         assert "apport_total" in top
         assert "fitness" in top
 
-    def test_strategy_metrics_are_valid(
-        self, archetypes, finance_config, operating_config, eval_params
-    ):
+    def test_strategy_metrics_are_valid(self, archetypes, finance_config, operating_config, eval_params):
         """Verify key metrics are correctly calculated (not zero)."""
         from src.application.services.brick_factory import create_investment_bricks
 
@@ -198,9 +193,7 @@ class TestMacroUseCases:
         """Use case: First-time investor with 30k budget, wants positive CF."""
         from src.application.services.brick_factory import create_investment_bricks
 
-        bricks = create_investment_bricks(
-            archetypes, base_config["finance"], base_config["operating"]
-        )
+        bricks = create_investment_bricks(archetypes, base_config["finance"], base_config["operating"])
 
         finder = StrategyFinder(
             bricks=bricks,
@@ -225,9 +218,7 @@ class TestMacroUseCases:
         """Use case: Wealth builder with 100k, accepting negative CF for appreciation."""
         from src.application.services.brick_factory import create_investment_bricks
 
-        bricks = create_investment_bricks(
-            archetypes, base_config["finance"], base_config["operating"]
-        )
+        bricks = create_investment_bricks(archetypes, base_config["finance"], base_config["operating"])
 
         finder = StrategyFinder(
             bricks=bricks,
@@ -254,9 +245,7 @@ class TestMacroUseCases:
         """Use case: Investor seeking maximum monthly cashflow."""
         from src.application.services.brick_factory import create_investment_bricks
 
-        bricks = create_investment_bricks(
-            archetypes, base_config["finance"], base_config["operating"]
-        )
+        bricks = create_investment_bricks(archetypes, base_config["finance"], base_config["operating"])
 
         finder = StrategyFinder(
             bricks=bricks,
@@ -279,9 +268,7 @@ class TestMacroUseCases:
         """Verify that different horizons produce different metrics."""
         from src.application.services.brick_factory import create_investment_bricks
 
-        bricks = create_investment_bricks(
-            archetypes, base_config["finance"], base_config["operating"]
-        )
+        bricks = create_investment_bricks(archetypes, base_config["finance"], base_config["operating"])
 
         results = {}
         for horizon in [15, 25]:

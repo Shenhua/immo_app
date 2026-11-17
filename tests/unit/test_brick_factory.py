@@ -1,4 +1,3 @@
-
 import pytest
 
 from src.application.services.brick_factory import (
@@ -31,7 +30,7 @@ def sample_archetypes():
             "surface": 30.0,
             "prix_m2": 5000.0,
             "loyer_m2": 20.0,
-            "loyer_m2_max": 25.0, # Cap higher than rent, should not change
+            "loyer_m2_max": 25.0,  # Cap higher than rent, should not change
             "soumis_encadrement": True,
         },
         {
@@ -41,9 +40,10 @@ def sample_archetypes():
             "surface": 25.0,
             "prix_m2": 6000.0,
             "loyer_m2": 20.0,
-            "soumis_encadrement": False, # No cap
-        }
+            "soumis_encadrement": False,  # No cap
+        },
     ]
+
 
 def test_apply_rent_caps(sample_archetypes):
     """Verify correct application of rent control caps."""
@@ -59,31 +59,38 @@ def test_apply_rent_caps(sample_archetypes):
     # Bordeaux (Appart C): Not subject, should remain 20
     assert capped[2]["loyer_m2"] == 20.0
 
+
 def test_apply_rent_caps_disabled(sample_archetypes):
     """Verify caps are ignored when flag is False."""
     uncapped = apply_rent_caps(sample_archetypes, apply_cap=False)
     assert uncapped[0]["loyer_m2"] == 35.0
 
+
 def test_create_investment_bricks():
     """Verify investment bricks are created with correct variants."""
-    input_data = [{
-        "nom": "TestBrick",
-        "ville": "TestCity",
-        "mode_loyer": "nu",
-        "surface": 10.0,
-        "prix_m2": 2000.0,
-        "loyer_m2": 10.0,
-        # Required extra fields that might default safely but good to be explicit
-        "charges_m2_an": 0, "taxe_fonciere_m2_an": 0,
-        "budget_travaux": 0, "renovation_energetique_cout": 0, "valeur_mobilier": 0
-    }]
+    input_data = [
+        {
+            "nom": "TestBrick",
+            "ville": "TestCity",
+            "mode_loyer": "nu",
+            "surface": 10.0,
+            "prix_m2": 2000.0,
+            "loyer_m2": 10.0,
+            # Required extra fields that might default safely but good to be explicit
+            "charges_m2_an": 0,
+            "taxe_fonciere_m2_an": 0,
+            "budget_travaux": 0,
+            "renovation_energetique_cout": 0,
+            "valeur_mobilier": 0,
+        }
+    ]
 
     fin_config = FinancingConfig(
-        credit_rates={20: 3.5, 25: 3.8}, # Two variants expected
+        credit_rates={20: 3.5, 25: 3.8},  # Two variants expected
         frais_notaire_pct=8.0,
         apport_min_pct=10.0,
         assurance_ann_pct=0.36,
-        frais_pret_pct=1.0
+        frais_pret_pct=1.0,
     )
     op_config = OperatingConfig()
 

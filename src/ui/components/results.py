@@ -27,6 +27,7 @@ def get_cf_color(value: float, target: float) -> str:
     else:
         return "#dc3545"
 
+
 def get_hcsf_color(taux: float) -> str:
     """Debt ratio colour (T60): green <= 33 %, orange up to 35 %, red above."""
     if taux <= HCSF.taux_alerte_pct:
@@ -40,8 +41,10 @@ def hcsf_badge(strategy: dict[str, Any]) -> str:
     if taux is None:
         return ""
     flag = "" if strategy.get("hcsf_ok", True) else " · non finançable (HCSF)"
-    return (f"<span title='Taux d\'endettement HCSF (max 35 %), assurance incluse' "
-            f"style='color:{get_hcsf_color(float(taux))};font-weight:600'>Endettement {float(taux):.1f} %{flag}</span>")
+    return (
+        f"<span title='Taux d'endettement HCSF (max 35 %), assurance incluse' "
+        f"style='color:{get_hcsf_color(float(taux))};font-weight:600'>Endettement {float(taux):.1f} %{flag}</span>"
+    )
 
 
 def get_star_rating(score: float, max_stars: int = 5) -> str:
@@ -90,9 +93,12 @@ def render_strategy_card(
         col_header, col_badge = st.columns([0.7, 0.3])
         with col_header:
             if is_selected:
-                 st.markdown(f"#### {icon} {taxonomy} <span style='color:#FFD700;font-size:0.8em'>● Sélectionné</span>", unsafe_allow_html=True)
+                st.markdown(
+                    f"#### {icon} {taxonomy} <span style='color:#FFD700;font-size:0.8em'>● Sélectionné</span>",
+                    unsafe_allow_html=True,
+                )
             else:
-                 st.markdown(f"#### {icon} {taxonomy}")
+                st.markdown(f"#### {icon} {taxonomy}")
             st.caption(f"Stratégie #{index}")
         with col_badge:
             if strategy.get("pareto_rank") == 1:
@@ -110,27 +116,31 @@ def render_strategy_card(
         c1, c2, c3, c4 = st.columns(4)
 
         with c1:
-             score = strategy.get("balanced_score", 0) * 100
-             stars = get_star_rating(score)
-             st.markdown("<div style='font-size: 0.9em; color: gray;'>Score</div>", unsafe_allow_html=True)
-             st.markdown(f"<div style='font-size: 2.5em; font-weight: bold; line-height: 1.0;'>{stars}<div style='font-size:0.4em; color:gray; font-weight:normal; margin-top:5px'>({score:.0f}/100)</div></div>", unsafe_allow_html=True)
+            score = strategy.get("balanced_score", 0) * 100
+            stars = get_star_rating(score)
+            st.markdown("<div style='font-size: 0.9em; color: gray;'>Score</div>", unsafe_allow_html=True)
+            st.markdown(
+                f"<div style='font-size: 2.5em; font-weight: bold; line-height: 1.0;'>{stars}<div style='font-size:0.4em; color:gray; font-weight:normal; margin-top:5px'>({score:.0f}/100)</div></div>",
+                unsafe_allow_html=True,
+            )
 
-
-
-
-# ... inside render_strategy_card ...
+        # ... inside render_strategy_card ...
 
         with c2:
             cf = strategy.get("cash_flow_final", 0)
 
             color_cf = get_cf_color(cf, cf_cible)
 
-            st.markdown("<div style='font-size: 0.9em; color: gray;'>Cash-flow (année stabilisée)</div>", unsafe_allow_html=True)
-            st.markdown(f"<div style='font-size: 2.5em; font-weight: bold; color: {color_cf};'>{format_euro(cf)}</div>", unsafe_allow_html=True)
+            st.markdown(
+                "<div style='font-size: 0.9em; color: gray;'>Cash-flow (année stabilisée)</div>", unsafe_allow_html=True
+            )
+            st.markdown(
+                f"<div style='font-size: 2.5em; font-weight: bold; color: {color_cf};'>{format_euro(cf)}</div>",
+                unsafe_allow_html=True,
+            )
             cf_y1 = strategy.get("cf_monthly_y1")
             if cf_y1 is not None:
                 st.caption(f"Année 1 (avec travaux) : {format_euro(cf_y1)}/mois, après impôt")
-
 
         with c3:
             tri = strategy.get("tri_annuel", 0)
@@ -146,16 +156,16 @@ def render_strategy_card(
             st.markdown(badge, unsafe_allow_html=True)
 
         for bien in strategy.get("details", []):
-            if (warn := property_ban_warning(bien, horizon)):
+            if warn := property_ban_warning(bien, horizon):
                 st.warning(f"{bien.get('nom_bien', 'Bien')} : {warn}", icon="⚠️")
 
         # Footer Actions
-        st.markdown("") # Spacer
+        st.markdown("")  # Spacer
 
         # Dynamic label based on state
         btn_label = "🔽 Voir le détail"
         if is_selected and show_details:
-             btn_label = "🔼 Masquer"
+            btn_label = "🔼 Masquer"
 
         if st.button(btn_label, key=f"btn_details_{index}", use_container_width=True):
             clicked = True
@@ -183,16 +193,19 @@ def render_strategy_details(strategy: dict[str, Any], horizon: int = 25) -> None
 
     for i, bien in enumerate(details, 1):
         with st.expander(f"**{bien.get('nom_bien', f'Bien {i}')}** - {bien.get('ville', '?')}"):
-            if (warn := property_ban_warning(bien, horizon)):
+            if warn := property_ban_warning(bien, horizon):
                 st.warning(warn, icon="⚠️")
             col1, col2, col3 = st.columns(3)
 
             with col1:
                 st.markdown("**Acquisition**")
                 # Restore Property Score Display with Stars
-                qs = bien.get('qual_score_bien', 50)
+                qs = bien.get("qual_score_bien", 50)
                 stars = get_star_rating(qs, 5)
-                st.markdown(f"**Qualité**: {stars} <span style='color:grey;font-size:0.8em'>({qs:.0f}/100)</span>", unsafe_allow_html=True)
+                st.markdown(
+                    f"**Qualité**: {stars} <span style='color:grey;font-size:0.8em'>({qs:.0f}/100)</span>",
+                    unsafe_allow_html=True,
+                )
 
                 st.write(f"Prix: {format_euro(bien.get('prix_achat_bien', 0))}")
                 st.write(f"Frais notaire: {format_euro(bien.get('frais_notaire', 0))}")
@@ -212,7 +225,7 @@ def render_strategy_details(strategy: dict[str, Any], horizon: int = 25) -> None
                     label="Loyer brut",
                     value=f"{format_euro(bien.get('loyer_mensuel_initial', 0))}",
                     delta="+ Revenu",
-                    delta_color="normal"
+                    delta_color="normal",
                 )
 
                 bien.get("charges_non_recuperables_mensuel", 0) + bien.get("taxe_fonciere_mensuel", 0)
@@ -220,7 +233,7 @@ def render_strategy_details(strategy: dict[str, Any], horizon: int = 25) -> None
                     label="Mensualité Crédit",
                     value=f"{format_euro(bien.get('pmt_total', 0))}",
                     delta="- Crédit",
-                    delta_color="inverse"
+                    delta_color="inverse",
                 )
 
             # Qualitative Factors Restoration
@@ -229,10 +242,10 @@ def render_strategy_details(strategy: dict[str, Any], horizon: int = 25) -> None
                     factors = bien["facteurs_qualitatifs"]
                     # If factors is dict
                     if isinstance(factors, dict):
-                         for k, v in factors.items():
-                             st.write(f"- **{k.replace('_', ' ').title()}**: {v}")
+                        for k, v in factors.items():
+                            st.write(f"- **{k.replace('_', ' ').title()}**: {v}")
                     else:
-                         st.write("Détails disponibles.")
+                        st.write("Détails disponibles.")
 
 
 def render_kpi_summary(strategy: dict[str, Any], horizon: int = 25) -> None:
@@ -245,27 +258,51 @@ def render_kpi_summary(strategy: dict[str, Any], horizon: int = 25) -> None:
     cols = st.columns(6)
 
     metrics = [
-        ("CF Mensuel", strategy.get("cash_flow_final", 0), format_euro, "Cash-flow mensuel de l'année stabilisée (année 2, loyers de 12 mois), avant impôt sur le revenu (loyers moins charges et mensualités de crédit, tous biens)."),
-        (f"TRI ({horizon}a)", strategy.get("tri_annuel", 0), format_pct, "Taux de Rentabilité Interne annualisé (inclut la revente)."),
-        ("Enrichissement", strategy.get("liquidation_nette", 0), format_euro, f"Capital net disponible à la revente au bout de {horizon} ans (après impôts et remboursement dette)."),
-        ("DSCR stabilisé", strategy.get("dscr_stab", strategy.get("dscr_y1", 0)), lambda x: f"{x:.2f}" if x else "—", "Ratio de couverture de la dette (Revenus / Charges crédit) de l'année stabilisée (année 2). >1.0 signifie autofinancement. Année 1 (avec travaux) : voir le détail."),
-        ("Score Qualité", strategy.get("qual_score", 50), lambda x: f"{get_star_rating(x)}", "Qualité intrinsèque des biens (Emplacement, Tension, Liquidité)."),
-        ("Score Global", strategy.get("balanced_score", 0) * 100, lambda x: f"{get_star_rating(x)}", "Note pondérée combinant performance financière et qualité."),
+        (
+            "CF Mensuel",
+            strategy.get("cash_flow_final", 0),
+            format_euro,
+            "Cash-flow mensuel de l'année stabilisée (année 2, loyers de 12 mois), avant impôt sur le revenu (loyers moins charges et mensualités de crédit, tous biens).",
+        ),
+        (
+            f"TRI ({horizon}a)",
+            strategy.get("tri_annuel", 0),
+            format_pct,
+            "Taux de Rentabilité Interne annualisé (inclut la revente).",
+        ),
+        (
+            "Enrichissement",
+            strategy.get("liquidation_nette", 0),
+            format_euro,
+            f"Capital net disponible à la revente au bout de {horizon} ans (après impôts et remboursement dette).",
+        ),
+        (
+            "DSCR stabilisé",
+            strategy.get("dscr_stab", strategy.get("dscr_y1", 0)),
+            lambda x: f"{x:.2f}" if x else "—",
+            "Ratio de couverture de la dette (Revenus / Charges crédit) de l'année stabilisée (année 2). >1.0 signifie autofinancement. Année 1 (avec travaux) : voir le détail.",
+        ),
+        (
+            "Score Qualité",
+            strategy.get("qual_score", 50),
+            lambda x: f"{get_star_rating(x)}",
+            "Qualité intrinsèque des biens (Emplacement, Tension, Liquidité).",
+        ),
+        (
+            "Score Global",
+            strategy.get("balanced_score", 0) * 100,
+            lambda x: f"{get_star_rating(x)}",
+            "Note pondérée combinant performance financière et qualité.",
+        ),
     ]
 
     for col, (label, value, formatter, help_text) in zip(cols, metrics):
         with col:
             # Special handling for Scores to show numeric value as secondary (delta)
             if label in ["Score Qualité", "Score Global"]:
-                 st.metric(
-                     label,
-                     formatter(value),
-                     delta=f"{value:.0f}/100",
-                     delta_color="off",
-                     help=help_text
-                 )
+                st.metric(label, formatter(value), delta=f"{value:.0f}/100", delta_color="off", help=help_text)
             else:
-                 st.metric(label, formatter(value), help=help_text)
+                st.metric(label, formatter(value), help=help_text)
 
     if badge := hcsf_badge(strategy):
         st.markdown(badge, unsafe_allow_html=True)

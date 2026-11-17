@@ -36,12 +36,18 @@ FURNISHED, UNFURNISHED, SCI = "furnished", "unfurnished", "sci"
 
 # Legacy / UI spellings accepted for each category.
 _FURNISHED_ALIASES = {
-    "lmnp": RegimeId.LMNP_REEL, "lmnp_reel": RegimeId.LMNP_REEL, "reel": RegimeId.LMNP_REEL,
-    "microbic": RegimeId.MICRO_BIC, "micro_bic": RegimeId.MICRO_BIC, "micro": RegimeId.MICRO_BIC,
+    "lmnp": RegimeId.LMNP_REEL,
+    "lmnp_reel": RegimeId.LMNP_REEL,
+    "reel": RegimeId.LMNP_REEL,
+    "microbic": RegimeId.MICRO_BIC,
+    "micro_bic": RegimeId.MICRO_BIC,
+    "micro": RegimeId.MICRO_BIC,
 }
 _UNFURNISHED_ALIASES = {
-    "reel": RegimeId.FONCIER_REEL, "foncier_reel": RegimeId.FONCIER_REEL,
-    "micro": RegimeId.MICRO_FONCIER, "micro_foncier": RegimeId.MICRO_FONCIER,
+    "reel": RegimeId.FONCIER_REEL,
+    "foncier_reel": RegimeId.FONCIER_REEL,
+    "micro": RegimeId.MICRO_FONCIER,
+    "micro_foncier": RegimeId.MICRO_FONCIER,
 }
 
 

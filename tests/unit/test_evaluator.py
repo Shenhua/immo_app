@@ -4,6 +4,7 @@ Unit tests for StrategyEvaluator.
 Tests the shared evaluation logic used by the portfolio search
 (optimizer.py).
 """
+
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -18,12 +19,14 @@ def mock_simulator():
     simulator = MagicMock()
 
     # Mock simulate to return realistic bilan
-    df_mock = pd.DataFrame({
-        "Année": [1, 2, 3],
-        "Cash-Flow Net d'Impôt": [1200, 1400, 1600],
-        "Loyer Brut": [12000, 12360, 12730],
-        "Charges Désendettement": [8000, 8000, 8000],
-    })
+    df_mock = pd.DataFrame(
+        {
+            "Année": [1, 2, 3],
+            "Cash-Flow Net d'Impôt": [1200, 1400, 1600],
+            "Loyer Brut": [12000, 12360, 12730],
+            "Charges Désendettement": [8000, 8000, 8000],
+        }
+    )
     bilan_mock = {
         "liquidation_nette": 150000.0,
         "enrichissement_net": 80000.0,
@@ -46,13 +49,7 @@ def mock_allocator():
 def mock_scorer():
     """Create a mock scorer with default weights."""
     scorer = MagicMock()
-    scorer.weights = {
-        "irr": 0.25,
-        "enrich_net": 0.30,
-        "dscr": 0.15,
-        "cf_proximity": 0.20,
-        "cap_eff": 0.10
-    }
+    scorer.weights = {"irr": 0.25, "enrich_net": 0.30, "dscr": 0.15, "cf_proximity": 0.20, "cap_eff": 0.10}
     scorer.qualite_weight = 0.5
     return scorer
 
@@ -60,11 +57,7 @@ def mock_scorer():
 @pytest.fixture
 def evaluator(mock_simulator, mock_allocator, mock_scorer):
     """Create evaluator with all mocked dependencies."""
-    return StrategyEvaluator(
-        simulator=mock_simulator,
-        allocator=mock_allocator,
-        scorer=mock_scorer
-    )
+    return StrategyEvaluator(simulator=mock_simulator, allocator=mock_allocator, scorer=mock_scorer)
 
 
 @pytest.fixture
@@ -86,7 +79,7 @@ def sample_details():
             "duree_pret": 25,
             "assurance_ann_pct": 0.36,
             "qual_score_bien": 65.0,
-        }
+        },
     ]
 
 
@@ -297,7 +290,7 @@ class TestEvaluateFullPipeline:
             "apport_total": 50000.0,
         }
 
-        with patch.object(evaluator, 'calculate_cf_metrics') as mock_cf:
+        with patch.object(evaluator, "calculate_cf_metrics") as mock_cf:
             mock_cf.return_value = {
                 "is_acceptable": True,
                 "gap": 20.0,

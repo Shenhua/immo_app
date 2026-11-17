@@ -4,6 +4,7 @@ Progress tracking for strategy search.
 Provides data structures and types for reporting search progress
 from business logic to UI without coupling to Streamlit.
 """
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -14,6 +15,7 @@ from enum import Enum
 
 class SearchPhase(Enum):
     """Phases of the strategy search process."""
+
     BRICK_GENERATION = "brick_generation"
     COMBO_GENERATION = "combo_generation"
     EVALUATION = "evaluation"
@@ -53,6 +55,7 @@ class SearchProgress:
         valid_count: Number of valid strategies found so far
         message: Optional message to display
     """
+
     phase: SearchPhase
     phase_index: int = 1
     total_phases: int = 5
@@ -86,6 +89,7 @@ class SearchStats:
 
     Stored in session state and shown in collapsible zone.
     """
+
     timestamp: str = ""
     duration_seconds: float = 0.0
     bricks_count: int = 0
@@ -96,7 +100,7 @@ class SearchStats:
     mode: str = "EXHAUSTIVE"
     max_properties: int = 3
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.timestamp:
             self.timestamp = datetime.now().strftime("%H:%M:%S")
 

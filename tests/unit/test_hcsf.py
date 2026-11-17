@@ -11,8 +11,13 @@ from src.domain.hcsf import hcsf_check
 
 
 def _prop(name="A", pmt=1000.0, rent=1000.0, credit=200_000.0, months=240):
-    return {"nom": name, "pmt_total": pmt, "loyer_mensuel_initial": rent, "credit_final": credit,
-            "duree_credit_mois": months}
+    return {
+        "nom": name,
+        "pmt_total": pmt,
+        "loyer_mensuel_initial": rent,
+        "credit_final": credit,
+        "duree_credit_mois": months,
+    }
 
 
 def test_ratio_hand_computed():

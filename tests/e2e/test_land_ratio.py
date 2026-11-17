@@ -47,8 +47,12 @@ def _best_strategy(ratio_override: float | None) -> dict:
     fin = FinancingConfig(credit_rates={20: 3.6}, ratio_terrain_pct=ratio_override)
     bricks = create_investment_bricks([_furnished_archetype()], fin, OperatingConfig())
     finder = StrategyFinder(
-        bricks=bricks, apport_disponible=200000.0, cash_flow_cible=-5000.0,
-        tolerance=500.0, mode_cf="min", qualite_weight=0.25,
+        bricks=bricks,
+        apport_disponible=200000.0,
+        cash_flow_cible=-5000.0,
+        tolerance=500.0,
+        mode_cf="min",
+        qualite_weight=0.25,
     )
     strategies = finder.find_strategies(eval_params=EVAL_PARAMS, horizon_years=20, top_n=1)
     assert strategies
@@ -69,10 +73,20 @@ def test_land_ratio_changes_tax_through_strategy_finder() -> None:
 
 def _prop() -> dict:
     return {
-        "prix_achat_bien": 100000, "budget_travaux": 10000, "mobilier": 5000, "renovation_energetique": 0,
-        "frais_notaire": 8000, "credit_final": 90000, "taux_pret": 3.6, "duree_pret": 25,
-        "assurance_ann_pct": 0.35, "loyer_mensuel_initial": 700, "charges_const_mth0": 60,
-        "tf_const_mth0": 40, "frais_gestion_pct": 5.0, "provision_pct": 3.0,
+        "prix_achat_bien": 100000,
+        "budget_travaux": 10000,
+        "mobilier": 5000,
+        "renovation_energetique": 0,
+        "frais_notaire": 8000,
+        "credit_final": 90000,
+        "taux_pret": 3.6,
+        "duree_pret": 25,
+        "assurance_ann_pct": 0.35,
+        "loyer_mensuel_initial": 700,
+        "charges_const_mth0": 60,
+        "tf_const_mth0": 40,
+        "frais_gestion_pct": 5.0,
+        "provision_pct": 3.0,
     }
 
 
@@ -93,8 +107,11 @@ def test_25_year_lmnp_deducts_furniture_exactly_once() -> None:
 
 def test_building_amortization_stops_after_its_duration() -> None:
     engine = SimulationEngine(
-        MarketHypotheses(), TaxParams(regime_fiscal="lmnp"), IRACalculator(apply_ira=False),
-        amort_immo_years=10, ratio_terrain_pct=0.0,
+        MarketHypotheses(),
+        TaxParams(regime_fiscal="lmnp"),
+        IRACalculator(apply_ira=False),
+        amort_immo_years=10,
+        ratio_terrain_pct=0.0,
     )
     schedules = [generate_amortization_schedule(90000, 3.6, 300, 0.35)]
     df, _ = engine.simulate({"apport_total": 20000, "details": [_prop()]}, 12, schedules)

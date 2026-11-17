@@ -21,11 +21,23 @@ from src.application.services.simulation import simulate_long_term_strategy
 
 def _prop(name: str, credit: float = 140_000.0, meuble: bool = True) -> dict[str, Any]:
     return {
-        "nom_bien": name, "prix_achat_bien": 150_000.0, "frais_notaire": 12_000.0, "budget_travaux": 0.0,
-        "renovation_energetique": 0.0, "mobilier": 5_000.0 if meuble else 0.0, "credit_final": credit,
-        "taux_pret": 3.5, "duree_pret": 20, "assurance_ann_pct": 0.3, "loyer_mensuel_initial": 900.0,
-        "charges_const_mth0": 100.0, "tf_const_mth0": 70.0, "frais_gestion_pct": 0.0, "provision_pct": 0.0,
-        "meuble": meuble, "dpe_initial": "F",
+        "nom_bien": name,
+        "prix_achat_bien": 150_000.0,
+        "frais_notaire": 12_000.0,
+        "budget_travaux": 0.0,
+        "renovation_energetique": 0.0,
+        "mobilier": 5_000.0 if meuble else 0.0,
+        "credit_final": credit,
+        "taux_pret": 3.5,
+        "duree_pret": 20,
+        "assurance_ann_pct": 0.3,
+        "loyer_mensuel_initial": 900.0,
+        "charges_const_mth0": 100.0,
+        "tf_const_mth0": 70.0,
+        "frais_gestion_pct": 0.0,
+        "provision_pct": 0.0,
+        "meuble": meuble,
+        "dpe_initial": "F",
     }
 
 

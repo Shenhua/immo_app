@@ -34,8 +34,10 @@ def no_result_lines(diag: SearchDiagnostics, top_n: int = 10, with_suggestions: 
     top = diag.top_reason()
     if top is None:
         return ["Aucun portefeuille n'a pu être construit avec ces biens."]
-    lines = [f"**Contrainte la plus éliminatoire : {REASON_LABELS[top]}** "
-             f"({diag.counts[top]} portefeuille(s) sur {diag.total_rejected} écartés)."]
+    lines = [
+        f"**Contrainte la plus éliminatoire : {REASON_LABELS[top]}** "
+        f"({diag.counts[top]} portefeuille(s) sur {diag.total_rejected} écartés)."
+    ]
     others = [f"{REASON_LABELS[r]} : {n}" for r, n in diag.counts.items() if n and r != top]
     if others:
         lines.append("Autres motifs : " + " ; ".join(others) + ".")

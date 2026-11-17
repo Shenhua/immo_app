@@ -16,7 +16,8 @@ import pandas as pd
 
 class AIContextEncoder(json.JSONEncoder):
     """Custom encoder to handle NumPy and Pandas types."""
-    def default(self, obj):
+
+    def default(self, obj: Any) -> Any:
         if isinstance(obj, np.integer):
             return int(obj)
         if isinstance(obj, np.floating):
@@ -29,28 +30,29 @@ class AIContextEncoder(json.JSONEncoder):
             return obj.isoformat()
         return super().default(obj)
 
+
 def collect_debug_context(
-    session_state: dict[str, Any] = None,
-    params: dict[str, Any] = None,
-    strategies: list[dict[str, Any]] = None,
-    last_simulation: pd.DataFrame = None,
-    log_file_path: str = "logs/app.log"
+    session_state: dict[str, Any] | None = None,
+    params: dict[str, Any] | None = None,
+    strategies: list[dict[str, Any]] | None = None,
+    last_simulation: pd.DataFrame | None = None,
+    log_file_path: str = "logs/app.log",
 ) -> dict[str, Any]:
     """Collect full application context."""
 
     timestamp = datetime.now().isoformat()
 
-    context = {
+    context: dict[str, Any] = {
         "meta": {
             "timestamp": timestamp,
             "version": "v27.7 (Hybrid-Traceable)",
-            "purpose": "AI Agent Debugging & Logic Verification"
+            "purpose": "AI Agent Debugging & Logic Verification",
         },
         "user_inputs": {},
         "derived_configs": {},
         "data_snapshot": {},
         "results": {},
-        "logs_tail": []
+        "logs_tail": [],
     }
 
     # 1. User Inputs (Raw Params)
@@ -62,17 +64,14 @@ def collect_debug_context(
     # Re-construct configs to see if translation from UI -> Domain was correct
     try:
         from src.application.services.brick_factory import build_financing_config, build_operating_config
+
         if params:
-             # We try to rebuild them to show the AI what the domain layer 'sees'
-             # This helps spot issued in the build_config functions themselves
-             fin = build_financing_config(params.get("credit_params", {}))
-             op = build_operating_config(
-                 params.get("gestion", 0),
-                 params.get("vacance", 0),
-                 params.get("cfe", 0)
-             )
-             context["derived_configs"]["financing_config"] = fin.__dict__
-             context["derived_configs"]["operating_config"] = op.__dict__
+            # We try to rebuild them to show the AI what the domain layer 'sees'
+            # This helps spot issued in the build_config functions themselves
+            fin = build_financing_config(params.get("credit_params", {}))
+            op = build_operating_config(params.get("gestion", 0), params.get("vacance", 0), params.get("cfe", 0))
+            context["derived_configs"]["financing_config"] = fin.__dict__
+            context["derived_configs"]["operating_config"] = op.__dict__
     except Exception as e:
         context["derived_configs"]["error"] = str(e)
 
@@ -89,7 +88,7 @@ def collect_debug_context(
         context["data_snapshot"]["stats"] = {
             "min_price": min(prices) if prices else 0,
             "max_price": max(prices) if prices else 0,
-            "avg_rent": sum(rents)/len(rents) if rents else 0
+            "avg_rent": sum(rents) / len(rents) if rents else 0,
         }
 
     # 4. Results (Strategies)
@@ -105,7 +104,7 @@ def collect_debug_context(
             calc_check = {
                 "sum_prices": sum(d.get("prix_achat_bien", 0) for d in top.get("details", [])),
                 "sum_rents": sum(d.get("loyer_mensuel_initial", 0) for d in top.get("details", [])),
-                "reported_cf": top.get("cash_flow_final", 0)
+                "reported_cf": top.get("cash_flow_final", 0),
             }
             context["results"]["top_strategy_checksum"] = calc_check
 
@@ -115,13 +114,14 @@ def collect_debug_context(
             "year_1": last_simulation.iloc[0].to_dict(),
             "year_5": last_simulation.iloc[4].to_dict() if len(last_simulation) > 4 else None,
             "year_final": last_simulation.iloc[-1].to_dict(),
-            "full_dataframe_dump": last_simulation.to_dict(orient="list") # Efficient col-wise
+            "full_dataframe_dump": last_simulation.to_dict(orient="list"),  # Efficient col-wise
         }
 
     # 6. Logs (Last 50 lines)
     try:
         if log_file_path:
             import os
+
             if os.path.exists(log_file_path):
                 with open(log_file_path) as f:
                     lines = f.readlines()
@@ -129,7 +129,7 @@ def collect_debug_context(
 
                     # 7. AI Traceability Extraction (Phase 22)
                     # Parse critical events from logs to structurally expose Solver Mode
-                    solver_trace = {}
+                    solver_trace: dict[str, str] = {}
                     for line in reversed(context["logs_tail"]):
                         if "hybrid_solver_selected" in line:
                             # Extract JSON-like content if structlog or just quick parse
@@ -139,7 +139,7 @@ def collect_debug_context(
                                 parts = line.split()
                                 for p in parts:
                                     if "mode=" in p:
-                                        solver_trace["mode"] = p.split("=")[1].replace('"', '')
+                                        solver_trace["mode"] = p.split("=")[1].replace('"', "")
                                     if "combos=" in p:
                                         solver_trace["combos"] = str(p.split("=")[1])
                                     if "threshold=" in p:
@@ -147,21 +147,6 @@ def collect_debug_context(
                             except Exception:
                                 solver_trace["raw_event"] = line
                             break
-
-                    # Extract Tier Distribution if available
-                    for line in reversed(context["logs_tail"]):
-                         if "strategy_tiers" in line:
-                             try:
-                                 parts = line.split()
-                                 tiers = {}
-                                 for p in parts:
-                                     if "tier_" in p:
-                                         k, v = p.split("=")
-                                         tiers[k] = int(v)
-                                 solver_trace["tier_distribution"] = tiers
-                             except Exception:
-                                 pass
-                             break
 
                     if solver_trace:
                         context["results"]["solver_trace"] = solver_trace
@@ -171,8 +156,9 @@ def collect_debug_context(
 
     return context
 
+
 def save_debug_context(context: dict[str, Any], filepath: str = "debug_context.json") -> str:
     """Save context to disk."""
-    with open(filepath, 'w', encoding='utf-8') as f:
+    with open(filepath, "w", encoding="utf-8") as f:
         json.dump(context, f, cls=AIContextEncoder, indent=2, ensure_ascii=False)
     return filepath

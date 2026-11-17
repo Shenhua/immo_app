@@ -9,7 +9,12 @@ def test_lmnp_amortization_cannot_create_deficit():
     """
     state = TaxState()
     ctx = YearContext(
-        year=1, property_id=0, rent=1000.0, operating_charges=200.0, interest=0.0, loan_insurance=0.0,
+        year=1,
+        property_id=0,
+        rent=1000.0,
+        operating_charges=200.0,
+        interest=0.0,
+        loan_insurance=0.0,
         amort_building=1000.0,
     )
     res = LmnpReel(tmi_pct=30.0).compute_year(1, [ctx], state)

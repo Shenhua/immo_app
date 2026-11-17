@@ -1,4 +1,5 @@
 """T25 scoring fixes: rent-cap margin, real capital efficiency, weights from defaults."""
+
 from unittest.mock import MagicMock
 
 import pytest

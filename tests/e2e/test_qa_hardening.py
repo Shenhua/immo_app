@@ -7,7 +7,6 @@ Tests the complete pipeline with edge cases that span multiple components:
 - Rent cap enforcement
 """
 
-
 import pytest
 
 from src.application.services.brick_factory import (
@@ -93,16 +92,18 @@ class TestRentCapEnforcement:
 
     def test_rent_cap_applied_when_exceeds(self):
         """Properties with loyer > cap should be capped."""
-        archetypes = [{
-            "nom": "Test Property",
-            "surface": 50,
-            "prix_m2": 3000,
-            "loyer_m2": 25.0,  # Higher than cap
-            "loyer_m2_max": 20.0,  # Cap
-            "soumis_encadrement": True,
-            "charges_m2_an": 30,
-            "taxe_fonciere_m2_an": 20,
-        }]
+        archetypes = [
+            {
+                "nom": "Test Property",
+                "surface": 50,
+                "prix_m2": 3000,
+                "loyer_m2": 25.0,  # Higher than cap
+                "loyer_m2_max": 20.0,  # Cap
+                "soumis_encadrement": True,
+                "charges_m2_an": 30,
+                "taxe_fonciere_m2_an": 20,
+            }
+        ]
 
         capped = apply_rent_caps(archetypes, apply_cap=True)
 
@@ -110,16 +111,18 @@ class TestRentCapEnforcement:
 
     def test_rent_not_capped_when_disabled(self):
         """Properties should keep original rent when cap disabled."""
-        archetypes = [{
-            "nom": "Test Property",
-            "surface": 50,
-            "prix_m2": 3000,
-            "loyer_m2": 25.0,
-            "loyer_m2_max": 20.0,
-            "soumis_encadrement": True,
-            "charges_m2_an": 30,
-            "taxe_fonciere_m2_an": 20,
-        }]
+        archetypes = [
+            {
+                "nom": "Test Property",
+                "surface": 50,
+                "prix_m2": 3000,
+                "loyer_m2": 25.0,
+                "loyer_m2_max": 20.0,
+                "soumis_encadrement": True,
+                "charges_m2_an": 30,
+                "taxe_fonciere_m2_an": 20,
+            }
+        ]
 
         not_capped = apply_rent_caps(archetypes, apply_cap=False)
 
@@ -127,16 +130,18 @@ class TestRentCapEnforcement:
 
     def test_unregulated_property_not_capped(self):
         """Properties without encadrement should not be capped."""
-        archetypes = [{
-            "nom": "Test Property",
-            "surface": 50,
-            "prix_m2": 3000,
-            "loyer_m2": 25.0,
-            "loyer_m2_max": 20.0,
-            "soumis_encadrement": False,  # Not regulated
-            "charges_m2_an": 30,
-            "taxe_fonciere_m2_an": 20,
-        }]
+        archetypes = [
+            {
+                "nom": "Test Property",
+                "surface": 50,
+                "prix_m2": 3000,
+                "loyer_m2": 25.0,
+                "loyer_m2_max": 20.0,
+                "soumis_encadrement": False,  # Not regulated
+                "charges_m2_an": 30,
+                "taxe_fonciere_m2_an": 20,
+            }
+        ]
 
         result = apply_rent_caps(archetypes, apply_cap=True)
 
@@ -236,8 +241,8 @@ class TestScheduleMismatchHandling:
                     "tf_const_mth0": 35,
                     "frais_gestion_pct": 5.0,
                     "provision_pct": 3.0,
-                }
-            ]
+                },
+            ],
         }
 
         # Only 1 schedule for 2 properties
@@ -289,5 +294,4 @@ class TestHorizonEffects:
 
         if len(results) == 2:
             # Property appreciation over more years should increase value
-            assert results[25] >= results[15], \
-                f"25y={results[25]} should be >= 15y={results[15]}"
+            assert results[25] >= results[15], f"25y={results[25]} should be >= 15y={results[15]}"

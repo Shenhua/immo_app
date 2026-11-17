@@ -5,6 +5,7 @@ Generates investable 'bricks' (property + financing + costs) from archetypes.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -21,6 +22,7 @@ log = get_logger(__name__)
 @dataclass
 class FinancingConfig:
     """Configuration for financing parameters."""
+
     credit_rates: dict[int, float]  # duration -> rate
     frais_notaire_pct: float = FINANCING.frais_notaire_pct
     apport_min_pct: float = FINANCING.apport_min_pct
@@ -36,6 +38,7 @@ class FinancingConfig:
 @dataclass
 class OperatingConfig:
     """Configuration for operating costs."""
+
     frais_gestion_pct: float = OPERATING.gestion_pct
     provision_pct: float = OPERATING.provision_pct
     cfe_par_bien_ann: float = OPERATING.cfe_par_bien_ann
@@ -115,7 +118,9 @@ def create_investment_bricks(
         gestion_pct = float(gestion_raw if gestion_raw is not None else operating.frais_gestion_pct)
         vacance_raw = archetype.get("vacance_pct")
         # The sidebar vacancy is a floor, not a default: effective = max(archetype, slider).
-        vacance_pct = max(float(vacance_raw), operating.provision_pct) if vacance_raw is not None else operating.provision_pct
+        vacance_pct = (
+            max(float(vacance_raw), operating.provision_pct) if vacance_raw is not None else operating.provision_pct
+        )
         has_works = (travaux + reno) > 0
         mois_travaux = int(operating.mois_travaux) if has_works else 0
         maintenance_ann = surface * operating.maintenance_m2_an
@@ -125,13 +130,13 @@ def create_investment_bricks(
 
         # Total operating expenses (excluding debt)
         depenses_mth0 = (
-            charges_mth0 +
-            taxe_fonciere_mth0 +
-            gest_mth0 +
-            prov_mth0 +
-            loyer_mth0 * (1.0 - vacance_pct / 100.0) * (operating.gli_pct / 100.0) +
-            maintenance_ann / 12.0 +
-            (operating.cfe_par_bien_ann / 12.0 if is_furnished(archetype) else 0.0)
+            charges_mth0
+            + taxe_fonciere_mth0
+            + gest_mth0
+            + prov_mth0
+            + loyer_mth0 * (1.0 - vacance_pct / 100.0) * (operating.gli_pct / 100.0)
+            + maintenance_ann / 12.0
+            + (operating.cfe_par_bien_ann / 12.0 if is_furnished(archetype) else 0.0)
         )
 
         # 5. Calculate qualitative score for this property
@@ -146,17 +151,14 @@ def create_investment_bricks(
         # 6. Create variants for each loan duration
         base_data = archetype.copy()
         # Rename 'nom' to 'nom_bien' for internal consistency
-        base_data['nom_bien'] = base_data.pop('nom', 'Bien inconnu')
+        base_data["nom_bien"] = base_data.pop("nom", "Bien inconnu")
 
         for duree, taux in finance.credit_rates.items():
             duration_months = int(duree) * 12
 
             # Calculate Monthly Payment
             p_i, ins, pmt_total = calculate_total_monthly_payment(
-                capital_emprunte,
-                taux,
-                duration_months,
-                finance.assurance_ann_pct
+                capital_emprunte, taux, duration_months, finance.assurance_ann_pct
             )
 
             # Create InvestmentBrick instance
@@ -172,7 +174,6 @@ def create_investment_bricks(
                 "ratio_terrain_pct": float(ratio_terrain),
                 "cout_total": cout_total_projet,
                 "apport_min": apport_min,
-
                 # Loan
                 "capital_emprunte": capital_emprunte,
                 "credit_final": capital_emprunte,  # Alias
@@ -181,13 +182,11 @@ def create_investment_bricks(
                 "assurance_annuelle_pct": float(finance.assurance_ann_pct),
                 "pmt_principal_interet": p_i,
                 "pmt_assurance": ins,
-
                 # Legacy fields for backward compatibility (allowed by extra="allow")
                 "duree_pret": int(duree),
                 "taux_pret": float(taux),
                 "assurance_ann_pct": float(finance.assurance_ann_pct),
                 "pmt_total": pmt_total,
-
                 # Operating
                 "loyer_mensuel_initial": loyer_mth0,
                 "charges_const_mth0": charges_mth0,
@@ -198,17 +197,15 @@ def create_investment_bricks(
                 "maintenance_m2_an": float(operating.maintenance_m2_an),
                 "mois_travaux": mois_travaux,
                 "depenses_mensuelles_hors_credit_initial": depenses_mth0,
-
                 # Qualitative score
                 "qual_score_bien": qual_score,
             }
 
             # Map 'nom_bien' back to 'nom' for the model if needed
-            if 'nom_bien' in brick_dict and 'nom' not in brick_dict:
-                brick_dict['nom'] = brick_dict['nom_bien']
+            if "nom_bien" in brick_dict and "nom" not in brick_dict:
+                brick_dict["nom"] = brick_dict["nom_bien"]
 
             bricks.append(InvestmentBrick.model_validate(brick_dict))
-
 
     return bricks
 
@@ -256,6 +253,7 @@ REQUIRED_BRICK_FIELDS = [
 
 class BrickValidationError(ValueError):
     """Raised when a brick is missing required fields."""
+
     pass
 
 
@@ -274,7 +272,7 @@ def validate_brick(brick: dict[str, Any] | InvestmentBrick, strict: bool = False
     """
     warnings: list[str] = []
     # Handle both dict and InvestmentBrick
-    if hasattr(brick, 'model_dump'):
+    if hasattr(brick, "model_dump"):
         brick_data = brick.model_dump()
     else:
         brick_data = brick
@@ -298,7 +296,7 @@ def validate_brick(brick: dict[str, Any] | InvestmentBrick, strict: bool = False
     return warnings
 
 
-def validate_bricks(bricks: list[dict[str, Any] | InvestmentBrick], strict: bool = False) -> list[str]:
+def validate_bricks(bricks: Sequence[dict[str, Any] | InvestmentBrick], strict: bool = False) -> list[str]:
     """Validate all bricks in a list.
 
     Args:

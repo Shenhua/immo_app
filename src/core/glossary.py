@@ -2,6 +2,7 @@
 Standardized Financial Definitions & Formulas.
 Single Source of Truth for business logic calculations.
 """
+
 from typing import TypedDict
 
 import pandas as pd
@@ -80,11 +81,9 @@ class CashflowMetrics(TypedDict):
     is_acceptable: bool
     gap: float
 
+
 def calculate_cashflow_metrics(
-    df_sim: pd.DataFrame,
-    target_cf: float,
-    tolerance: float,
-    mode_cf: str = "target"
+    df_sim: pd.DataFrame, target_cf: float, tolerance: float, mode_cf: str = "target"
 ) -> CashflowMetrics:
     """
     Calculate cashflow metrics according to business rules:
@@ -132,6 +131,7 @@ def calculate_cashflow_metrics(
         "gap": float(gap_stab),
     }
 
+
 def calculate_dscr_metric(df_sim: pd.DataFrame, stabilised: bool = False) -> float:
     """
     Standardized DSCR calculation, for year 1 (default, with works months) or the stabilised year.
@@ -156,15 +156,12 @@ def calculate_dscr_metric(df_sim: pd.DataFrame, stabilised: bool = False) -> flo
     noi = rent + charges + interest
 
     if ds < 1e-9:
-        return 10.0 # Infinite DSCR essentially
+        return 10.0  # Infinite DSCR essentially
 
-    return noi / ds
+    return float(noi / ds)
 
-def calculate_enrichment_metrics(
-    bilan: dict,
-    apport_initial: float,
-    horizon: int
-) -> dict[str, float]:
+
+def calculate_enrichment_metrics(bilan: dict, apport_initial: float, horizon: int) -> dict[str, float]:
     """
     Standardized Wealth Calculation.
 
@@ -189,8 +186,4 @@ def calculate_enrichment_metrics(
     # liquidation - apport, which would drop the cash flows. Fallback only for a bilan without it.
     enrich_standard = float(bilan.get("enrichissement_net", liq_nette - apport_initial))
 
-    return {
-        "liquidation_nette": liq_nette,
-        "enrichissement_net": enrich_standard,
-        "apport_initial": apport_initial
-    }
+    return {"liquidation_nette": liq_nette, "enrichissement_net": enrich_standard, "apport_initial": apport_initial}

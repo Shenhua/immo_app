@@ -26,7 +26,9 @@ TAX_SETUPS = {
 
 
 def _run_search(ctx: RunContext) -> dict:
-    fin = FinancingConfig(credit_rates={15: 3.5, 20: 3.6, 25: 3.8}, frais_notaire_pct=8.0, assurance_ann_pct=0.35, frais_pret_pct=1.0)
+    fin = FinancingConfig(
+        credit_rates={15: 3.5, 20: 3.6, 25: 3.8}, frais_notaire_pct=8.0, assurance_ann_pct=0.35, frais_pret_pct=1.0
+    )
     op = OperatingConfig(frais_gestion_pct=5.0, provision_pct=3.0, cfe_par_bien_ann=500)
     bricks = create_investment_bricks(load_archetypes()[:10], fin, op)
     finder = StrategyFinder(
@@ -46,7 +48,9 @@ def test_search_bilan_equals_detail_bilan(setup):
     ep = EvaluationParams.from_dict(ctx.to_eval_params())
     assert ep.hypotheses_marche["tf_growth_pct"] == TF_GROWTH
     evaluator = StrategyEvaluator(simulator=build_engine(ep.hypotheses_marche, ep.to_tax_params()))
-    df_search, bilan_search = evaluator.run_simulation(strategy, ctx.horizon_ans, evaluator.generate_schedules(strategy["details"]))
+    df_search, bilan_search = evaluator.run_simulation(
+        strategy, ctx.horizon_ans, evaluator.generate_schedules(strategy["details"])
+    )
 
     # Detail side: what the UI does.
     df_detail = simulate_selected_strategy(strategy, ctx)

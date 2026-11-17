@@ -19,10 +19,21 @@ from src.application.services.simulation import simulate_long_term_strategy
 
 def _prop(meuble: bool, name: str = "b", rent: float = 900.0) -> dict[str, Any]:
     return {
-        "nom_bien": name, "prix_achat_bien": 150_000.0, "frais_notaire": 12_000.0, "budget_travaux": 0.0,
-        "renovation_energetique": 0.0, "mobilier": 5_000.0 if meuble else 0.0, "credit_final": 140_000.0,
-        "taux_pret": 3.5, "duree_pret": 20, "assurance_ann_pct": 0.3, "loyer_mensuel_initial": rent,
-        "charges_const_mth0": 100.0, "tf_const_mth0": 70.0, "frais_gestion_pct": 0.0, "provision_pct": 0.0,
+        "nom_bien": name,
+        "prix_achat_bien": 150_000.0,
+        "frais_notaire": 12_000.0,
+        "budget_travaux": 0.0,
+        "renovation_energetique": 0.0,
+        "mobilier": 5_000.0 if meuble else 0.0,
+        "credit_final": 140_000.0,
+        "taux_pret": 3.5,
+        "duree_pret": 20,
+        "assurance_ann_pct": 0.3,
+        "loyer_mensuel_initial": rent,
+        "charges_const_mth0": 100.0,
+        "tf_const_mth0": 70.0,
+        "frais_gestion_pct": 0.0,
+        "provision_pct": 0.0,
         "meuble": meuble,
     }
 
@@ -36,9 +47,16 @@ CTX = RunContext(horizon_ans=10, apply_ira=False)
 
 def _result(label: str, cum: list[float], wealth: float, user: bool = False) -> RegimeResult:
     return RegimeResult(
-        key=RegimeKey("lmnp" if user else "microbic", None), label=label, is_user_choice=user,
-        years=list(range(1, len(cum) + 1)), tax=[0.0] * len(cum), cash_flow=[0.0] * len(cum),
-        cumulative_cf=cum, tri_annuel=None, enrichissement_net=wealth, exit_tax=0.0,
+        key=RegimeKey("lmnp" if user else "microbic", None),
+        label=label,
+        is_user_choice=user,
+        years=list(range(1, len(cum) + 1)),
+        tax=[0.0] * len(cum),
+        cash_flow=[0.0] * len(cum),
+        cumulative_cf=cum,
+        tri_annuel=None,
+        enrichissement_net=wealth,
+        exit_tax=0.0,
     )
 
 

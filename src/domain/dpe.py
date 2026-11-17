@@ -11,6 +11,7 @@ Pure functions, no streamlit: used by the simulation engine and by the UI badge.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from src.core.defaults import DPE
 
@@ -47,7 +48,9 @@ class RenovationEvent:
 
 
 def renovation_plan(
-    dpe: object, first_year: int = DPE.first_year, ban_years: tuple[tuple[str, int], ...] = DPE.ban_years,
+    dpe: object,
+    first_year: int = DPE.first_year,
+    ban_years: tuple[tuple[str, int], ...] = DPE.ban_years,
 ) -> list[RenovationEvent]:
     """Renovations needed over time: before each ban that hits the current class, go to the minimum allowed class.
 
@@ -74,7 +77,7 @@ def ban_warning(dpe: object, horizon_years: int, first_year: int = DPE.first_yea
     return f"DPE {c} : interdit à la location {'depuis' if y <= first_year else 'en'} {y}"
 
 
-def property_ban_warning(bien: dict, horizon_years: int) -> str | None:
+def property_ban_warning(bien: dict[str, Any], horizon_years: int) -> str | None:
     """Badge for one brick dict; a brick already renovated at purchase ("Reno E→D") counts as class D."""
     renovated = float(bien.get("renovation_energetique", 0.0) or 0.0) > 0
     return ban_warning("D" if renovated else bien.get("dpe_initial"), horizon_years)

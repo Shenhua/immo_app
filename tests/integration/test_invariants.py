@@ -20,41 +20,41 @@ from src.application.services.strategy_finder import StrategyFinder
 
 # --- Fixtures ---
 
+
 @pytest.fixture
 def random_archetypes() -> list[dict[str, Any]]:
     """Generate 50 random property archetypes."""
     res = []
     for i in range(50):
-        res.append({
-            "nom": f"Random Apt {i}",
-            "ville": random.choice(["Paris", "Lyon", "Marseille", "Bordeaux"]),
-            "surface": random.randint(20, 100),
-            "prix_m2": random.uniform(2000, 12000),
-            "loyer_m2": random.uniform(10, 40),
-            "charges_m2_an": random.uniform(10, 50),
-            "taxe_fonciere_m2_an": random.uniform(5, 25),
-            "dpe_initial": random.choice(["A", "C", "D", "E", "F", "G"]),
-            "tension_locative_score_norm": random.random(),
-            "transport_score": random.random(),
-            "liquidite_score": random.random(),
-            "soumis_encadrement": random.choice([True, False]),
-            "loyer_m2_max": random.uniform(15, 30),
-            "budget_travaux": random.uniform(0, 50000),
-            "valeur_mobilier": random.uniform(0, 10000),
-        })
+        res.append(
+            {
+                "nom": f"Random Apt {i}",
+                "ville": random.choice(["Paris", "Lyon", "Marseille", "Bordeaux"]),
+                "surface": random.randint(20, 100),
+                "prix_m2": random.uniform(2000, 12000),
+                "loyer_m2": random.uniform(10, 40),
+                "charges_m2_an": random.uniform(10, 50),
+                "taxe_fonciere_m2_an": random.uniform(5, 25),
+                "dpe_initial": random.choice(["A", "C", "D", "E", "F", "G"]),
+                "tension_locative_score_norm": random.random(),
+                "transport_score": random.random(),
+                "liquidite_score": random.random(),
+                "soumis_encadrement": random.choice([True, False]),
+                "loyer_m2_max": random.uniform(15, 30),
+                "budget_travaux": random.uniform(0, 50000),
+                "valeur_mobilier": random.uniform(0, 10000),
+            }
+        )
     return res
+
 
 @pytest.fixture
 def default_configs():
-    return (
-        FinancingConfig(
-            credit_rates={20: 3.5, 25: 3.8},
-            frais_notaire_pct=7.5
-        ),
-        OperatingConfig()
-    )
+    return (FinancingConfig(credit_rates={20: 3.5, 25: 3.8}, frais_notaire_pct=7.5), OperatingConfig())
+
 
 # --- Invariant Tests ---
+
 
 class TestScientificInvariants:
     """Rules that must be mathematically true."""
@@ -120,11 +120,13 @@ class TestDataDiversity:
         # Convert bricks to strategies
         strategies = []
         for b in bricks:
-            strategies.append({
-                "details": [b],
-                "finance_score": random.random(), # Mock for now, normally computed
-                "qual_score": b["qual_score_bien"]
-            })
+            strategies.append(
+                {
+                    "details": [b],
+                    "finance_score": random.random(),  # Mock for now, normally computed
+                    "qual_score": b["qual_score_bien"],
+                }
+            )
 
         # Real finder would compute these
         StrategyFinder(bricks, 100000, 0)
@@ -144,14 +146,16 @@ class TestRankingIntegrity:
         # Mock strategies from bricks
         strategies = []
         for b in bricks:
-            strategies.append({
-                "details": [b],
-                "nom_strategy": b["nom_bien"],
-                "cf_proximity": random.random(), # Mock
-                "dscr_norm": random.random(),
-                "finance_score": random.random(),
-                "cf_distance": random.uniform(0, 500)
-            })
+            strategies.append(
+                {
+                    "details": [b],
+                    "nom_strategy": b["nom_bien"],
+                    "cf_proximity": random.random(),  # Mock
+                    "dscr_norm": random.random(),
+                    "finance_score": random.random(),
+                    "cf_distance": random.uniform(0, 500),
+                }
+            )
 
         finder = StrategyFinder([], 0, 0)
 
@@ -181,12 +185,13 @@ class TestBoundarySafety:
     def test_negative_values(self, random_archetypes):
         """System handles potential negative inputs gracefully."""
         bad_apt = random_archetypes[0].copy()
-        bad_apt["loyer_m2"] = -10.0 # Weird case
+        bad_apt["loyer_m2"] = -10.0  # Weird case
 
         fin = FinancingConfig(credit_rates={25: 3.0})
         op = OperatingConfig()
 
         # Should raise ValidationError because we hardened the model
         from pydantic import ValidationError
+
         with pytest.raises(ValidationError):
             create_investment_bricks([bad_apt], fin, op)

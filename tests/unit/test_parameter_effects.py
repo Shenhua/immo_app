@@ -217,11 +217,23 @@ class TestPresetRanking:
 # --------------------------------------------------------------------------- #
 def _sim_strategy(**over: Any) -> dict[str, Any]:
     prop = {
-        "prix_achat_bien": 100_000.0, "frais_notaire": 8_000.0, "budget_travaux": 0.0,
-        "renovation_energetique": 0.0, "mobilier": 0.0, "ratio_terrain_pct": 15.0, "surface": 30.0,
-        "credit_final": 90_000.0, "taux_pret": 3.5, "duree_pret": 20, "assurance_ann_pct": 0.3,
-        "loyer_mensuel_initial": 600.0, "charges_const_mth0": 50.0, "tf_const_mth0": 50.0,
-        "frais_gestion_pct": 7.0, "provision_pct": 0.0, "meuble": False,
+        "prix_achat_bien": 100_000.0,
+        "frais_notaire": 8_000.0,
+        "budget_travaux": 0.0,
+        "renovation_energetique": 0.0,
+        "mobilier": 0.0,
+        "ratio_terrain_pct": 15.0,
+        "surface": 30.0,
+        "credit_final": 90_000.0,
+        "taux_pret": 3.5,
+        "duree_pret": 20,
+        "assurance_ann_pct": 0.3,
+        "loyer_mensuel_initial": 600.0,
+        "charges_const_mth0": 50.0,
+        "tf_const_mth0": 50.0,
+        "frais_gestion_pct": 7.0,
+        "provision_pct": 0.0,
+        "meuble": False,
     }
     prop.update(over)
     return {"apport_total": 20_000.0, "details": [prop]}
@@ -233,7 +245,9 @@ def _run(regime_foncier: str = "reel", market: dict[str, float] | None = None, *
     mk = {"appreciation_bien_pct": 2.0, "revalo_loyer_pct": 0.0, "inflation_charges_pct": 0.0}
     mk.update(market or {})
     return simulate_long_term_strategy(
-        _sim_strategy(**over), 10, mk,
+        _sim_strategy(**over),
+        10,
+        mk,
         {"regime_foncier": regime_foncier, "tmi_pct": 30.0, "apply_ira": False},
     )
 
@@ -281,7 +295,10 @@ class TestRealisticAssumptions:
 
         assert OPERATING.gestion_pct == 7.0
         assert (REALISM.maintenance_m2_an, REALISM.gli_pct, REALISM.mois_travaux, REALISM.tf_growth_pct) == (
-            10.0, 3.0, 3, 3.0,
+            10.0,
+            3.0,
+            3,
+            3.0,
         )
 
     def test_vacancy_slider_is_a_floor(self, sample_archetypes):

@@ -4,13 +4,14 @@ Strategy Evaluator - Shared evaluation logic for strategy optimization.
 This module holds the evaluation pipeline used by the portfolio search (optimizer.py)
 and by the detail / parity checks.
 """
-from typing import Any
+
+from typing import Any, cast
 
 import structlog
 
 from src.core.defaults import BASE_WEIGHTS, SEARCH
 from src.core.exceptions import SimulationError
-from src.core.glossary import calculate_cashflow_metrics, calculate_enrichment_metrics
+from src.core.glossary import CashflowMetrics, calculate_cashflow_metrics, calculate_enrichment_metrics
 from src.domain.calculator.financial import generate_amortization_schedule
 from src.domain.calculator.scoring import calculate_qualitative_score
 
@@ -36,10 +37,7 @@ class StrategyEvaluator:
     DEFAULT_WEIGHTS = BASE_WEIGHTS
 
     def __init__(
-        self,
-        simulator: SimulationEngine,
-        allocator: PortfolioAllocator | None = None,
-        scorer: Any | None = None
+        self, simulator: SimulationEngine, allocator: PortfolioAllocator | None = None, scorer: Any | None = None
     ):
         """
         Initialize evaluator with dependencies.
@@ -56,21 +54,21 @@ class StrategyEvaluator:
     @property
     def weights(self) -> dict[str, float]:
         """Get scoring weights from scorer or use defaults."""
-        if self.scorer and hasattr(self.scorer, 'weights'):
-            return self.scorer.weights
+        if self.scorer and hasattr(self.scorer, "weights"):
+            return cast(dict[str, float], self.scorer.weights)
         return self.DEFAULT_WEIGHTS
 
     @property
     def quality_weight(self) -> float:
         """Get quality vs finance weighting."""
-        if self.scorer and hasattr(self.scorer, 'qualite_weight'):
-            return self.scorer.qualite_weight
+        if self.scorer and hasattr(self.scorer, "qualite_weight"):
+            return float(self.scorer.qualite_weight)
         return SEARCH.qualite_weight
 
     @property
     def mode_cf(self) -> str:
         """Get cash flow mode from allocator."""
-        if self.allocator and hasattr(self.allocator, 'mode_cf'):
+        if self.allocator and hasattr(self.allocator, "mode_cf"):
             return self.allocator.mode_cf
         return "target"
 
@@ -104,17 +102,14 @@ class StrategyEvaluator:
                 principal=principal,
                 annual_rate_pct=rate,
                 duration_months=duration_months,
-                annual_insurance_pct=insurance
+                annual_insurance_pct=insurance,
             )
             schedules.append(sch)
 
         return schedules
 
     def run_simulation(
-        self,
-        strategy: dict[str, Any],
-        horizon: int,
-        schedules: list[dict[str, Any]]
+        self, strategy: dict[str, Any], horizon: int, schedules: list[dict[str, Any]]
     ) -> tuple[Any, dict[str, Any]]:
         """
         Run simulation for a strategy.
@@ -129,12 +124,7 @@ class StrategyEvaluator:
         """
         return self.simulator.simulate(strategy, horizon, schedules)
 
-    def calculate_cf_metrics(
-        self,
-        df_sim: Any,
-        target_cf: float,
-        tolerance: float
-    ) -> dict[str, Any]:
+    def calculate_cf_metrics(self, df_sim: Any, target_cf: float, tolerance: float) -> CashflowMetrics:
         """
         Calculate cash flow metrics from simulation results.
 
@@ -148,12 +138,7 @@ class StrategyEvaluator:
         """
         return calculate_cashflow_metrics(df_sim, target_cf, tolerance, mode_cf=self.mode_cf)
 
-    def calculate_enrichment_metrics(
-        self,
-        bilan: dict[str, Any],
-        apport_total: float,
-        horizon: int
-    ) -> dict[str, Any]:
+    def calculate_enrichment_metrics(self, bilan: dict[str, Any], apport_total: float, horizon: int) -> dict[str, Any]:
         """
         Calculate enrichment metrics from simulation bilan.
 
@@ -170,10 +155,10 @@ class StrategyEvaluator:
     def calculate_finance_score(
         self,
         bilan: dict[str, Any],
-        cf_metrics: dict[str, Any],
+        cf_metrics: CashflowMetrics,
         apport_total: float,
         tolerance: float,
-        horizon_years: int = 20
+        horizon_years: int = 20,
     ) -> float:
         """
         Calculate finance score (0.0 to 1.0) using absolute scales.
@@ -217,11 +202,7 @@ class StrategyEvaluator:
         """
         return calculate_qualitative_score({"details": details})
 
-    def calculate_combined_score(
-        self,
-        finance_score: float,
-        quality_score: float
-    ) -> float:
+    def calculate_combined_score(self, finance_score: float, quality_score: float) -> float:
         """
         Calculate combined/balanced score.
 
@@ -240,11 +221,7 @@ class StrategyEvaluator:
         return blend_quality(finance_score, quality_score, self.quality_weight)
 
     def evaluate(
-        self,
-        strategy: dict[str, Any],
-        target_cf: float,
-        tolerance: float,
-        horizon: int
+        self, strategy: dict[str, Any], target_cf: float, tolerance: float, horizon: int
     ) -> tuple[bool, dict[str, Any]]:
         """
         Full evaluation pipeline for a strategy.
@@ -291,7 +268,6 @@ class StrategyEvaluator:
                 "irr_failed": bilan.get("tri_annuel", 0.0) is None,
                 "dscr_y1": bilan.get("dscr_y1", 0.0),  # year 1, with works months (display)
                 "dscr_stab": bilan.get("dscr_stab", 0.0),  # stabilised year (acceptance of risk, scoring)
-
                 # CF metrics
                 "cf_monthly_y1": cf_metrics.get("cf_year_1_monthly", 0.0),  # year 1, with works (display)
                 "cf_monthly_stab": cf_metrics.get("cf_stabilised_monthly", 0.0),  # stabilised: acceptance + scoring

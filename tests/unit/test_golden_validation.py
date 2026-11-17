@@ -173,9 +173,7 @@ class TestGoldenSimulation:
             ira=IRACalculator(apply_ira=False),
         )
 
-        schedules = [
-            generate_amortization_schedule(100_000, 3.6, 300, 0.35)
-        ]
+        schedules = [generate_amortization_schedule(100_000, 3.6, 300, 0.35)]
 
         df, bilan = engine.simulate(golden_strategy, 25, schedules)
 
@@ -190,9 +188,7 @@ class TestGoldenSimulation:
             ira=IRACalculator(apply_ira=False),
         )
 
-        schedules = [
-            generate_amortization_schedule(100_000, 3.6, 300, 0.35)
-        ]
+        schedules = [generate_amortization_schedule(100_000, 3.6, 300, 0.35)]
 
         df, bilan = engine.simulate(golden_strategy, 25, schedules)
 
@@ -201,7 +197,7 @@ class TestGoldenSimulation:
         # Initial value = prix_achat_bien only = 100,000
         # TAX_SPEC 1.7 (T21): value at the end of year H = price x (1+g)^H, so 25 years here
         # 100,000 × 1.02^25 = 164,060.60
-        expected_final = 100_000 * (1.02 ** 25)
+        expected_final = 100_000 * (1.02**25)
 
         final_value = df.iloc[-1]["Valeur Biens"]
         assert abs(final_value - expected_final) < 100, f"Expected ~{expected_final:.0f}, got {final_value:.0f}"
@@ -209,7 +205,12 @@ class TestGoldenSimulation:
 
 def _ctx(rent: float, charges: float, amort: float) -> YearContext:
     return YearContext(
-        year=1, property_id=0, rent=rent, operating_charges=charges, interest=0.0, loan_insurance=0.0,
+        year=1,
+        property_id=0,
+        rent=rent,
+        operating_charges=charges,
+        interest=0.0,
+        loan_insurance=0.0,
         amort_building=amort,
     )
 
@@ -260,15 +261,15 @@ class TestIRACalculation:
         ira_calc = IRACalculator(apply_ira=True, ira_cap_pct=3.0)
 
         # Create a simple project with known remaining balance
-        projets = [{
-            "credit_final": 100_000,
-            "taux_pret": 3.6,
-            "duree_pret": 25,
-        }]
-
-        schedules = [
-            generate_amortization_schedule(100_000, 3.6, 300, 0.35)
+        projets = [
+            {
+                "credit_final": 100_000,
+                "taux_pret": 3.6,
+                "duree_pret": 25,
+            }
         ]
+
+        schedules = [generate_amortization_schedule(100_000, 3.6, 300, 0.35)]
 
         # At horizon 10 years, remaining balance is approximately 72,000€
         # IRA = min(3% × 72,000, 6 months interest)

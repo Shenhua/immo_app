@@ -2,12 +2,12 @@
 
 ## 1. Project Identity Card
 * **Project Purpose:** A sophisticated Real Estate Investment Strategy Simulator that helps investors find optimal portfolios of properties by combinatorically analyzing property "bricks" against financial goals (cash flow, yield, wealth creation).
-* **Current Stack:** 
+* **Current Stack:**
     * **Language:** Python 3.10+
     * **Frameworks:** Streamlit (UI)
     * **Data/Math:** Pandas, Numpy, Numpy-financial, Plotly
     * **Quality/DevOps:** Pydantic (Validation), Structlog (Logging), Pytest (Testing), Ruff (Linting), Mypy (Types), Docker.
-* **Architecture Overview:** 
+* **Architecture Overview:**
     * **Flow:** Raw Archetype Data → `BrickFactory` (Financing) → `StrategyFinder` (Search Orchestration) → `ExhaustiveOptimizer` (Combinations) → `PortfolioAllocator` (Capital Distribution) → `SimulationEngine` (Long-term Projections) → `StrategyScorer` (Ranking) → Streamlit UI.
     * **State Management:** Uses a `SessionManager` to bridge Streamlit's session state with the backend.
 
@@ -64,7 +64,7 @@ src/
 
 ### Best Practices to Implement
 * **Common Response Pattern:** All services return a unified `Result[T, E]` or raise structured exceptions.
-* **Testing Strategy:** 
+* **Testing Strategy:**
     * **Property-Based Testing (Hypothesis):** Use for `PortfolioAllocator` to ensure it never violates budget constraints regardless of input.
     * **Golden Fixtures:** Maintain the `test_golden_validation.py` to prevent regression in financial math.
 * **Type Safety:** Set `disallow_untyped_defs = true` for the `domain/` and `application/` layers.

@@ -185,14 +185,22 @@ def _loan_schedules(strategy: dict[str, Any]) -> list[tuple[str, pd.DataFrame]]:
         if principal <= 0:
             continue  # all-cash property: no loan
         sch = generate_amortization_schedule(
-            principal, float(p.get("taux_pret", 0.0)), int(p.get("duree_pret", 20)) * 12,
+            principal,
+            float(p.get("taux_pret", 0.0)),
+            int(p.get("duree_pret", 20)) * 12,
             float(p.get("assurance_ann_pct", 0.0)),
         )
-        df = pd.DataFrame({
-            "Mois": sch["mois"], "Capital restant dû (début)": sch["capital_restant_debut"],
-            "Intérêts": sch["interet"], "Principal": sch["principal"], "Assurance": sch["assurance"],
-            "Mensualité totale": sch["paiement_total"], "Capital restant dû (fin)": sch["capital_restant_fin"],
-        })
+        df = pd.DataFrame(
+            {
+                "Mois": sch["mois"],
+                "Capital restant dû (début)": sch["capital_restant_debut"],
+                "Intérêts": sch["interet"],
+                "Principal": sch["principal"],
+                "Assurance": sch["assurance"],
+                "Mensualité totale": sch["paiement_total"],
+                "Capital restant dû (fin)": sch["capital_restant_fin"],
+            }
+        )
         out.append((str(p.get("nom_bien", p.get("nom", f"Bien {i + 1}"))), df))
     return out
 
@@ -208,9 +216,7 @@ def build_report(
 ) -> ReportModel:
     """Assemble the report model. Runs the detail simulation unless ``df`` and ``bilan`` are given."""
     if df is None or bilan is None:
-        df, bilan = simulate_long_term_strategy(
-            strategy, ctx.horizon_ans, ctx.market_hypotheses, ctx.to_tax_params()
-        )
+        df, bilan = simulate_long_term_strategy(strategy, ctx.horizon_ans, ctx.market_hypotheses, ctx.to_tax_params())
     name = name or default_strategy_name(strategy)
     details = strategy.get("details", [])
 
@@ -241,12 +247,17 @@ def build_report(
         ("Prix d'achat total", total_price, "eur"),
         ("Apport", _num(strategy.get("apport_total")), "eur"),
         ("Crédits totaux", total_credit, "eur"),
-        ("Régimes fiscaux appliqués", ", ".join(f"{k} : {v}" for k, v in bilan.get("regimes", {}).items()) or NA, "text"),
+        (
+            "Régimes fiscaux appliqués",
+            ", ".join(f"{k} : {v}" for k, v in bilan.get("regimes", {}).items()) or NA,
+            "text",
+        ),
     ]
 
-    props = pd.DataFrame([
-        {label: p.get(key) for key, label, _ in PROPERTY_COLUMNS} for p in details
-    ], columns=[label for _, label, _ in PROPERTY_COLUMNS])
+    props = pd.DataFrame(
+        [{label: p.get(key) for key, label, _ in PROPERTY_COLUMNS} for p in details],
+        columns=[label for _, label, _ in PROPERTY_COLUMNS],
+    )
 
     fiscal = pd.DataFrame(bilan.get("fiscal_annuel", []))
     ex = bilan.get("exit_tax", {})
@@ -260,9 +271,7 @@ def build_report(
         ("Total impôt de sortie", _num(ex.get("total")), "eur"),
         ("IRA (indemnités de remboursement anticipé)", _num(bilan.get("ira_total")), "eur"),
     ]
-    pv = pd.DataFrame([
-        {k: _plain(v) for k, v in row.items()} for row in bilan.get("plus_value_par_bien", [])
-    ])
+    pv = pd.DataFrame([{k: _plain(v) for k, v in row.items()} for row in bilan.get("plus_value_par_bien", [])])
 
     alerts: list[tuple[str, str]] = []
     for w in bilan.get("tax_warnings", []) or []:
@@ -310,16 +319,18 @@ def _regime_table(strategy: dict[str, Any], ctx: RunContext) -> pd.DataFrame:
     from src.application.services.regime_comparison import compare_regimes
 
     cmp = compare_regimes(strategy, ctx)
-    return pd.DataFrame([
-        {
-            "Régime": r.label + (" (choisi)" if r.is_user_choice else ""),
-            "Enrichissement net": r.enrichissement_net,
-            "TRI annuel (%)": _num(r.tri_annuel),
-            "Impôt de sortie": r.exit_tax,
-            "Impôt cumulé": sum(r.tax),
-        }
-        for r in cmp.results
-    ])
+    return pd.DataFrame(
+        [
+            {
+                "Régime": r.label + (" (choisi)" if r.is_user_choice else ""),
+                "Enrichissement net": r.enrichissement_net,
+                "TRI annuel (%)": _num(r.tri_annuel),
+                "Impôt de sortie": r.exit_tax,
+                "Impôt cumulé": sum(r.tax),
+            }
+            for r in cmp.results
+        ]
+    )
 
 
 def yearly_summary(yearly: pd.DataFrame, step: int = 5) -> pd.DataFrame:
@@ -465,8 +476,18 @@ def render_excel(model: ReportModel) -> bytes:
 def _latin(text: Any) -> str:
     """fpdf2 core fonts are latin-1: map the few characters outside it."""
     s = str(text)
-    for a, b in (("€", "EUR"), (" ", " "), ("\xa0", " "), ("→", "->"), ("–", "-"), ("—", "-"), ("’", "'"),
-                 ("≥", ">="), ("≤", "<="), ("×", "x")):
+    for a, b in (
+        ("€", "EUR"),
+        (" ", " "),
+        ("\xa0", " "),
+        ("→", "->"),
+        ("–", "-"),
+        ("—", "-"),
+        ("’", "'"),
+        ("≥", ">="),
+        ("≤", "<="),
+        ("×", "x"),
+    ):
         s = s.replace(a, b)
     return s.encode("latin-1", "replace").decode("latin-1")
 
@@ -513,7 +534,9 @@ def render_pdf(model: ReportModel) -> bytes:
     _pdf_table(pdf, ["Indicateur", "Valeur"], kp, [90, 60])
 
     _h(pdf, "Stratégie")
-    _pdf_table(pdf, ["Élément", "Valeur"], [[lbl, format_value(v, k)] for lbl, v, k in model.strategy_summary], [60, 126])
+    _pdf_table(
+        pdf, ["Élément", "Valeur"], [[lbl, format_value(v, k)] for lbl, v, k in model.strategy_summary], [60, 126]
+    )
     props = model.properties
     if not props.empty:
         cols = ["Bien", "Prix d'achat", "Travaux", "Crédit", "Taux (%)", "Durée (ans)", "Loyer mensuel"]
@@ -532,8 +555,19 @@ def render_pdf(model: ReportModel) -> bytes:
     _h(pdf, "Projection annuelle (tous les 5 ans et dernière année)")
     ys = yearly_summary(model.yearly)
     if not ys.empty:
-        cols = [c for c in ("Année", "Valeur Biens", "Dette", "Patrimoine Net", "Loyers Bruts", "Impôt Dû",
-                            "Cash-Flow Net d'Impôt") if c in ys.columns]
+        cols = [
+            c
+            for c in (
+                "Année",
+                "Valeur Biens",
+                "Dette",
+                "Patrimoine Net",
+                "Loyers Bruts",
+                "Impôt Dû",
+                "Cash-Flow Net d'Impôt",
+            )
+            if c in ys.columns
+        ]
         rows = [[format_value(r[c], "int" if c == "Année" else "eur") for c in cols] for _, r in ys.iterrows()]
         _pdf_table(pdf, cols, rows)
 

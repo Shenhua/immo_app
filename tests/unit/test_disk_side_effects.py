@@ -48,9 +48,7 @@ def test_env_vars_read_once_at_import(monkeypatch: pytest.MonkeyPatch, tmp_path)
         importlib.reload(app_controller)
 
 
-def test_autosave_results_writes_nothing_when_disabled(
-    monkeypatch: pytest.MonkeyPatch, tmp_path
-) -> None:
+def test_autosave_results_writes_nothing_when_disabled(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     """A default run must not create the results directory or any JSON file."""
     monkeypatch.setattr(app_controller, "AUTOSAVE_ENABLED", False)
     monkeypatch.setattr(app_controller, "RESULTS_DIR", str(tmp_path / "results"))
@@ -61,9 +59,7 @@ def test_autosave_results_writes_nothing_when_disabled(
     assert list(tmp_path.iterdir()) == []
 
 
-def test_autosave_results_writes_when_enabled(
-    monkeypatch: pytest.MonkeyPatch, tmp_path
-) -> None:
+def test_autosave_results_writes_when_enabled(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     """With the flag on, results go to the configured directory."""
     out_dir = tmp_path / "out"
     monkeypatch.setattr(app_controller, "AUTOSAVE_ENABLED", True)

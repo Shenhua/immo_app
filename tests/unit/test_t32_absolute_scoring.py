@@ -71,7 +71,9 @@ def test_pareto_ranks_on_a_hand_made_set():
     c = _strat("C", enrich_net=100_000.0, tri_annuel=5.0, apport_total=20_000.0)  # cheapest
     d = _strat("D", enrich_net=90_000.0, tri_annuel=4.0, apport_total=100_000.0)  # dominated by b (and a)
     e = _strat("E", enrich_net=80_000.0, tri_annuel=3.0, apport_total=100_000.0)  # dominated by d too
-    f = _strat("F", enrich_net=300_000.0, tri_annuel=5.0, apport_total=100_000.0, cf_monthly_stab=-80.0)  # worse CF than a
+    f = _strat(
+        "F", enrich_net=300_000.0, tri_annuel=5.0, apport_total=100_000.0, cf_monthly_stab=-80.0
+    )  # worse CF than a
     strategies = [a, b, c, d, e, f]
     assign_pareto_ranks(strategies, 0.0, "min")
     assert [s["pareto_rank"] for s in strategies] == [1, 1, 1, 2, 3, 2]
@@ -79,10 +81,15 @@ def test_pareto_ranks_on_a_hand_made_set():
 
 def test_high_wealth_strategy_survives_under_patrimoine():
     """A big-wealth, big-apport, thin-CF strategy is not filtered out and ranks first under Patrimoine."""
-    wealth = _strat("W", enrich_net=900_000.0, tri_annuel=7.0, apport_total=200_000.0, dscr_stab=1.0,
-                    cf_monthly_stab=-300.0)
-    cheap = [_strat(f"S{i}", enrich_net=30_000.0 + i, tri_annuel=8.0, apport_total=20_000.0, dscr_stab=1.4,
-                    cf_monthly_stab=50.0) for i in range(15)]
+    wealth = _strat(
+        "W", enrich_net=900_000.0, tri_annuel=7.0, apport_total=200_000.0, dscr_stab=1.0, cf_monthly_stab=-300.0
+    )
+    cheap = [
+        _strat(
+            f"S{i}", enrich_net=30_000.0 + i, tri_annuel=8.0, apport_total=20_000.0, dscr_stab=1.4, cf_monthly_stab=50.0
+        )
+        for i in range(15)
+    ]
     strategies = [wealth, *cheap]
     finder = StrategyFinder(bricks=[], apport_disponible=250_000.0, cash_flow_cible=-500.0, mode_cf="min")
     finder.scorer.weights = finder.scorer._normalize_weights(preset_weights("Patrimoine LT"))

@@ -33,8 +33,13 @@ ARCHETYPE_IDX = [8, 10, 13, 7, 0, 2]  # 4 cheap furnished + 2 unfurnished (fonci
 
 CASES: dict[str, dict] = {
     "P1_min_loose": {"apport": 100000, "cf_cible": -6000.0, "mode_cf": "min", "max_properties": 3},
-    "P2_target_wide": {"apport": 80000, "cf_cible": -1500.0, "tolerance": 2500.0, "mode_cf": "target",
-                       "max_properties": 2},
+    "P2_target_wide": {
+        "apport": 80000,
+        "cf_cible": -1500.0,
+        "tolerance": 2500.0,
+        "mode_cf": "target",
+        "max_properties": 2,
+    },
     "P3_min_allocating": {"apport": 120000, "cf_cible": -450.0, "mode_cf": "min", "max_properties": 2},
 }
 EXACT_CASES = ("P1_min_loose", "P2_target_wide")
@@ -63,13 +68,22 @@ def _run(case: dict) -> list[dict]:
     ctx = RunContext(**{"filtrer_hcsf": False, **case})  # T60: the old exhaustive reference has no HCSF filter
     fin = build_financing_config(ctx.to_credit_params())
     op = build_operating_config(
-        ctx.gestion_pct, ctx.vacance_pct, ctx.cfe_par_bien_ann,
-        maintenance_m2_an=ctx.maintenance_m2_an, gli_pct=ctx.gli_pct, mois_travaux=ctx.mois_travaux,
+        ctx.gestion_pct,
+        ctx.vacance_pct,
+        ctx.cfe_par_bien_ann,
+        maintenance_m2_an=ctx.maintenance_m2_an,
+        gli_pct=ctx.gli_pct,
+        mois_travaux=ctx.mois_travaux,
     )
     bricks = create_investment_bricks(_archetypes(), fin, op)
     finder = StrategyFinder(
-        bricks=bricks, apport_disponible=ctx.apport, cash_flow_cible=ctx.cf_cible, tolerance=ctx.tolerance,
-        qualite_weight=ctx.qualite_weight, mode_cf=ctx.mode_cf, max_properties=ctx.max_properties,
+        bricks=bricks,
+        apport_disponible=ctx.apport,
+        cash_flow_cible=ctx.cf_cible,
+        tolerance=ctx.tolerance,
+        qualite_weight=ctx.qualite_weight,
+        mode_cf=ctx.mode_cf,
+        max_properties=ctx.max_properties,
     )
     res = finder.find_strategies(eval_params=ctx.to_eval_params(), horizon_years=ctx.horizon_ans, top_n=ctx.top_n)
     return [_record(s) for s in res]
@@ -80,8 +94,9 @@ def _golden() -> dict:
 
 
 if os.environ.get("REGEN_SEARCH_GOLDEN") == "1":  # pragma: no cover - manual capture only
-    GOLDEN.write_text(json.dumps({k: _run(c) for k, c in CASES.items()}, indent=1, ensure_ascii=False) + "\n",
-                      encoding="utf-8")
+    GOLDEN.write_text(
+        json.dumps({k: _run(c) for k, c in CASES.items()}, indent=1, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
 
 
 def _approx(a: float | None, b: float | None) -> bool:

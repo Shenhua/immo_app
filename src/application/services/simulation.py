@@ -233,7 +233,11 @@ class SimulationEngine:
         g = 1.0 + self.market.revalo_loyer_pct / 100.0
         max_receipts: dict[str, float] = {}
         for cat, flag in (("furnished", True), ("unfurnished", False)):
-            base = sum(p["loyer_mensuel_initial"] * 12 * (1.0 - float(p.get("provision_pct", 0.0) or 0.0) / 100.0) for p, f in zip(projets, furnished, strict=True) if f == flag)
+            base = sum(
+                p["loyer_mensuel_initial"] * 12 * (1.0 - float(p.get("provision_pct", 0.0) or 0.0) / 100.0)
+                for p, f in zip(projets, furnished, strict=True)
+                if f == flag
+            )
             # Receipts move monotonically with the years, so the maximum is in year 1 or in year H.
             max_receipts[cat] = max(base, base * g ** max(0, horizon_years - 1))
         return TaxHousehold.build(self.tax.to_config(self.nb_owners), furnished, max_receipts)
@@ -284,7 +288,13 @@ class SimulationEngine:
             cum_cash_flow += result.cash_flow_net
 
         bilan = self._calculate_liquidation(
-            results, projets, schedules, horizons_years, flux, household, cum_cash_flow=cum_cash_flow,
+            results,
+            projets,
+            schedules,
+            horizons_years,
+            flux,
+            household,
+            cum_cash_flow=cum_cash_flow,
         )
 
         df = pd.DataFrame([r.to_dict() for r in results])
@@ -314,7 +324,7 @@ class SimulationEngine:
     ) -> YearResult:
         """Simulate a single year: cash flows per property, then the foyer's tax."""
         # Market value at the end of year y = price x (1 + g)^y (TAX_SPEC 1.7)
-        valeur_biens *= (1.0 + self.market.appreciation_bien_pct / 100.0)
+        valeur_biens *= 1.0 + self.market.appreciation_bien_pct / 100.0
 
         cf_ann, dette_fin = 0.0, 0.0
         capital_rembourse_ann, interets_assurance_ann = 0.0, 0.0
@@ -328,16 +338,15 @@ class SimulationEngine:
                 p["charges_fix_mth_courant"] = p["charges_const_mth0"]
                 p["tf_mth_courant"] = p["tf_const_mth0"]
             else:
-                p["loyer_mth_courant"] *= (1.0 + self.market.revalo_loyer_pct / 100.0)
-                p["charges_fix_mth_courant"] *= (1.0 + self.market.inflation_charges_pct / 100.0)
-                p["tf_mth_courant"] *= (1.0 + self._tf_growth_pct / 100.0)
+                p["loyer_mth_courant"] *= 1.0 + self.market.revalo_loyer_pct / 100.0
+                p["charges_fix_mth_courant"] *= 1.0 + self.market.inflation_charges_pct / 100.0
+                p["tf_mth_courant"] *= 1.0 + self._tf_growth_pct / 100.0
 
             # Receipts = scheduled rent minus vacancy, and minus the works months in year 1 (TAX_SPEC 1.8).
             # Vacancy reduces the gross receipts; it is not a deductible charge.
             works_months = min(12, max(0, int(p.get("mois_travaux", 0) or 0))) if year == 1 else 0
             loyer_ann = (
-                p["loyer_mth_courant"] * (12 - works_months)
-                * (1.0 - float(p.get("provision_pct", 0.0) or 0.0) / 100.0)
+                p["loyer_mth_courant"] * (12 - works_months) * (1.0 - float(p.get("provision_pct", 0.0) or 0.0) / 100.0)
             )
             # DPE ban without renovation: no rent from the ban year; charges, TF and the loan go on (T61).
             no_rent_from = p.get("_dpe_no_rent_from")
@@ -348,7 +357,8 @@ class SimulationEngine:
             gli_ann = loyer_ann * (float(p.get("gli_pct", 0.0) or 0.0) / 100.0)
             # Maintenance / capex provision: EUR/m2/yr, indexed like fixed charges, deductible in reel regimes.
             maint_ann = (
-                float(p.get("maintenance_m2_an", 0.0) or 0.0) * float(p.get("surface", 0.0) or 0.0)
+                float(p.get("maintenance_m2_an", 0.0) or 0.0)
+                * float(p.get("surface", 0.0) or 0.0)
                 * (1.0 + self.market.inflation_charges_pct / 100.0) ** (year - 1)
             )
             charges_fixes_ann = (p["charges_fix_mth_courant"] + p["tf_mth_courant"]) * 12
@@ -365,9 +375,13 @@ class SimulationEngine:
             debt_service = months * sch["pmt_total"]
 
             solde_fin = (
-                sch["balances"][end - 1] if months > 0
-                else sch["balances"][-1] if sch["nmois"] > 0 and year * 12 > sch["nmois"]
-                else p["credit_final"] if sch["nmois"] == 0 else 0.0
+                sch["balances"][end - 1]
+                if months > 0
+                else sch["balances"][-1]
+                if sch["nmois"] > 0 and year * 12 > sch["nmois"]
+                else p["credit_final"]
+                if sch["nmois"] == 0
+                else 0.0
             )
 
             operating = charges_fixes_ann + gest_ann + gli_ann + maint_ann + cfe_ann
@@ -380,7 +394,9 @@ class SimulationEngine:
             # Only LMNP réel and SCI IS amortize; unfurnished regimes never do (TAX_SPEC 4.1, 10 item 7).
             amortizes = household.amortizes(i)
             ratio_terrain = p.get("ratio_terrain_pct")
-            ratio_terrain = self.ratio_terrain_pct if ratio_terrain is None else max(0.0, min(100.0, float(ratio_terrain)))
+            ratio_terrain = (
+                self.ratio_terrain_pct if ratio_terrain is None else max(0.0, min(100.0, float(ratio_terrain)))
+            )
             base_batiment = (p["prix_achat_bien"] + p.get("frais_notaire", 0.0)) * (1.0 - ratio_terrain / 100.0)
             energy_works = float(p.get("renovation_energetique", 0.0) or 0.0)
             base_travaux = p["budget_travaux"] + energy_works
@@ -408,11 +424,13 @@ class SimulationEngine:
                     ),
                     amort_works=(
                         (base_travaux / self.amort_works_years if year <= self.amort_works_years else 0.0) + dpe_amort
-                        if amortizes else 0.0
+                        if amortizes
+                        else 0.0
                     ),
                     amort_furniture=(
                         p["mobilier"] / self.amort_mobilier_years
-                        if amortizes and year <= self.amort_mobilier_years else 0.0
+                        if amortizes and year <= self.amort_mobilier_years
+                        else 0.0
                     ),
                 )
             )
@@ -477,7 +495,8 @@ class SimulationEngine:
                     name=str(p.get("nom_bien", p.get("nom", f"bien_{i + 1}"))),
                     price=p["prix_achat_bien"],
                     notary_fees=p.get("frais_notaire", 0.0),
-                    works=p["budget_travaux"] + p.get("renovation_energetique", 0.0)
+                    works=p["budget_travaux"]
+                    + p.get("renovation_energetique", 0.0)
                     + sum(c for _, c in p.get("_dpe_renos", [])),
                     furniture=p.get("mobilier", 0.0),
                     sale_price=sale_price,
@@ -486,7 +505,11 @@ class SimulationEngine:
                 )
             )
         exit_tax = household.compute_exit(
-            horizon, exits, debt_repaid=dette_finale + ira_total, cum_cash_flow=cum_cash_flow, apport=apport_initial,
+            horizon,
+            exits,
+            debt_repaid=dette_finale + ira_total,
+            cum_cash_flow=cum_cash_flow,
+            apport=apport_initial,
         )
         impot_pv = exit_tax.total
 
@@ -516,6 +539,7 @@ class SimulationEngine:
         # Calculate DSCR from Year 1 data
         # DSCR: year 1 (with works months, display) and stabilised year (scoring), see glossary.STABILISED_YEAR
         from src.core.glossary import calculate_dscr_metric
+
         df_rows = pd.DataFrame([r.to_dict() for r in results[:2]])
         dscr_y1 = calculate_dscr_metric(df_rows)
         dscr_stab = calculate_dscr_metric(df_rows, stabilised=True)
@@ -546,8 +570,13 @@ class SimulationEngine:
             # Per-year tax detail: IR/PS/IS split plus the regimes' carryforward stocks (TAX_SPEC 6-7).
             "fiscal_annuel": [
                 {
-                    "year": r.year, "taxable_base": r.resultat_fiscal, "ir": r.ir, "ps": r.ps, "is": r.is_,
-                    "tax": r.impot_du, **r.tax_detail,
+                    "year": r.year,
+                    "taxable_base": r.resultat_fiscal,
+                    "ir": r.ir,
+                    "ps": r.ps,
+                    "is": r.is_,
+                    "tax": r.impot_du,
+                    **r.tax_detail,
                 }
                 for r in results
             ],
@@ -619,6 +648,7 @@ def simulate_long_term_strategy(
     from src.domain.calculator.financial import (
         generate_amortization_schedule,
     )
+
     if not strategy or not strategy.get("details"):
         raise SimulationError("Cannot simulate an empty strategy")
 
@@ -630,10 +660,9 @@ def simulate_long_term_strategy(
             float(p["credit_final"]),
             float(p["taux_pret"]),
             int(p["duree_pret"]) * 12,  # Convert years to months
-            float(p["assurance_ann_pct"])
+            float(p["assurance_ann_pct"]),
         )
         for p in strategy["details"]
     ]
 
     return engine.simulate(strategy, duration_years, schedules)
-

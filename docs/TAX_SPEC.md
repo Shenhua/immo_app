@@ -246,27 +246,57 @@ Suggested wiring (T23): `tests/golden/test_golden.py` loads each case, maps the 
 ```python
 class TaxRegime(Protocol):
     name: str
+
     def compute_year(self, ctx: YearContext, state: TaxState) -> TaxResult: ...
     def compute_exit(self, ctx: ExitContext, state: TaxState) -> ExitTax: ...
 
+
 @dataclass
-class YearContext:   # one property, one year
-    year: int; rent: float; operating_charges: float; cfe: float
-    interest: float; loan_insurance: float; works_paid: float; energy_works_paid: float
-    amort_building: float; amort_works: float; amort_furniture: float; tmi: float
+class YearContext:  # one property, one year
+    year: int
+    rent: float
+    operating_charges: float
+    cfe: float
+    interest: float
+    loan_insurance: float
+    works_paid: float
+    energy_works_paid: float
+    amort_building: float
+    amort_works: float
+    amort_furniture: float
+    tmi: float
+
 
 @dataclass
 class TaxState:
-    ard_imm: float = 0; ard_mob: float = 0
-    deficits: list[tuple[int, float]] = field(default_factory=list)    # BIC or foncier, 10 years
+    ard_imm: float = 0
+    ard_mob: float = 0
+    deficits: list[tuple[int, float]] = field(default_factory=list)  # BIC or foncier, 10 years
     is_losses: float = 0
-    cum_amort_deducted_imm: float = 0; cum_amort_deducted_mob: float = 0
+    cum_amort_deducted_imm: float = 0
+    cum_amort_deducted_mob: float = 0
     global_imputed_by_year: dict[int, float] = field(default_factory=dict)
 
+
 @dataclass
-class TaxResult:  taxable_base: float; ir: float; ps: float; is_: float; total: float
+class TaxResult:
+    taxable_base: float
+    ir: float
+    ps: float
+    is_: float
+    total: float
+
+
 @dataclass
-class ExitTax:    plus_value: float; ir: float; ps: float; surtax: float; is_: float; pfu: float; total: float; details: dict
+class ExitTax:
+    plus_value: float
+    ir: float
+    ps: float
+    surtax: float
+    is_: float
+    pfu: float
+    total: float
+    details: dict
 ```
 Implementations: `LmnpReel`, `MicroBic(abattement)`, `MicroFoncier`, `FoncierReel`, `SciIs(distribute_at_exit)`. Foyer-level aggregation (§8) sits in a thin `TaxHousehold` wrapper that nets results by category. A single-property run (all golden cases) needs no aggregation.
 

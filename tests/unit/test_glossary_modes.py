@@ -1,4 +1,3 @@
-
 import pandas as pd
 
 from src.core.glossary import calculate_cashflow_metrics
@@ -15,6 +14,7 @@ def test_glossary_target_mode():
     assert metrics["gap"] == 50.0
     assert metrics["is_acceptable"] is False
 
+
 def test_glossary_min_mode():
     # Setup: Min 100, Tolerance 10
     # CF 150 -> Gap 0 (good) -> Accepted
@@ -26,6 +26,7 @@ def test_glossary_min_mode():
     assert metrics["gap"] == 0.0
     assert metrics["is_acceptable"] is True
 
+
 def test_glossary_min_mode_below_target():
     # Setup: Min 100, Tolerance 10
     # CF 95 -> Gap 5, below target: rejected (no tolerance below target in min mode)
@@ -35,6 +36,7 @@ def test_glossary_min_mode_below_target():
 
     assert metrics["gap"] == 5.0
     assert metrics["is_acceptable"] is False
+
 
 def test_glossary_min_mode_too_low():
     # Setup: Min 100, Tolerance 10

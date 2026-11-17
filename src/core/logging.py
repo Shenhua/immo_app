@@ -11,7 +11,7 @@ import logging.handlers
 import os
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import structlog
 
@@ -45,7 +45,7 @@ def configure_logging(
 
     # Skip if already configured (idempotent)
     if _configured:
-        return structlog.get_logger()
+        return cast(structlog.BoundLogger, structlog.get_logger())
 
     log_level = level or os.environ.get("LOGLEVEL", "INFO").upper()
     numeric_level = getattr(logging, log_level, logging.INFO)
@@ -99,7 +99,7 @@ def configure_logging(
     )
 
     _configured = True
-    _default_logger = structlog.get_logger()
+    _default_logger = cast(structlog.BoundLogger, structlog.get_logger())
     return _default_logger
 
 
@@ -120,8 +120,7 @@ def get_logger(name: str | None = None) -> structlog.BoundLogger:
     if not _configured:
         configure_logging()
 
-    logger = structlog.get_logger()
+    logger = cast(structlog.BoundLogger, structlog.get_logger())
     if name:
         return logger.bind(logger_name=name)
     return logger
-

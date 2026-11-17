@@ -57,7 +57,7 @@ def render_objectives_section() -> dict[str, Any]:
             "**Empire (Max Volume)** : Cherche à acquérir le plus grand parc immobilier possible avec votre apport.\n\n"
             "Le nombre maximum de biens se règle séparément ci-dessous (le changement de mode le repositionne "
             "à sa valeur habituelle : 3 en Classique, 5 en Empire)."
-        )
+        ),
     )
 
     # --- Financial Profile Auto-Switch Logic ---
@@ -72,17 +72,17 @@ def render_objectives_section() -> dict[str, Any]:
 
         target_preset = None
         if strategy_mode == MODE_RENTIER:
-            target_preset = "Cash-flow d'abord" # or Sécurité
+            target_preset = "Cash-flow d'abord"  # or Sécurité
         elif strategy_mode == MODE_EMPIRE:
             target_preset = "Patrimoine LT"
         elif strategy_mode == MODE_CLASSIQUE:
             target_preset = DEFAULT_PRESET_LABEL
 
         if target_preset and target_preset in FINANCIAL_PRESETS:
-             st.session_state.finance_preset = target_preset
-             set_custom_weights(FINANCIAL_PRESETS[target_preset])
-             # Notify user via toast (Streamlit 1.30+) or just let them see the change
-             # st.toast(f"Profil financier ajusté : {target_preset}")
+            st.session_state.finance_preset = target_preset
+            set_custom_weights(FINANCIAL_PRESETS[target_preset])
+            # Notify user via toast (Streamlit 1.30+) or just let them see the change
+            # st.toast(f"Profil financier ajusté : {target_preset}")
 
     # Logic flags
     is_rentier = strategy_mode == MODE_RENTIER
@@ -94,9 +94,7 @@ def render_objectives_section() -> dict[str, Any]:
     if "max_properties" not in st.session_state:
         st.session_state.max_properties = SEARCH.max_properties_classique
     if mode_changed:
-        st.session_state.max_properties = (
-            SEARCH.max_properties_empire if is_empire else SEARCH.max_properties_classique
-        )
+        st.session_state.max_properties = SEARCH.max_properties_empire if is_empire else SEARCH.max_properties_classique
     max_props = st.sidebar.slider(
         "Nombre max de biens",
         SEARCH.max_properties_min,
@@ -113,7 +111,7 @@ def render_objectives_section() -> dict[str, Any]:
             key="sb_apport",
             step=5000,
             format="%d",
-            help="Capital total que vous êtes prêt à investir (frais de notaire + apport bancaire)."
+            help="Capital total que vous êtes prêt à investir (frais de notaire + apport bancaire).",
         )
 
         # The CF target is always an input: in Rentier mode it is the floor the maximised CF must respect.
@@ -126,7 +124,7 @@ def render_objectives_section() -> dict[str, Any]:
                 key="sb_cf_cible",
                 step=50.0,
                 help="Le cash-flow net minimum que vous visez (négatif = effort d'épargne). "
-                     "En mode Rentier, c'est un plancher : l'apport est investi pour dépasser ce niveau."
+                "En mode Rentier, c'est un plancher : l'apport est investi pour dépasser ce niveau.",
             )
 
         # Precise Targeting:
@@ -168,7 +166,8 @@ def render_objectives_section() -> dict[str, Any]:
         curr_h = st.session_state.get("horizon_ans", SEARCH.horizon_ans)
         horizon = st.slider(
             f"Horizon d'investissement ({curr_h} ans)",
-            10, 30,
+            10,
+            30,
             key="horizon_ans",
         )
 
@@ -182,7 +181,8 @@ def render_objectives_section() -> dict[str, Any]:
         col1.markdown('<div style="font-size: 1.5em; text-align: center;">💰</div>', unsafe_allow_html=True)
         priorite_pct = col2.slider(
             "Priorité",
-            0, 100,
+            0,
+            100,
             key="sb_priorite",
             step=5,
             format="%d%%",
@@ -190,8 +190,6 @@ def render_objectives_section() -> dict[str, Any]:
         )
         col3.markdown('<div style="font-size: 1.5em; text-align: center;">🛡️</div>', unsafe_allow_html=True)
         qualite_weight = priorite_pct / 100.0
-
-
 
     return {
         "apport": apport,
@@ -209,11 +207,17 @@ def render_borrower_profile() -> dict[str, Any]:
     """Borrower profile (T60): income and debts for the HCSF bankability check."""
     with st.sidebar.expander("👤 Profil emprunteur", expanded=False):
         revenu = st.number_input(
-            "Revenu net mensuel du foyer (€)", min_value=0.0, key="sb_revenu", step=100.0,
+            "Revenu net mensuel du foyer (€)",
+            min_value=0.0,
+            key="sb_revenu",
+            step=100.0,
             help="Revenus nets du foyer, avant les loyers des biens à acheter.",
         )
         charges = st.number_input(
-            "Mensualités de crédit existantes (€/mois)", min_value=0.0, key="sb_charges", step=50.0,
+            "Mensualités de crédit existantes (€/mois)",
+            min_value=0.0,
+            key="sb_charges",
+            step=50.0,
         )
         filtrer = st.toggle(
             "Filtrer les stratégies non finançables",
@@ -286,7 +290,8 @@ def render_credit_params_tab() -> dict[str, Any]:
         )
         dpe_cout = st.number_input(
             "Coût de rénovation (€/m²/classe)",
-            0.0, 1000.0,
+            0.0,
+            1000.0,
             key="sb_dpe_cout",
             step=10.0,
             disabled=dpe_labels[str(dpe_label)] != "renover",
@@ -326,7 +331,8 @@ def render_credit_params_tab() -> dict[str, Any]:
         )
         ira_cap = st.number_input(
             "Plafond % CRD",
-            0.0, 10.0,
+            0.0,
+            10.0,
             key="ira_cap_pct",
             step=0.1,
             help="Plafond légal sur le capital restant dû.",
@@ -409,7 +415,8 @@ def render_market_hypotheses() -> dict[str, float]:
 
         appreciation = st.slider(
             "Appréciation annuelle biens (%)",
-            -2.0, 8.0,
+            -2.0,
+            8.0,
             step=0.1,
             key="appreciation_bien_pct",
             help="Croissance annuelle estimée de la valeur des biens immobiliers.",
@@ -417,7 +424,8 @@ def render_market_hypotheses() -> dict[str, float]:
 
         revalo = st.slider(
             "Revalorisation annuelle loyers (%)",
-            -2.0, 5.0,
+            -2.0,
+            5.0,
             step=0.1,
             key="revalo_loyer_pct",
             help="Augmentation annuelle estimée des loyers (généralement basée sur l'IRL).",
@@ -425,7 +433,8 @@ def render_market_hypotheses() -> dict[str, float]:
 
         inflation = st.slider(
             "Inflation annuelle charges (%)",
-            -2.0, 5.0,
+            -2.0,
+            5.0,
             step=0.1,
             key="inflation_charges_pct",
             help="Augmentation annuelle estimée des charges (copropriété, taxe foncière).",
@@ -539,10 +548,10 @@ def render_debug_section(params: dict[str, Any]) -> None:
             # For now, we'll rely on what we can gather.
 
             ctx = collect_debug_context(
-                session_state=dict(st.session_state),
+                session_state={str(k): v for k, v in st.session_state.items()},
                 params=params,
                 strategies=strategies,
-                last_simulation=None # Optional for now
+                last_simulation=None,  # Optional for now
             )
 
             # Serialize for download
@@ -555,4 +564,3 @@ def render_debug_section(params: dict[str, Any]) -> None:
                 mime="application/json",
             )
             st.success("Contexte capturé !")
-

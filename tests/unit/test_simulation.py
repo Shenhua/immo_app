@@ -76,10 +76,18 @@ class TestYearResult:
     def test_to_dict(self):
         """Should convert to dictionary with French keys."""
         r = YearResult(
-            year=1, valeur_biens=250000, dette=200000, patrimoine_net=50000,
-            resultat_fiscal=5000, impot_du=2000, cash_flow_net=1000,
-            capital_rembourse=8000, interets_assurance=3000,
-            loyers_bruts=12000, charges_deductibles=4000, amortissements=3000
+            year=1,
+            valeur_biens=250000,
+            dette=200000,
+            patrimoine_net=50000,
+            resultat_fiscal=5000,
+            impot_du=2000,
+            cash_flow_net=1000,
+            capital_rembourse=8000,
+            interets_assurance=3000,
+            loyers_bruts=12000,
+            charges_deductibles=4000,
+            amortissements=3000,
         )
         d = r.to_dict()
 
@@ -113,22 +121,24 @@ class TestSimulationEngine:
 
         strategy = {
             "apport_total": 50000,
-            "details": [{
-                "prix_achat_bien": 200000,
-                "frais_notaire": 15000,
-                "budget_travaux": 5000,
-                "renovation_energetique": 0,
-                "mobilier": 3000,
-                "credit_final": 175000,
-                "taux_pret": 3.5,
-                "duree_pret": 20,
-                "assurance_ann_pct": 0.36,
-                "loyer_mensuel_initial": 800,
-                "charges_const_mth0": 80,
-                "tf_const_mth0": 40,
-                "frais_gestion_pct": 5.0,
-                "provision_pct": 5.0,
-            }],
+            "details": [
+                {
+                    "prix_achat_bien": 200000,
+                    "frais_notaire": 15000,
+                    "budget_travaux": 5000,
+                    "renovation_energetique": 0,
+                    "mobilier": 3000,
+                    "credit_final": 175000,
+                    "taux_pret": 3.5,
+                    "duree_pret": 20,
+                    "assurance_ann_pct": 0.36,
+                    "loyer_mensuel_initial": 800,
+                    "charges_const_mth0": 80,
+                    "tf_const_mth0": 40,
+                    "frais_gestion_pct": 5.0,
+                    "provision_pct": 5.0,
+                }
+            ],
         }
 
         # Create mock schedule
@@ -151,18 +161,32 @@ class TestSimulationEngine:
 # --- T24: CFE, wealth, failed IRR -------------------------------------------------------------
 def _t24_strategy(meuble, rent=1000.0):
     prop = {
-        "prix_achat_bien": 200000.0, "frais_notaire": 0.0, "budget_travaux": 0.0, "renovation_energetique": 0.0,
-        "mobilier": 0.0, "credit_final": 100000.0, "taux_pret": 3.0, "duree_pret": 20, "assurance_ann_pct": 0.0,
-        "loyer_mensuel_initial": rent, "charges_const_mth0": 0.0, "tf_const_mth0": 0.0,
-        "frais_gestion_pct": 0.0, "provision_pct": 0.0, "meuble": meuble,
+        "prix_achat_bien": 200000.0,
+        "frais_notaire": 0.0,
+        "budget_travaux": 0.0,
+        "renovation_energetique": 0.0,
+        "mobilier": 0.0,
+        "credit_final": 100000.0,
+        "taux_pret": 3.0,
+        "duree_pret": 20,
+        "assurance_ann_pct": 0.0,
+        "loyer_mensuel_initial": rent,
+        "charges_const_mth0": 0.0,
+        "tf_const_mth0": 0.0,
+        "frais_gestion_pct": 0.0,
+        "provision_pct": 0.0,
+        "meuble": meuble,
     }
     return {"apport_total": 100000.0, "details": [prop]}
 
 
 def _t24_run(strategy, years=4, charges_idx=0.0):
     from src.application.services.simulation import simulate_long_term_strategy
+
     return simulate_long_term_strategy(
-        strategy, years, {"appreciation_bien_pct": 2.0, "inflation_charges_pct": charges_idx},
+        strategy,
+        years,
+        {"appreciation_bien_pct": 2.0, "inflation_charges_pct": charges_idx},
         {"tmi_pct": 0.0, "regime_fiscal": "microbic", "cfe_par_bien_ann": 300.0, "apply_ira": False},
     )
 

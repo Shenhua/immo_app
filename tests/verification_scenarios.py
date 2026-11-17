@@ -33,23 +33,23 @@ SCENARIOS = {
         "cash_flow_target": -200.0,
         "finance": FinancingConfig(
             credit_rates={15: 3.2},  # Only short term
-            apport_min_pct=20.0,     # High down payment
+            apport_min_pct=20.0,  # High down payment
         ),
         "checks": {
             "min_dscr": 1.1,
             "max_leverage": 0.85,
-        }
+        },
     },
     "AGGRESSIVE": {
         "apport": 15000.0,
         "cash_flow_target": 0.0,
         "finance": FinancingConfig(
             credit_rates={25: 3.8},  # Long term only
-            apport_min_pct=10.0,     # Low down payment
+            apport_min_pct=10.0,  # Low down payment
         ),
         "checks": {
             "min_yield": 4.0,
-        }
+        },
     },
     "BALANCED": {
         "apport": 30000.0,
@@ -58,8 +58,8 @@ SCENARIOS = {
             credit_rates={20: 3.5, 25: 3.7},
             apport_min_pct=15.0,
         ),
-        "checks": {}
-    }
+        "checks": {},
+    },
 }
 
 
@@ -68,7 +68,7 @@ def run_scenarios():
     archetypes = load_archetypes()
     exporter = ResultExporter("results/scenarios")
 
-    op_config = OperatingConfig() # Default
+    op_config = OperatingConfig()  # Default
 
     results = {}
 
@@ -76,18 +76,10 @@ def run_scenarios():
         log.info(f"running_scenario_{name}")
 
         # 1. Create Bricks
-        bricks = create_investment_bricks(
-            archetypes,
-            cfg["finance"],
-            op_config
-        )
+        bricks = create_investment_bricks(archetypes, cfg["finance"], op_config)
 
         # 2. Find Strategies
-        finder = StrategyFinder(
-            bricks=bricks,
-            apport_disponible=cfg["apport"],
-            cash_flow_cible=cfg["cash_flow_target"]
-        )
+        finder = StrategyFinder(bricks=bricks, apport_disponible=cfg["apport"], cash_flow_cible=cfg["cash_flow_target"])
 
         strategies = finder.find_strategies()
 

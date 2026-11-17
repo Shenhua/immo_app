@@ -37,7 +37,9 @@ class InvestmentBrick(BaseModel):
     capital_emprunte: float = Field(default=0.0, ge=0, description="Loan amount in €")
     duree_credit_mois: int = Field(default=240, gt=0, description="Loan term in months")
     taux_annuel_pct: float = Field(default=3.5, ge=0, description="Annual interest rate %")
-    assurance_annuelle_pct: float = Field(default=FINANCING.assurance_ann_pct, ge=0, description="Annual insurance rate %")
+    assurance_annuelle_pct: float = Field(
+        default=FINANCING.assurance_ann_pct, ge=0, description="Annual insurance rate %"
+    )
     pmt_principal_interet: float = Field(default=0.0, description="Monthly P&I payment in €")
     pmt_assurance: float = Field(default=0.0, description="Monthly insurance in €")
 
@@ -62,33 +64,23 @@ class InvestmentBrick(BaseModel):
         "extra": "allow",
     }
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]  # pydantic documents this mypy gap
     @property
     def cout_total(self) -> float:
         """Total acquisition cost."""
-        return (
-            self.prix_achat_bien
-            + self.frais_notaire
-            + self.travaux
-            + self.renovation_energetique
-            + self.mobilier
-        )
+        return self.prix_achat_bien + self.frais_notaire + self.travaux + self.renovation_energetique + self.mobilier
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]  # pydantic documents this mypy gap
     @property
     def pmt_total(self) -> float:
         """Total monthly loan payment (P&I + insurance)."""
         return self.pmt_principal_interet + self.pmt_assurance
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]  # pydantic documents this mypy gap
     @property
     def cash_flow_mensuel_initial(self) -> float:
         """Initial monthly cash flow before taxes."""
-        return (
-            self.loyer_mensuel_initial
-            - self.depenses_mensuelles_hors_credit_initial
-            - self.pmt_total
-        )
+        return self.loyer_mensuel_initial - self.depenses_mensuelles_hors_credit_initial - self.pmt_total
 
     def __getitem__(self, key: str) -> Any:
         """Legacy dict-style access for backward compatibility."""
@@ -100,7 +92,7 @@ class InvestmentBrick(BaseModel):
             "capital_emprunte": "capital_emprunte",
             "apport_add_bien": "apport_add_bien",
             "duree_pret": "duree_credit_mois",
-            "cf_proximity": "cf_proximity", # For sorting tests
+            "cf_proximity": "cf_proximity",  # For sorting tests
         }
 
         # Resolve key
@@ -130,7 +122,7 @@ class InvestmentBrick(BaseModel):
             "duree_pret": "duree_credit_mois",
         }
         actual_key = mapping.get(key, key)
-        return hasattr(self, actual_key) or (self.model_extra and actual_key in self.model_extra)
+        return hasattr(self, actual_key) or bool(self.model_extra and actual_key in self.model_extra)
 
     def get(self, key: str, default: Any = None) -> Any:
         """Legacy dict-style get for backward compatibility."""

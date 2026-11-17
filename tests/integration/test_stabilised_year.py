@@ -30,8 +30,12 @@ CF_COL = "Cash-Flow Net d'Impôt"
 def _bricks(archetype: dict, ctx: RunContext):
     fin = build_financing_config(ctx.to_credit_params())
     op = build_operating_config(
-        ctx.gestion_pct, ctx.vacance_pct, ctx.cfe_par_bien_ann,
-        maintenance_m2_an=ctx.maintenance_m2_an, gli_pct=ctx.gli_pct, mois_travaux=ctx.mois_travaux,
+        ctx.gestion_pct,
+        ctx.vacance_pct,
+        ctx.cfe_par_bien_ann,
+        maintenance_m2_an=ctx.maintenance_m2_an,
+        gli_pct=ctx.gli_pct,
+        mois_travaux=ctx.mois_travaux,
     )
     return create_investment_bricks([archetype], fin, op)
 
@@ -98,13 +102,15 @@ def test_stabilised_dscr_independent_of_works_months():
 
 
 def test_dscr_metric_year_selection():
-    df = pd.DataFrame({
-        "Loyers Bruts": [6000.0, 12000.0],
-        glossary.CHARGES_COL: [-5000.0, -5000.0],
-        "Intérêts & Assurance": [2000.0, 2000.0],
-        "Capital Remboursé": [1000.0, 1000.0],
-        CF_COL: [-100.0, 400.0],
-    })
+    df = pd.DataFrame(
+        {
+            "Loyers Bruts": [6000.0, 12000.0],
+            glossary.CHARGES_COL: [-5000.0, -5000.0],
+            "Intérêts & Assurance": [2000.0, 2000.0],
+            "Capital Remboursé": [1000.0, 1000.0],
+            CF_COL: [-100.0, 400.0],
+        }
+    )
     assert glossary.calculate_dscr_metric(df) == pytest.approx((6000 - 5000 + 2000) / 3000)
     assert glossary.calculate_dscr_metric(df, stabilised=True) == pytest.approx((12000 - 5000 + 2000) / 3000)
     # one-year horizon: the stabilised year falls back to year 1

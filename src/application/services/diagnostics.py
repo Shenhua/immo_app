@@ -15,6 +15,7 @@ strategy. Reasons:
 
 The relaxation suggestions are computed from the recorded gaps only, with no new search.
 """
+
 from __future__ import annotations
 
 import math
@@ -102,7 +103,7 @@ class SearchDiagnostics:
             if all(near.names != n.names for n in lst):
                 lst.append(near)
                 lst.sort(key=lambda n: (n.gap, n.names))
-                del lst[self.top_n_near:]
+                del lst[self.top_n_near :]
 
     def count_only(self, reason: str, count: int = 1) -> None:
         self.counts[reason] = self.counts.get(reason, 0) + count
@@ -142,9 +143,12 @@ class SearchDiagnostics:
         out: list[Suggestion] = []
         top = self.top_reason()
         for reason in REASONS:
-            s = {"cf": self._suggest_cf, "budget": self._suggest_budget, "max_props": self._suggest_max_props,
-                 "hcsf": self._suggest_hcsf}.get(
-                reason)
+            s = {
+                "cf": self._suggest_cf,
+                "budget": self._suggest_budget,
+                "max_props": self._suggest_max_props,
+                "hcsf": self._suggest_hcsf,
+            }.get(reason)
             sug = s(top_n) if s else None
             if sug is not None:
                 out.append(sug)
@@ -164,13 +168,17 @@ class SearchDiagnostics:
         if self.mode_cf == "target":
             new_tol = math.ceil((self.tolerance + need) / 10.0) * 10.0
             count = sum(1 for g in gaps if g * (1.0 + _CF_MARGIN) <= new_tol - self.tolerance)
-            text = (f"Avec une tolérance de ±{new_tol:,.0f} € au lieu de ±{self.tolerance:,.0f} €, "
-                    f"jusqu'à {count} stratégie(s) seraient acceptées").replace(",", " ")
+            text = (
+                f"Avec une tolérance de ±{new_tol:,.0f} € au lieu de ±{self.tolerance:,.0f} €, "
+                f"jusqu'à {count} stratégie(s) seraient acceptées"
+            ).replace(",", " ")
             return Suggestion("cf", "tolerance", self.tolerance, new_tol, "acceptées", count, _hedge(text, estimated))
         new_target = math.floor((self.target_cf - need) / 10.0) * 10.0
         count = sum(1 for g in gaps if g * (1.0 + _CF_MARGIN) <= self.target_cf - new_target)
-        text = (f"Avec un CF cible de {new_target:,.0f} €/mois au lieu de {self.target_cf:,.0f} €, "
-                f"jusqu'à {count} stratégie(s) seraient acceptées").replace(",", " ")
+        text = (
+            f"Avec un CF cible de {new_target:,.0f} €/mois au lieu de {self.target_cf:,.0f} €, "
+            f"jusqu'à {count} stratégie(s) seraient acceptées"
+        ).replace(",", " ")
         return Suggestion("cf", "cf_cible", self.target_cf, new_target, "acceptées", count, _hedge(text, estimated))
 
     def _suggest_budget(self, top_n: int) -> Suggestion | None:
@@ -182,8 +190,10 @@ class SearchDiagnostics:
         add = math.ceil(gaps[k - 1] / step) * step
         new_budget = self.budget + add
         count = sum(1 for g in gaps if g <= add)
-        text = (f"Avec un apport de {new_budget:,.0f} € au lieu de {self.budget:,.0f} €, "
-                f"{count} portefeuille(s) de plus seraient examinés").replace(",", " ")
+        text = (
+            f"Avec un apport de {new_budget:,.0f} € au lieu de {self.budget:,.0f} €, "
+            f"{count} portefeuille(s) de plus seraient examinés"
+        ).replace(",", " ")
         return Suggestion("budget", "apport", self.budget, new_budget, "examinés", count, text)
 
     def _suggest_hcsf(self, top_n: int) -> Suggestion | None:
@@ -194,19 +204,24 @@ class SearchDiagnostics:
         add = math.ceil(gaps[k - 1] / 100.0) * 100.0
         count = sum(1 for g in gaps if g <= add)
         new_income = self.revenu_net + add
-        text = (f"Avec un revenu net de {new_income:,.0f} €/mois au lieu de {self.revenu_net:,.0f} €, "
-                f"{count} portefeuille(s) de plus seraient finançables ; un apport plus élevé (moins de crédit) "
-                "ou des durées plus longues réduisent aussi le taux d'endettement").replace(",", " ")
+        text = (
+            f"Avec un revenu net de {new_income:,.0f} €/mois au lieu de {self.revenu_net:,.0f} €, "
+            f"{count} portefeuille(s) de plus seraient finançables ; un apport plus élevé (moins de crédit) "
+            "ou des durées plus longues réduisent aussi le taux d'endettement"
+        ).replace(",", " ")
         return Suggestion("hcsf", "revenu_net_mensuel", self.revenu_net, new_income, "finançables", count, text)
 
     def _suggest_max_props(self, top_n: int) -> Suggestion | None:
         n = self.counts.get("max_props", 0)
         if n <= 0:
             return None
-        text = (f"Avec {self.max_props + 1} biens au maximum au lieu de {self.max_props}, "
-                f"{n} portefeuille(s) de plus seraient examinés")
-        return Suggestion("max_props", "max_properties", float(self.max_props), float(self.max_props + 1),
-                          "examinés", n, text)
+        text = (
+            f"Avec {self.max_props + 1} biens au maximum au lieu de {self.max_props}, "
+            f"{n} portefeuille(s) de plus seraient examinés"
+        )
+        return Suggestion(
+            "max_props", "max_properties", float(self.max_props), float(self.max_props + 1), "examinés", n, text
+        )
 
 
 def _hedge(text: str, estimated: bool) -> str:

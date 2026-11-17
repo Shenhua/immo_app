@@ -103,7 +103,10 @@ def _render_risk(s_json: str, c_json: str, ctx: RunContext, key: str) -> None:
             }
         )
         h1, h2 = st.columns(2)
-        for col, samples, title in ((h1, mc["tri_samples"], "TRI (%)"), (h2, mc["enrichissement_samples"], "Enrichissement net (EUR)")):
+        for col, samples, title in (
+            (h1, mc["tri_samples"], "TRI (%)"),
+            (h2, mc["enrichissement_samples"], "Enrichissement net (EUR)"),
+        ):
             fig = go.Figure(go.Histogram(x=samples, nbinsx=25))
             fig.update_layout(title=title, height=260, margin={"t": 40, "b": 30}, showlegend=False)
             col.plotly_chart(fig, use_container_width=True)
@@ -113,7 +116,9 @@ def _tornado_figure(rows: list[dict[str, Any]], prefix: str, title: str, unit: s
     fig = go.Figure()
     labels = [r["driver"] for r in rows]
     for tag, name, color in (("down", "-1", "#d9534f"), ("up", "+1", "#2e7d32")):
-        fig.add_bar(y=labels, x=[r[f"{prefix}_{tag}"] or 0.0 for r in rows], name=name, orientation="h", marker_color=color)
+        fig.add_bar(
+            y=labels, x=[r[f"{prefix}_{tag}"] or 0.0 for r in rows], name=name, orientation="h", marker_color=color
+        )
     fig.update_layout(barmode="relative", title=title, xaxis_title=unit, height=300, margin={"t": 40, "b": 30})
     return fig
 
@@ -158,7 +163,9 @@ def render_sensitivity_analysis(strategy: dict[str, Any], ctx: RunContext, key: 
 
     with col_res:
         if d_loyer or d_vacance or d_travaux or d_taux or d_appr:
-            res = _cached_run(s_json, c_json, (float(d_loyer), float(d_vacance), float(d_travaux), float(d_taux), float(d_appr)))
+            res = _cached_run(
+                s_json, c_json, (float(d_loyer), float(d_vacance), float(d_travaux), float(d_taux), float(d_appr))
+            )
             st.markdown("**Impact Projeté**")
             _show_impact("CF Mensuel (stabilisé)", base.get("cf_stab_mensuel"), res.get("cf_stab_mensuel"), format_euro)
             _show_impact("TRI", base.get("tri_annuel"), res.get("tri_annuel"), format_pct)
@@ -171,7 +178,9 @@ def render_sensitivity_analysis(strategy: dict[str, Any], ctx: RunContext, key: 
         rows = _cached_tornado(s_json, c_json)
         c1, c2 = st.columns(2)
         c1.plotly_chart(_tornado_figure(rows, "tri", "Impact sur le TRI", "pts de TRI"), use_container_width=True)
-        c2.plotly_chart(_tornado_figure(rows, "cf", "Impact sur le CF mensuel stabilisé", "EUR/mois"), use_container_width=True)
+        c2.plotly_chart(
+            _tornado_figure(rows, "cf", "Impact sur le CF mensuel stabilisé", "EUR/mois"), use_container_width=True
+        )
 
     with st.expander("Scénarios de risque et seuils de rentabilité"):
         _render_risk(s_json, c_json, ctx, key)

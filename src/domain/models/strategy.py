@@ -38,7 +38,7 @@ class PortfolioStrategy(BaseModel):
         "extra": "allow",
     }
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]  # pydantic documents this mypy gap
     @property
     def nombre_biens(self) -> int:
         """Number of properties in the strategy."""
@@ -62,13 +62,13 @@ class StrategyResult(BaseModel):
         "extra": "allow",
     }
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]  # pydantic documents this mypy gap
     @property
     def enrichissement_net(self) -> float:
         """Net wealth creation (liquidation - initial investment)."""
-        return self.bilan.get("enrichissement_net", 0.0)
+        return float(self.bilan.get("enrichissement_net", 0.0))
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]  # pydantic documents this mypy gap
     @property
     def tri_pct(self) -> float | None:
         """Internal rate of return percentage."""
@@ -84,12 +84,13 @@ class SimulationParams(BaseModel):
     # Market hypotheses
     inflation_pct: float = Field(default=MARKET.inflation_charges_pct, description="Annual inflation %")
     hausse_loyers_pct: float = Field(default=MARKET.revalo_loyer_pct, description="Annual rent increase %")
-    hausse_prix_immo_pct: float = Field(default=MARKET.appreciation_bien_pct, description="Annual property price increase %")
+    hausse_prix_immo_pct: float = Field(
+        default=MARKET.appreciation_bien_pct, description="Annual property price increase %"
+    )
     hausse_charges_pct: float = Field(default=MARKET.inflation_charges_pct, description="Annual charges increase %")
 
     # Tax parameters
     tmi_pct: float = Field(default=TAX.tmi_pct, ge=0, le=45, description="Marginal tax rate %")
-    regime_fiscal: str = Field(default=TAX.regime_fiscal, description="Tax regime: lmnp, micro_bic")
     micro_bic_abatt_pct: float = Field(default=TAX.micro_bic_abatt_pct, description="Micro-BIC abatement %")
 
     # Costs

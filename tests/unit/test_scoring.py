@@ -90,9 +90,7 @@ class TestCalculateQualitativeScore:
 
     def test_single_property(self, sample_strategy_data):
         """Single property strategy should use that property's score."""
-        strategy = {
-            "details": [sample_strategy_data["details"][0]]
-        }
+        strategy = {"details": [sample_strategy_data["details"][0]]}
         score = calculate_qualitative_score(strategy)
         assert abs(score - 75.0) < 1.0  # Should be close to the qual_score_bien
 

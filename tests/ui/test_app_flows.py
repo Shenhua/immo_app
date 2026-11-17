@@ -66,7 +66,11 @@ def test_detail_view_renders_every_tab_and_report_downloads():
     at = open_details(run_search(new_app()))
     assert not at.exception
     assert [t.label for t in at.tabs] == [
-        "🏠 Biens", "📈 Projections", "🎯 Radar", "⚡ Stress Test", "⚖️ Comparaison fiscale",
+        "🏠 Biens",
+        "📈 Projections",
+        "🎯 Radar",
+        "⚡ Stress Test",
+        "⚖️ Comparaison fiscale",
     ]
     assert len(at.get("plotly_chart")) >= 4
     expanders = [e.label for e in at.expander]
@@ -206,8 +210,11 @@ def test_ne_pas_renover_policy_warns_on_a_dpe_e_property_within_horizon():
     # Chambéry T2 (DPE E, banned from 2034, inside the 25-year horizon) with the E->D renovation option off.
     at = set_inputs(
         new_app(),
-        sb_villes=["Chambéry"], sb_types=["meuble_classique"], sb_cf_cible=-500.0,
-        sb_inc_reno=False, sb_dpe_policy=NE_PAS_RENOVER,
+        sb_villes=["Chambéry"],
+        sb_types=["meuble_classique"],
+        sb_cf_cible=-500.0,
+        sb_inc_reno=False,
+        sb_dpe_policy=NE_PAS_RENOVER,
     )
     run_search(at)
     assert not at.exception
