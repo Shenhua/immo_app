@@ -114,7 +114,6 @@ class TestSimulationParams:
         params = SimulationParams()
         assert params.horizon_years == 25
         assert params.tmi_pct == 30.0
-        assert params.regime_fiscal == "lmnp"
 
     def test_horizon_bounds(self):
         """Horizon should be bounded 1-50."""

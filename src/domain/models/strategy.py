@@ -89,7 +89,6 @@ class SimulationParams(BaseModel):
 
     # Tax parameters
     tmi_pct: float = Field(default=TAX.tmi_pct, ge=0, le=45, description="Marginal tax rate %")
-    regime_fiscal: str = Field(default=TAX.regime_fiscal, description="Tax regime: lmnp, micro_bic")
     micro_bic_abatt_pct: float = Field(default=TAX.micro_bic_abatt_pct, description="Micro-BIC abatement %")
 
     # Costs
