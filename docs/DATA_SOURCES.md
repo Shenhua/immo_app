@@ -77,3 +77,9 @@ Recalibration of `data/archetypes_recale_2025_v2.json` (kept unchanged). Researc
 - Encadrement Grenoble: https://www.justice.fr/fiche/grenoble-alpes-metropole-montant-loyer-bail-habitation (page updated 2026-02-02); https://www.nousgerons.com/encadrement-de-loyers-a-grenoble.html (list of 21 communes, 13 full / 8 partial).
 - Lyon encadrement: the Tribunal administratif de Lyon annulled the 2023-24 arrêté on 2025-10-14; a new arrêté covers nov. 2025 - oct. 2026 (justice.fr link above).
 - TF rates: https://habity.fr/ville/lyon-69/finance and https://habity.fr/ville/grenoble-38/finance (DGFiP 2025).
+
+## DPE
+
+- Rental ban (loi Climat et Résilience 2021-1104 art. 160; loi 89-462 art. 6, logement décent): class G unrentable from 1 Jan 2025, F from 1 Jan 2028, E from 1 Jan 2034. Source cited in `src/domain/dpe.py`: ecologie.gouv.fr and service-public.fr, "Ce que vous devez savoir sur la location des logements mal isolés".
+- Assumption (not sourced to a figure): renovation cost of 150 EUR/m2 per DPE class gained, an ADEME / Effinergie order of magnitude (150-300 EUR/m2 for 1-2 classes), adjustable in the sidebar.
+- Assumption: the ban applies from the ban year unless renovated. In law it bites at a new or renewed lease; furnished leases turn over every 1-3 years, so this is realistic and conservative for an investor's horizon. See TAX_SPEC 11d.

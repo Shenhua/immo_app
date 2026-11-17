@@ -132,7 +132,8 @@ def render_strategy_card(
             color_cf = get_cf_color(cf, cf_cible)
 
             st.markdown(
-                "<div style='font-size: 0.9em; color: gray;'>Cash-flow (année stabilisée)</div>", unsafe_allow_html=True
+                "<div style='font-size: 0.9em; color: gray;'>Cash-flow mensuel (an 1, avant impôt)</div>",
+                unsafe_allow_html=True,
             )
             st.markdown(
                 f"<div style='font-size: 2.5em; font-weight: bold; color: {color_cf};'>{format_euro(cf)}</div>",
@@ -140,7 +141,7 @@ def render_strategy_card(
             )
             cf_y1 = strategy.get("cf_monthly_y1")
             if cf_y1 is not None:
-                st.caption(f"Année 1 (avec travaux) : {format_euro(cf_y1)}/mois, après impôt")
+                st.caption(f"CF an 1 (avec travaux, après impôt) : {format_euro(cf_y1)}/mois")
 
         with c3:
             tri = strategy.get("tri_annuel", 0)
@@ -259,10 +260,10 @@ def render_kpi_summary(strategy: dict[str, Any], horizon: int = 25) -> None:
 
     metrics = [
         (
-            "CF Mensuel",
+            "CF Mensuel (an 1, avant impôt)",
             strategy.get("cash_flow_final", 0),
             format_euro,
-            "Cash-flow mensuel de l'année stabilisée (année 2, loyers de 12 mois), avant impôt sur le revenu (loyers moins charges et mensualités de crédit, tous biens).",
+            "Cash-flow mensuel estimé par l'allocateur (an 1), avant impôt sur le revenu (loyers moins charges et mensualités de crédit, tous biens).",
         ),
         (
             f"TRI ({horizon}a)",

@@ -505,8 +505,9 @@ class StrategyFinder:
                 return (cf_prox, x.get("dscr_norm", 0), finance, pareto)
 
             if preset is PresetId.WEALTH:
-                # Wealth-building profile: prioritize enrichment, then IRR
-                return (x.get("enrich_norm", 0), x.get("tri_norm", 0), balanced, pareto)
+                # Wealth-building profile (T37): absolute EUR of net enrichment first (enrich_norm is ROE-based
+                # and saturates at 1.0, which made strategies tie), then the preset-weighted score, then Pareto.
+                return (float(x.get("enrich_net", 0.0) or 0.0), finance, pareto)
 
             # Default "Équilibré": use balanced_score which combines finance + quality
             return (balanced, finance, cf_prox, pareto)

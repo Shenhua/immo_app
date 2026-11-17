@@ -197,6 +197,11 @@ class DpeDefaults:
     Source: service-public.fr / ecologie.gouv.fr "Ce que vous devez savoir sur la location des logements mal
     isolés": class G is indecent (so unrentable) from 1 Jan 2025, F from 1 Jan 2028, E from 1 Jan 2034.
     Simplification: the ban is applied to the property from that date (in law it bites at new or renewed leases).
+
+    Two assumptions kept by user decision (2026-11-17, TAX_SPEC 11d):
+    (a) renovation cost = 150 EUR/m2 per DPE class gained, an order-of-magnitude figure, adjustable in the sidebar;
+    (b) a property is unrentable from the ban year unless renovated. Furnished leases turn over every 1-3 years, so
+        over an investor's horizon the ban reaches the property anyway: realistic and conservative.
     """
 
     ban_years: tuple[tuple[str, int], ...] = (("G", 2025), ("F", 2028), ("E", 2034))

@@ -202,9 +202,9 @@ class TestStrategyFinder:
         """Should prioritize enrichment for Patrimoine preset."""
         finder = StrategyFinder([], 100000, -100)
         strategies = [
-            {"balanced_score": 0.9, "enrich_norm": 0.3, "tri_norm": 0.8},
-            {"balanced_score": 0.5, "enrich_norm": 0.9, "tri_norm": 0.5},
-            {"balanced_score": 0.7, "enrich_norm": 0.6, "tri_norm": 0.6},
+            {"balanced_score": 0.9, "enrich_net": 300_000.0, "tri_norm": 0.8},
+            {"balanced_score": 0.5, "enrich_net": 900_000.0, "tri_norm": 0.5},
+            {"balanced_score": 0.7, "enrich_net": 600_000.0, "tri_norm": 0.6},
         ]
         ranked = finder.rank_strategies(strategies, "Patrimoine LT")
-        assert ranked[0]["enrich_norm"] == 0.9  # Highest enrichment wins
+        assert ranked[0]["enrich_net"] == 900_000.0  # Most EUR of wealth wins
