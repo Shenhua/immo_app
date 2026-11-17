@@ -32,6 +32,7 @@ from src.ui.components.sidebar import (
     render_credit_params_tab,
     render_market_hypotheses,
     render_objectives_section,
+    render_profile_selector,
     render_scoring_preset,
     render_tax_section,
 )
@@ -59,6 +60,8 @@ def render_sidebar() -> dict[str, Any]:
     """
     with st.sidebar:
         st.title("⚙️ Paramètres")
+
+        render_profile_selector()
 
         # Objectives
         objectives = render_objectives_section()

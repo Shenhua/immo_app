@@ -50,6 +50,17 @@ def _context_from_fields(fields: dict[str, Any]) -> RunContext:
         raise ScenarioError(f"Valeur invalide pour « {where} » : {first['msg']}.") from exc
 
 
+def context_from_json(text: str | bytes) -> RunContext:
+    """Validate a stored full-context JSON document (unknown fields ignored). Raises ``ScenarioError``."""
+    try:
+        data = json.loads(text)
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise ScenarioError("Scénario enregistré illisible ou corrompu.") from exc
+    if not isinstance(data, dict):
+        raise ScenarioError("Scénario enregistré illisible ou corrompu.")
+    return _context_from_fields(data)
+
+
 def context_diff(ctx: RunContext) -> dict[str, Any]:
     """JSON-compatible dict of the fields of ``ctx`` that differ from the defaults."""
     default = RunContext().model_dump(mode="json")

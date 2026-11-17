@@ -43,7 +43,6 @@ WEIGHT_KEYS = {  # finance weight -> slider key
 
 PENDING_KEY = "_pending_sidebar"
 URL_APPLIED_KEY = "_url_params_applied"
-SAVED_SCENARIOS_KEY = "saved_scenarios"
 
 
 def _label(options: dict[str, str], value: Any, default: str) -> str:

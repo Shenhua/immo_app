@@ -389,5 +389,7 @@ BREAK_EVEN_APPRECIATION_RANGE: tuple[float, float] = (-10.0, 10.0)
 # Disk side effects are opt-in.
 AUTOSAVE_ENABLED: bool = os.environ.get("APP_AUTOSAVE", "0") == "1"
 RESULTS_DIR: str = os.environ.get("APP_RESULTS_DIR", "results")
+# Per-user data (saved scenarios, SQLite). Gitignored; mounted as a volume in docker-compose.
+DATA_DIR: str = os.environ.get("APP_DATA_DIR", "data_user")
 # Fraction of the available apport the allocator may exceed (see PortfolioAllocator).
 MAX_EXTRA_APPORT_PCT: float = float(os.environ.get("MAX_EXTRA_APPORT_PCT", "0.95"))

@@ -25,6 +25,7 @@ def pytest_configure(config):
     os.environ["APP_LOG_DIR"] = _session_log_dir
     # src/core/defaults.py reads APP_RESULTS_DIR once at import: keep it out of the repo too.
     os.environ["APP_RESULTS_DIR"] = os.path.join(_session_log_dir, "results")
+    os.environ["APP_DATA_DIR"] = os.path.join(_session_log_dir, "data_user")
 
 
 def pytest_unconfigure(config):
@@ -32,12 +33,21 @@ def pytest_unconfigure(config):
         shutil.rmtree(_session_log_dir, ignore_errors=True)
     os.environ.pop("APP_LOG_DIR", None)
     os.environ.pop("APP_RESULTS_DIR", None)
+    os.environ.pop("APP_DATA_DIR", None)
 
 
 @pytest.fixture(autouse=True)
 def _isolate_log_dir(tmp_path, monkeypatch):
     """Send each test's log output to its own tmp_path, never to the repo's logs/."""
     monkeypatch.setenv("APP_LOG_DIR", str(tmp_path / "logs"))
+
+
+@pytest.fixture(autouse=True)
+def _isolate_data_dir(tmp_path, monkeypatch):
+    """Per-user scenario DB (T67a): every test gets its own, never the repo's data_user/."""
+    from src.core import defaults
+
+    monkeypatch.setattr(defaults, "DATA_DIR", str(tmp_path / "data_user"))
 
 
 @pytest.fixture
