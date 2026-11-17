@@ -16,20 +16,16 @@ repos:
         args: ['--maxkb=500']
       - id: check-merge-conflict
 
-  # MyPy type checking
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.8.0
-    hooks:
-      - id: mypy
-        args: [--config-file=pyproject.toml]
-        additional_dependencies:
-          - pandas-stubs
-          - pydantic
-        pass_filenames: false
-        entry: mypy src/
-
   - repo: local
     hooks:
+      # Runs in the project environment so it uses pyproject's mypy settings and the installed stubs
+      # (pandas-stubs, numpy). The isolated mirrors-mypy env failed on a numpy stub issue under python_version 3.10.
+      - id: mypy
+        name: mypy (src)
+        entry: mypy src/
+        language: system
+        types: [python]
+        pass_filenames: false
       - id: pytest-quick
         name: pytest (quick)
         entry: pytest tests/unit/ -q --tb=no

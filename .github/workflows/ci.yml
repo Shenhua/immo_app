@@ -34,10 +34,9 @@ jobs:
 
     - name: Run type checker (mypy)
       run: |
-        mypy src/ --ignore-missing-imports
-      continue-on-error: true  # Non-blocking until T52 makes mypy strict
+        mypy src/
 
-    - name: Run unit tests
+    - name: Run unit, golden, ui and property tests (integration and e2e run in their own job)
       run: |
         pytest tests --ignore=tests/integration --ignore=tests/e2e -v --tb=short
 
@@ -81,7 +80,7 @@ jobs:
 
     - name: Run full suite with coverage
       run: |
-        pytest tests --tb=short --cov=src --cov-report=xml --cov-fail-under=59  # Current total is 59.6%; raised in T52
+        pytest tests --tb=short --cov=src --cov-report=xml --cov-fail-under=85
 
     - name: Upload coverage
       uses: codecov/codecov-action@v7
