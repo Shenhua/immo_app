@@ -26,9 +26,22 @@ class Deltas:
     travaux_pct: float = 0.0
     taux_pts: float = 0.0
     appreciation_pts: float = 0.0
+    # Market hypotheses (T64): additive points on the yearly rent indexation / charges inflation.
+    revalo_pts: float = 0.0
+    inflation_pts: float = 0.0
 
     def is_zero(self) -> bool:
-        return not any((self.loyer_pct, self.vacance_pts, self.travaux_pct, self.taux_pts, self.appreciation_pts))
+        return not any(
+            (
+                self.loyer_pct,
+                self.vacance_pts,
+                self.travaux_pct,
+                self.taux_pts,
+                self.appreciation_pts,
+                self.revalo_pts,
+                self.inflation_pts,
+            )
+        )
 
 
 def apply_deltas(strategy: dict[str, Any], deltas: Deltas) -> dict[str, Any]:
@@ -60,6 +73,8 @@ def run_sensitivity(strategy: dict[str, Any], deltas: Deltas, ctx: RunContext) -
     modified = apply_deltas(strategy, deltas)
     hypotheses = dict(ctx.market_hypotheses)
     hypotheses["appreciation_bien_pct"] += deltas.appreciation_pts
+    hypotheses["revalo_loyer_pct"] += deltas.revalo_pts
+    hypotheses["inflation_charges_pct"] += deltas.inflation_pts
     df, bilan = simulate_long_term_strategy(
         modified,
         duration_years=ctx.horizon_ans,

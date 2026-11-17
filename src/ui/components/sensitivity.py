@@ -7,7 +7,9 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from src.application.run_context import RunContext
+from src.application.services import risk
 from src.application.services.sensitivity import Deltas, run_sensitivity, tornado_data
+from src.core.defaults import MONTE_CARLO
 from src.ui.helpers import format_euro, format_pct
 
 
@@ -37,6 +39,74 @@ def _cached_run(strategy_json: str, ctx_json: str, deltas: tuple[float, ...]) ->
 @st.cache_data(show_spinner=False, max_entries=16)
 def _cached_tornado(strategy_json: str, ctx_json: str) -> list[dict[str, Any]]:
     return tornado_data(json.loads(strategy_json), RunContext.model_validate_json(ctx_json))
+
+
+@st.cache_data(show_spinner=False, max_entries=16)
+def _cached_scenarios(strategy_json: str, ctx_json: str) -> dict[str, Any]:
+    strategy, ctx = json.loads(strategy_json), RunContext.model_validate_json(ctx_json)
+    return {
+        "scenarios": risk.run_scenarios(strategy, ctx),
+        "be_vacancy": risk.break_even_vacancy(strategy, ctx),
+        "be_appreciation": risk.break_even_appreciation(strategy, ctx),
+    }
+
+
+@st.cache_data(show_spinner=False, max_entries=8)
+def _cached_monte_carlo(strategy_json: str, ctx_json: str, n: int, seed: int) -> dict[str, Any]:
+    return risk.monte_carlo(json.loads(strategy_json), RunContext.model_validate_json(ctx_json), n=n, seed=seed)
+
+
+def _fmt_tri(x: Any) -> str:
+    return "n/a" if x is None else format_pct(x)
+
+
+def _render_risk(s_json: str, c_json: str, ctx: RunContext, key: str) -> None:
+    data = _cached_scenarios(s_json, c_json)
+    rows = []
+    for name, m in data["scenarios"].items():
+        rows.append(
+            {
+                "Scénario": name,
+                "CF mensuel stabilisé": format_euro(m["cf_stab_mensuel"]) if m else "n/a",
+                "TRI": _fmt_tri(m.get("tri_annuel")) if m else "n/a",
+                "Enrichissement net": format_euro(m["enrichissement_net"]) if m else "n/a",
+                "DSCR stabilisé": f"{m['dscr_stab']:.2f}" if m else "n/a",
+            }
+        )
+    st.dataframe(rows, hide_index=True, use_container_width=True)
+    st.caption("Pessimiste, Central et Optimiste : écarts définis dans `RISK_SCENARIOS` (src/core/defaults.py).")
+
+    c1, c2 = st.columns(2)
+    be_v, be_a = data["be_vacancy"], data["be_appreciation"]
+    c1.metric(
+        f"Vacance où le CF stabilisé atteint {format_euro(ctx.cf_cible)}/mois",
+        "n/a" if be_v is None else f"{be_v['vacance_pct']:.1f} %",
+        help="n/a : la cible n'est pas atteinte par la seule vacance (de -10 à 100 %).",
+    )
+    c2.metric(
+        "Appréciation où l'enrichissement net = 0",
+        "n/a" if be_a is None else f"{be_a['appreciation_pct']:+.2f} %/an",
+        help="n/a : pas de point d'équilibre entre -10 et +10 pts d'écart.",
+    )
+
+    if st.toggle("Simulation Monte Carlo", value=False, key=f"mc_on_{key}"):
+        n = st.slider("Tirages", 50, MONTE_CARLO.n_max, MONTE_CARLO.n_default, 50, key=f"mc_n_{key}")
+        mc = _cached_monte_carlo(s_json, c_json, n, MONTE_CARLO.seed)
+        st.caption(f"{mc['n']} tirages (graine {mc['seed']}) : appréciation, indexation des loyers et vacance.")
+        t, e = mc["tri"], mc["enrichissement_net"]
+        st.table(
+            {
+                "": ["TRI", "Enrichissement net"],
+                "P10": [_fmt_tri(t and t["p10"]), format_euro(e["p10"]) if e else "n/a"],
+                "P50": [_fmt_tri(t and t["p50"]), format_euro(e["p50"]) if e else "n/a"],
+                "P90": [_fmt_tri(t and t["p90"]), format_euro(e["p90"]) if e else "n/a"],
+            }
+        )
+        h1, h2 = st.columns(2)
+        for col, samples, title in ((h1, mc["tri_samples"], "TRI (%)"), (h2, mc["enrichissement_samples"], "Enrichissement net (EUR)")):
+            fig = go.Figure(go.Histogram(x=samples, nbinsx=25))
+            fig.update_layout(title=title, height=260, margin={"t": 40, "b": 30}, showlegend=False)
+            col.plotly_chart(fig, use_container_width=True)
 
 
 def _tornado_figure(rows: list[dict[str, Any]], prefix: str, title: str, unit: str) -> go.Figure:
@@ -102,3 +172,6 @@ def render_sensitivity_analysis(strategy: dict[str, Any], ctx: RunContext, key: 
         c1, c2 = st.columns(2)
         c1.plotly_chart(_tornado_figure(rows, "tri", "Impact sur le TRI", "pts de TRI"), use_container_width=True)
         c2.plotly_chart(_tornado_figure(rows, "cf", "Impact sur le CF mensuel stabilisé", "EUR/mois"), use_container_width=True)
+
+    with st.expander("Scénarios de risque et seuils de rentabilité"):
+        _render_risk(s_json, c_json, ctx, key)

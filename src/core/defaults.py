@@ -328,6 +328,45 @@ PARETO_MAX_RANK: int = 10
 
 
 # --------------------------------------------------------------------------- #
+# Risk scenarios and Monte Carlo (T64)
+# --------------------------------------------------------------------------- #
+# One block. Every scenario is a set of deltas applied to the run's own hypotheses (Central = no delta):
+#   appreciation_pts / revalo_pts / inflation_pts / taux_pts / vacance_pts are additive percentage points
+#   (yearly property appreciation, yearly rent indexation, yearly charges inflation, loan rate, vacancy).
+# Vacancy is a floor on each archetype's own provision, so a negative vacancy delta cannot go below 0.
+# Pessimistic is deliberately harsher than optimistic (downside risk is larger than upside).
+RISK_SCENARIOS: dict[str, dict[str, float]] = {
+    "Pessimiste": {"appreciation_pts": -1.5, "revalo_pts": -1.0, "vacance_pts": 5.0, "inflation_pts": 1.0, "taux_pts": 1.0},
+    "Central": {},
+    "Optimiste": {"appreciation_pts": 1.0, "revalo_pts": 0.5, "vacance_pts": -2.0, "inflation_pts": -0.5, "taux_pts": -0.5},
+}
+
+
+@dataclass(frozen=True)
+class MonteCarloDefaults:
+    """Monte Carlo draws: deltas around the Central case, normal laws truncated to bounds (percentage points)."""
+
+    n_default: int = 200
+    n_max: int = 500
+    seed: int = 42
+    appreciation_sd: float = 1.5
+    appreciation_bounds: tuple[float, float] = (-4.0, 4.0)
+    revalo_sd: float = 0.7
+    revalo_bounds: tuple[float, float] = (-2.0, 2.0)
+    # Vacancy is more likely worse than the provision: mean +1 pt, never below the central floor.
+    vacance_mean: float = 1.0
+    vacance_sd: float = 2.0
+    vacance_bounds: tuple[float, float] = (0.0, 8.0)
+
+
+MONTE_CARLO = MonteCarloDefaults()
+# Break-even bisection: search ranges (pts) and simulation budget per indicator.
+BREAK_EVEN_MAX_SIMS: int = 20
+BREAK_EVEN_VACANCE_RANGE: tuple[float, float] = (-10.0, 100.0)  # a vacancy above 100 % is dropped
+BREAK_EVEN_APPRECIATION_RANGE: tuple[float, float] = (-10.0, 10.0)
+
+
+# --------------------------------------------------------------------------- #
 # Environment (read once, at import)
 # --------------------------------------------------------------------------- #
 # Disk side effects are opt-in.
