@@ -58,7 +58,7 @@ Legend: todo · running · done · blocked · skipped
 | T42 caching | Sonnet | done | d3c7fd2 | verified with AppTest call counters | | |
 | T43 validation and UX | Sonnet | done | ea8da8c | defaults: apport 80k, CF −100 → 7 strategies | | |
 | T50 property tests | Sonnet | done | 2c93b05 | no bugs found | | |
-| T51 AppTest | Sonnet | todo | | |
+| T51 AppTest | Sonnet | running | | |
 | T52 typing + coverage | Sonnet | todo | | |
 | T53 README/docs | Haiku | todo | | |
 | T61 DPE rental ban | Sonnet | done | 0cc60bc (+T35) | |
@@ -68,7 +68,7 @@ Legend: todo · running · done · blocked · skipped
 | T36 rent-monotonicity investigation | Sonnet | done | 7f49984 | CFE 5k€ cliff (legal), not a bug |
 | T60 HCSF bankability | Sonnet | done | 17e39cd | defaults still give 7 strategies (debt ratios 6–12 %) |
 | T64 risk scenarios | Sonnet | done | 973ce4c | MC N=200 in ~0.12 s |
-| T65 saved scenarios + URL | Sonnet | running | | |
+| T65 saved scenarios + URL | Sonnet | done | 06cd1e7 | + apply-suggestion buttons |
 | T66–T68 features | mixed | todo | | see plan; T66 = offline files, no API |
 
 ## Next waves
@@ -273,6 +273,10 @@ Legend: todo · running · done · blocked · skipped
   - `Deltas` gained `revalo_pts` and `inflation_pts`.
   - `defaults.RISK_SCENARIOS` and `defaults.MONTE_CARLO` hold the parameters.
   - Failed Monte Carlo IRR draws are counted (`n_irr_failed`) but not shown in the UI.
+- After T65:
+  - `src/application/scenario_io.py` holds the scenario encode/decode; `?p=` is synced on every run.
+  - `src/ui/components/sidebar_state.py` maps widget keys to RunContext fields. **Sidebar widgets now take their values from session_state via keys (no `value=`), and changes are applied in two steps (`request_*` → `consume_pending`).**
+  - Not shared: selected cities and types (not in RunContext). Session scenarios are lost on refresh (→ T67).
 - `ruff format` not applied (45 files would be reformatted). Optional later; skip it to avoid merge churn.
 
 ## Log
@@ -315,3 +319,4 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-17: T36 merged (1294 passed, no xfail): the CFE threshold is a legal cliff. T60 launched (one agent at a time).
 - 2026-11-17: T60 merged (1307 passed; default run checked: 7 strategies). T64 launched.
 - 2026-11-17: T64 merged (1314 passed). T65 launched.
+- 2026-11-17: T65 merged (1333 passed). Phase 6 so far: T60–T65 done. Hardening: T51 launched.
