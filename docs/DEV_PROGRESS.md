@@ -69,6 +69,10 @@ Legend: todo · running · done · blocked · skipped
 | T60 HCSF bankability | Sonnet | done | 17e39cd | defaults still give 7 strategies (debt ratios 6–12 %) |
 | T64 risk scenarios | Sonnet | done | 973ce4c | MC N=200 in ~0.12 s |
 | T65 saved scenarios + URL | Sonnet | done | 06cd1e7 | + apply-suggestion buttons |
+| T37 Patrimoine € ranking + CF label + DPE docs | Sonnet | running | | user decisions 2026-11-17 |
+| T67a per-user storage (SQLite, local profiles; OIDC-ready) | Sonnet | running | | user: "storage per user for now" |
+| T54 user manual + README refresh | Sonnet | todo | | after T37 and T67a |
+| Merge develop → main (local) | conductor | todo | | user approved, after T54 |
 | T66–T68 features | mixed | todo | | see plan; T66 = offline files, no API |
 
 ## Next waves
@@ -332,3 +336,13 @@ Legend: todo · running · done · blocked · skipped
 - 2026-11-17: T51 merged; the conductor fixed the first-load prompt bug it found. T52 launched.
 - 2026-11-17: T52 merged (mypy 0, 1349 passed, cov ≥ 85). T53 launched.
 - 2026-11-17: T53 merged. **Phases 0–5 complete; Phase 6: T60–T65 done.** Remaining: T66 (offline data pipeline), T67 (hosting), T68 (Jeanbrun, blocked until the decrees are published). Paused for user decisions.
+- 2026-11-17: User decisions:
+  - Patrimoine preset → rank on € wealth.
+  - DPE assumptions kept (conductor's call, documented in T37).
+  - Label "CF Mensuel (an 1, avant impôt)".
+  - Defaults OK.
+  - LICENSE added.
+  - Per-user storage now (hosting later).
+  - Merge into main after the updates, plus a user manual.
+
+  The conductor added LICENSE and CLAUDE.md (CLAUDE.md refers to docs/USER_GUIDE.md, created in T54). T37 and T67a launched in parallel.
